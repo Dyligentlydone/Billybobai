@@ -43,6 +43,33 @@ interface ResponseConfig {
   characterLimit: number;
 }
 
+interface MonitoringConfig {
+  alertThresholds: {
+    responseTime: number;  // milliseconds
+    errorRate: number;    // percentage
+    dailyVolume: number;  // messages per day
+  };
+  notifications: {
+    email: boolean;
+    emailRecipients: string[];
+    slack: boolean;
+    slackChannels: string[];
+    webhook: boolean;
+    webhookUrl?: string;
+  };
+  metrics: {
+    responseTime: boolean;
+    errorRate: boolean;
+    messageVolume: boolean;
+    aiConfidence: boolean;
+    customerSentiment: boolean;
+  };
+  retention: {
+    logsRetentionDays: number;
+    messageHistoryDays: number;
+  };
+}
+
 const INITIAL_CONFIG = {
   brandTone: {
     voiceType: 'professional' as const,
@@ -92,6 +119,32 @@ const INITIAL_CONFIG = {
       }
     ],
     characterLimit: 160
+  },
+  monitoring: {
+    alertThresholds: {
+      responseTime: 5000,  // 5 seconds
+      errorRate: 5,       // 5%
+      dailyVolume: 1000   // 1,000 messages/day
+    },
+    notifications: {
+      email: true,
+      emailRecipients: [],
+      slack: false,
+      slackChannels: [],
+      webhook: false,
+      webhookUrl: ''
+    },
+    metrics: {
+      responseTime: true,
+      errorRate: true,
+      messageVolume: true,
+      aiConfidence: true,
+      customerSentiment: true
+    },
+    retention: {
+      logsRetentionDays: 30,
+      messageHistoryDays: 90
+    }
   }
 };
 
@@ -1190,6 +1243,449 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
     </div>
   );
 
+  const renderMonitoringStep = () => (
+    <div className="space-y-8">
+      {/* Alert Thresholds */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Alert Thresholds</label>
+        <div className="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-600">Response Time</label>
+            <div className="mt-1 flex items-center gap-2">
+              <input
+                type="number"
+                min="1000"
+                max="30000"
+                step="100"
+                value={config.monitoring.alertThresholds.responseTime}
+                onChange={(e) => setConfig(prev => ({
+                  ...prev,
+                  monitoring: {
+                    ...prev.monitoring,
+                    alertThresholds: {
+                      ...prev.monitoring.alertThresholds,
+                      responseTime: parseInt(e.target.value) || 5000
+                    }
+                  }
+                }))}
+                className="block w-24 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              />
+              <span className="text-sm text-gray-500">ms</span>
+            </div>
+            <p className="mt-1 text-xs text-gray-500">Alert if response takes longer than this</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-600">Error Rate</label>
+            <div className="mt-1 flex items-center gap-2">
+              <input
+                type="number"
+                min="1"
+                max="100"
+                value={config.monitoring.alertThresholds.errorRate}
+                onChange={(e) => setConfig(prev => ({
+                  ...prev,
+                  monitoring: {
+                    ...prev.monitoring,
+                    alertThresholds: {
+                      ...prev.monitoring.alertThresholds,
+                      errorRate: parseInt(e.target.value) || 5
+                    }
+                  }
+                }))}
+                className="block w-24 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              />
+              <span className="text-sm text-gray-500">%</span>
+            </div>
+            <p className="mt-1 text-xs text-gray-500">Alert if error rate exceeds this percentage</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-600">Daily Volume</label>
+            <div className="mt-1 flex items-center gap-2">
+              <input
+                type="number"
+                min="100"
+                max="100000"
+                step="100"
+                value={config.monitoring.alertThresholds.dailyVolume}
+                onChange={(e) => setConfig(prev => ({
+                  ...prev,
+                  monitoring: {
+                    ...prev.monitoring,
+                    alertThresholds: {
+                      ...prev.monitoring.alertThresholds,
+                      dailyVolume: parseInt(e.target.value) || 1000
+                    }
+                  }
+                }))}
+                className="block w-24 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              />
+              <span className="text-sm text-gray-500">msgs/day</span>
+            </div>
+            <p className="mt-1 text-xs text-gray-500">Alert if daily messages exceed this limit</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Notifications */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Notifications</label>
+        <div className="mt-4 space-y-4">
+          {/* Email Settings */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={config.monitoring.notifications.email}
+                  onChange={(e) => setConfig(prev => ({
+                    ...prev,
+                    monitoring: {
+                      ...prev.monitoring,
+                      notifications: {
+                        ...prev.monitoring.notifications,
+                        email: e.target.checked
+                      }
+                    }
+                  }))}
+                  className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <label className="ml-2 block text-sm text-gray-700">
+                  Email Notifications
+                </label>
+              </div>
+            </div>
+            {config.monitoring.notifications.email && (
+              <div className="ml-6">
+                <label className="block text-sm font-medium text-gray-600">Recipients</label>
+                <div className="mt-1">
+                  <textarea
+                    rows={3}
+                    placeholder="Enter email addresses (one per line)"
+                    value={config.monitoring.notifications.emailRecipients.join('\n')}
+                    onChange={(e) => setConfig(prev => ({
+                      ...prev,
+                      monitoring: {
+                        ...prev.monitoring,
+                        notifications: {
+                          ...prev.monitoring.notifications,
+                          emailRecipients: e.target.value.split('\n').filter(email => email.trim())
+                        }
+                      }
+                    }))}
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  />
+                </div>
+                <p className="mt-1 text-xs text-gray-500">Separate multiple email addresses with new lines</p>
+              </div>
+            )}
+          </div>
+
+          {/* Slack Settings */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={config.monitoring.notifications.slack}
+                  onChange={(e) => setConfig(prev => ({
+                    ...prev,
+                    monitoring: {
+                      ...prev.monitoring,
+                      notifications: {
+                        ...prev.monitoring.notifications,
+                        slack: e.target.checked
+                      }
+                    }
+                  }))}
+                  className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <label className="ml-2 block text-sm text-gray-700">
+                  Slack Notifications
+                </label>
+              </div>
+            </div>
+            {config.monitoring.notifications.slack && (
+              <div className="ml-6">
+                <label className="block text-sm font-medium text-gray-600">Channels</label>
+                <div className="mt-1">
+                  <textarea
+                    rows={3}
+                    placeholder="Enter channel names (one per line, without #)"
+                    value={config.monitoring.notifications.slackChannels.join('\n')}
+                    onChange={(e) => setConfig(prev => ({
+                      ...prev,
+                      monitoring: {
+                        ...prev.monitoring,
+                        notifications: {
+                          ...prev.monitoring.notifications,
+                          slackChannels: e.target.value.split('\n').filter(channel => channel.trim())
+                        }
+                      }
+                    }))}
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  />
+                </div>
+                <div className="mt-1 flex items-center gap-2">
+                  <p className="text-xs text-gray-500">Separate multiple channels with new lines. Don't include the # symbol.</p>
+                  <a 
+                    href="https://api.slack.com/messaging/webhooks" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-xs text-indigo-600 hover:text-indigo-500"
+                  >
+                    Set up Slack
+                  </a>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Webhook Settings */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={config.monitoring.notifications.webhook}
+                  onChange={(e) => setConfig(prev => ({
+                    ...prev,
+                    monitoring: {
+                      ...prev.monitoring,
+                      notifications: {
+                        ...prev.monitoring.notifications,
+                        webhook: e.target.checked
+                      }
+                    }
+                  }))}
+                  className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <label className="ml-2 block text-sm text-gray-700">
+                  Webhook Notifications
+                </label>
+              </div>
+            </div>
+            {config.monitoring.notifications.webhook && (
+              <div className="ml-6">
+                <label className="block text-sm font-medium text-gray-600">Webhook URL</label>
+                <input
+                  type="url"
+                  value={config.monitoring.notifications.webhookUrl || ''}
+                  onChange={(e) => setConfig(prev => ({
+                    ...prev,
+                    monitoring: {
+                      ...prev.monitoring,
+                      notifications: {
+                        ...prev.monitoring.notifications,
+                        webhookUrl: e.target.value
+                      }
+                    }
+                  }))}
+                  placeholder="https://your-webhook-url"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                />
+                <div className="mt-1 flex items-center gap-2">
+                  <p className="text-xs text-gray-500">Compatible with services like PagerDuty, OpsGenie, etc.</p>
+                  <a 
+                    href="https://support.pagerduty.com/docs/services-and-integrations" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-xs text-indigo-600 hover:text-indigo-500"
+                  >
+                    Set up PagerDuty
+                  </a>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Metrics */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Metrics to Track</label>
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="flex items-start">
+            <div className="flex h-5 items-center">
+              <input
+                type="checkbox"
+                checked={config.monitoring.metrics.responseTime}
+                onChange={(e) => setConfig(prev => ({
+                  ...prev,
+                  monitoring: {
+                    ...prev.monitoring,
+                    metrics: {
+                      ...prev.monitoring.metrics,
+                      responseTime: e.target.checked
+                    }
+                  }
+                }))}
+                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+            </div>
+            <div className="ml-3">
+              <label className="text-sm font-medium text-gray-700">Response Time</label>
+              <p className="text-sm text-gray-500">Time from receiving message to sending reply</p>
+            </div>
+          </div>
+
+          <div className="flex items-start">
+            <div className="flex h-5 items-center">
+              <input
+                type="checkbox"
+                checked={config.monitoring.metrics.errorRate}
+                onChange={(e) => setConfig(prev => ({
+                  ...prev,
+                  monitoring: {
+                    ...prev.monitoring,
+                    metrics: {
+                      ...prev.monitoring.metrics,
+                      errorRate: e.target.checked
+                    }
+                  }
+                }))}
+                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+            </div>
+            <div className="ml-3">
+              <label className="text-sm font-medium text-gray-700">Error Rate</label>
+              <p className="text-sm text-gray-500">Percentage of failed message deliveries</p>
+            </div>
+          </div>
+
+          <div className="flex items-start">
+            <div className="flex h-5 items-center">
+              <input
+                type="checkbox"
+                checked={config.monitoring.metrics.messageVolume}
+                onChange={(e) => setConfig(prev => ({
+                  ...prev,
+                  monitoring: {
+                    ...prev.monitoring,
+                    metrics: {
+                      ...prev.monitoring.metrics,
+                      messageVolume: e.target.checked
+                    }
+                  }
+                }))}
+                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+            </div>
+            <div className="ml-3">
+              <label className="text-sm font-medium text-gray-700">Message Volume</label>
+              <p className="text-sm text-gray-500">Number of messages processed per day</p>
+            </div>
+          </div>
+
+          <div className="flex items-start">
+            <div className="flex h-5 items-center">
+              <input
+                type="checkbox"
+                checked={config.monitoring.metrics.aiConfidence}
+                onChange={(e) => setConfig(prev => ({
+                  ...prev,
+                  monitoring: {
+                    ...prev.monitoring,
+                    metrics: {
+                      ...prev.monitoring.metrics,
+                      aiConfidence: e.target.checked
+                    }
+                  }
+                }))}
+                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+            </div>
+            <div className="ml-3">
+              <label className="text-sm font-medium text-gray-700">AI Confidence</label>
+              <p className="text-sm text-gray-500">AI's confidence in generated responses</p>
+            </div>
+          </div>
+
+          <div className="flex items-start">
+            <div className="flex h-5 items-center">
+              <input
+                type="checkbox"
+                checked={config.monitoring.metrics.customerSentiment}
+                onChange={(e) => setConfig(prev => ({
+                  ...prev,
+                  monitoring: {
+                    ...prev.monitoring,
+                    metrics: {
+                      ...prev.monitoring.metrics,
+                      customerSentiment: e.target.checked
+                    }
+                  }
+                }))}
+                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+            </div>
+            <div className="ml-3">
+              <label className="text-sm font-medium text-gray-700">Customer Sentiment</label>
+              <p className="text-sm text-gray-500">Analysis of customer message sentiment</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Data Retention */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Data Retention</label>
+        <div className="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <div>
+            <label className="block text-sm font-medium text-gray-600">Logs Retention</label>
+            <div className="mt-1 flex items-center gap-2">
+              <input
+                type="number"
+                min="1"
+                max="365"
+                value={config.monitoring.retention.logsRetentionDays}
+                onChange={(e) => setConfig(prev => ({
+                  ...prev,
+                  monitoring: {
+                    ...prev.monitoring,
+                    retention: {
+                      ...prev.monitoring.retention,
+                      logsRetentionDays: parseInt(e.target.value) || 30
+                    }
+                  }
+                }))}
+                className="block w-24 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              />
+              <span className="text-sm text-gray-500">days</span>
+            </div>
+            <p className="mt-1 text-xs text-gray-500">How long to keep system logs</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-600">Message History</label>
+            <div className="mt-1 flex items-center gap-2">
+              <input
+                type="number"
+                min="1"
+                max="365"
+                value={config.monitoring.retention.messageHistoryDays}
+                onChange={(e) => setConfig(prev => ({
+                  ...prev,
+                  monitoring: {
+                    ...prev.monitoring,
+                    retention: {
+                      ...prev.monitoring.retention,
+                      messageHistoryDays: parseInt(e.target.value) || 90
+                    }
+                  }
+                }))}
+                className="block w-24 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              />
+              <span className="text-sm text-gray-500">days</span>
+            </div>
+            <p className="mt-1 text-xs text-gray-500">How long to keep message history</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="max-w-3xl mx-auto p-6 bg-white rounded-lg shadow">
       {/* Progress bar */}
@@ -1221,6 +1717,7 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
       {step === 2 && renderAITrainingStep()}
       {step === 3 && renderContextStep()}
       {step === 4 && renderResponseStep()}
+      {step === 5 && renderMonitoringStep()}
 
       {/* Navigation */}
       <div className="mt-8 flex justify-between">
