@@ -66,3 +66,5 @@ Configure the following in your `.env` file:
 ## License
 
 MIT
+
+## Updated
