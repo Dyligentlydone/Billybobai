@@ -19,6 +19,13 @@ interface AITrainingConfig {
   chatHistory: Array<{ customer: string; response: string }>;
 }
 
+interface ContextConfig {
+  memoryWindow: number;
+  contextualTriggers: Array<{ trigger: string; response: string }>;
+  knowledgeBase: Array<{ category: string; content: string }>;
+  intentExamples: Array<{ intent: string; examples: string[] }>;
+}
+
 const INITIAL_CONFIG = {
   brandTone: {
     voiceType: 'professional' as const,
@@ -31,6 +38,12 @@ const INITIAL_CONFIG = {
     qaPairs: [],
     faqDocuments: [],
     chatHistory: []
+  },
+  context: {
+    memoryWindow: 5,
+    contextualTriggers: [],
+    knowledgeBase: [],
+    intentExamples: []
   }
 };
 
@@ -48,6 +61,14 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
   const [newFAQContent, setNewFAQContent] = useState('');
   const [newCustomerMessage, setNewCustomerMessage] = useState('');
   const [newResponse, setNewResponse] = useState('');
+
+  // Context state
+  const [newTrigger, setNewTrigger] = useState('');
+  const [newTriggerResponse, setNewTriggerResponse] = useState('');
+  const [newCategory, setNewCategory] = useState('');
+  const [newContent, setNewContent] = useState('');
+  const [newIntent, setNewIntent] = useState('');
+  const [newExample, setNewExample] = useState('');
 
   const handleVoiceTypeChange = (type: BrandToneConfig['voiceType']) => {
     setConfig(prev => ({
@@ -185,6 +206,106 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
       aiTraining: {
         ...prev.aiTraining,
         chatHistory: prev.aiTraining.chatHistory.filter((_, i) => i !== index)
+      }
+    }));
+  };
+
+  const addContextualTrigger = () => {
+    if (newTrigger.trim() && newTriggerResponse.trim()) {
+      setConfig(prev => ({
+        ...prev,
+        context: {
+          ...prev.context,
+          contextualTriggers: [...prev.context.contextualTriggers, {
+            trigger: newTrigger.trim(),
+            response: newTriggerResponse.trim()
+          }]
+        }
+      }));
+      setNewTrigger('');
+      setNewTriggerResponse('');
+    }
+  };
+
+  const addKnowledgeItem = () => {
+    if (newCategory.trim() && newContent.trim()) {
+      setConfig(prev => ({
+        ...prev,
+        context: {
+          ...prev.context,
+          knowledgeBase: [...prev.context.knowledgeBase, {
+            category: newCategory.trim(),
+            content: newContent.trim()
+          }]
+        }
+      }));
+      setNewCategory('');
+      setNewContent('');
+    }
+  };
+
+  const addIntentExample = () => {
+    if (newIntent.trim() && newExample.trim()) {
+      const existingIntent = config.context.intentExamples.find(i => i.intent === newIntent.trim());
+      
+      if (existingIntent) {
+        setConfig(prev => ({
+          ...prev,
+          context: {
+            ...prev.context,
+            intentExamples: prev.context.intentExamples.map(i =>
+              i.intent === newIntent.trim()
+                ? { ...i, examples: [...i.examples, newExample.trim()] }
+                : i
+            )
+          }
+        }));
+      } else {
+        setConfig(prev => ({
+          ...prev,
+          context: {
+            ...prev.context,
+            intentExamples: [...prev.context.intentExamples, {
+              intent: newIntent.trim(),
+              examples: [newExample.trim()]
+            }]
+          }
+        }));
+      }
+      setNewExample('');
+    }
+  };
+
+  const removeContextualTrigger = (index: number) => {
+    setConfig(prev => ({
+      ...prev,
+      context: {
+        ...prev.context,
+        contextualTriggers: prev.context.contextualTriggers.filter((_, i) => i !== index)
+      }
+    }));
+  };
+
+  const removeKnowledgeItem = (index: number) => {
+    setConfig(prev => ({
+      ...prev,
+      context: {
+        ...prev.context,
+        knowledgeBase: prev.context.knowledgeBase.filter((_, i) => i !== index)
+      }
+    }));
+  };
+
+  const removeIntentExample = (intent: string, example: string) => {
+    setConfig(prev => ({
+      ...prev,
+      context: {
+        ...prev.context,
+        intentExamples: prev.context.intentExamples.map(i =>
+          i.intent === intent
+            ? { ...i, examples: i.examples.filter(e => e !== example) }
+            : i
+        ).filter(i => i.examples.length > 0)
       }
     }));
   };
@@ -498,6 +619,181 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
     </div>
   );
 
+  const renderContextStep = () => (
+    <div className="space-y-8">
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Conversation Memory</label>
+        <div className="mt-2">
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min="1"
+              max="20"
+              value={config.context.memoryWindow}
+              onChange={(e) => setConfig(prev => ({
+                ...prev,
+                context: {
+                  ...prev.context,
+                  memoryWindow: parseInt(e.target.value) || 5
+                }
+              }))}
+              className="block w-24 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            />
+            <span className="text-sm text-gray-500">messages to remember</span>
+          </div>
+          <p className="mt-1 text-sm text-gray-500">
+            How many previous messages should the AI remember for context?
+          </p>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Contextual Triggers</label>
+        <div className="mt-2 space-y-3">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newTrigger}
+              onChange={(e) => setNewTrigger(e.target.value)}
+              placeholder="When customer says..."
+              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            />
+            <input
+              type="text"
+              value={newTriggerResponse}
+              onChange={(e) => setNewTriggerResponse(e.target.value)}
+              placeholder="AI should consider..."
+              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            />
+            <button
+              type="button"
+              onClick={addContextualTrigger}
+              className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+            >
+              Add
+            </button>
+          </div>
+          <div className="space-y-2">
+            {config.context.contextualTriggers.map((trigger, index) => (
+              <div key={index} className="flex items-start gap-2 p-3 bg-gray-50 rounded-lg">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-900">Trigger: {trigger.trigger}</p>
+                  <p className="text-sm text-gray-600">Response: {trigger.response}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeContextualTrigger(index)}
+                  className="text-gray-400 hover:text-gray-500"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Knowledge Base</label>
+        <div className="mt-2 space-y-3">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newCategory}
+              onChange={(e) => setNewCategory(e.target.value)}
+              placeholder="Category..."
+              className="block w-1/3 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            />
+            <textarea
+              value={newContent}
+              onChange={(e) => setNewContent(e.target.value)}
+              placeholder="Knowledge content..."
+              rows={2}
+              className="block flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            />
+            <button
+              type="button"
+              onClick={addKnowledgeItem}
+              className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+            >
+              Add
+            </button>
+          </div>
+          <div className="space-y-2">
+            {config.context.knowledgeBase.map((item, index) => (
+              <div key={index} className="flex items-start gap-2 p-3 bg-gray-50 rounded-lg">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-900">{item.category}</p>
+                  <p className="text-sm text-gray-600 line-clamp-2">{item.content}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeKnowledgeItem(index)}
+                  className="text-gray-400 hover:text-gray-500"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Intent Examples</label>
+        <div className="mt-2 space-y-3">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newIntent}
+              onChange={(e) => setNewIntent(e.target.value)}
+              placeholder="Intent name..."
+              className="block w-1/3 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            />
+            <input
+              type="text"
+              value={newExample}
+              onChange={(e) => setNewExample(e.target.value)}
+              placeholder="Example phrase..."
+              className="block flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            />
+            <button
+              type="button"
+              onClick={addIntentExample}
+              className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+            >
+              Add
+            </button>
+          </div>
+          <div className="space-y-4">
+            {config.context.intentExamples.map((intent) => (
+              <div key={intent.intent} className="p-3 bg-gray-50 rounded-lg">
+                <h4 className="text-sm font-medium text-gray-900 mb-2">{intent.intent}</h4>
+                <div className="flex flex-wrap gap-2">
+                  {intent.examples.map((example) => (
+                    <span
+                      key={example}
+                      className="inline-flex items-center px-2.5 py-0.5 rounded-md text-sm font-medium bg-purple-100 text-purple-800"
+                    >
+                      {example}
+                      <button
+                        type="button"
+                        onClick={() => removeIntentExample(intent.intent, example)}
+                        className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full text-purple-400 hover:bg-purple-200 hover:text-purple-500"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="max-w-3xl mx-auto p-6 bg-white rounded-lg shadow">
       {/* Progress bar */}
@@ -527,6 +823,7 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
       {/* Step content */}
       {step === 1 && renderBrandToneStep()}
       {step === 2 && renderAITrainingStep()}
+      {step === 3 && renderContextStep()}
 
       {/* Navigation */}
       <div className="mt-8 flex justify-between">
