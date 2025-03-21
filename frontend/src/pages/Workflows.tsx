@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from 'react-query';
 import axios from 'axios';
 import WorkflowBuilder from '../components/workflows/WorkflowBuilder';
+import SMSConfigWizard from '../components/workflows/SMSConfigWizard';
 
 interface Workflow {
   _id: string;
@@ -14,6 +15,8 @@ interface Workflow {
 export default function Workflows() {
   const [selectedWorkflow, setSelectedWorkflow] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [showSMSWizard, setShowSMSWizard] = useState(false);
+  const [smsConfig, setSMSConfig] = useState<any>(null);
 
   const { data: workflows, isLoading } = useQuery<Workflow[]>(
     'workflows',
@@ -22,6 +25,62 @@ export default function Workflows() {
       return data;
     }
   );
+
+  const handleSMSConfigComplete = (config: any) => {
+    setSMSConfig({
+      twilio: {
+        type: 'sms',
+        aiEnabled: 'true',
+        phoneNumber: config.integration.twilioPhoneNumber,
+        prompt: `You are an AI assistant for ${config.brandTone.voiceType} communication via SMS. Guidelines:
+          - Voice: ${config.brandTone.voiceType}
+          - Greetings: ${config.brandTone.greetings.join(', ')}
+          - Avoid: ${config.brandTone.wordsToAvoid.join(', ')}
+          - Response time target: 5 seconds
+          - Keep responses under 160 characters when possible
+          - Use fallback message if unable to respond
+          - Respect business hours: ${JSON.stringify(config.templates.businessHours)}`,
+      },
+      instructions: [
+        'Configure Twilio webhook URL',
+        'Set up monitoring alerts',
+        'Test with sample messages',
+        'Enable production mode when ready'
+      ]
+    });
+    setShowSMSWizard(false);
+    setIsCreating(true);
+  };
+
+  if (showSMSWizard) {
+    return (
+      <div className="space-y-6">
+        <div className="sm:flex sm:items-center sm:justify-between">
+          <div className="sm:flex-auto">
+            <h1 className="text-2xl font-semibold text-gray-900">
+              Configure SMS Automation
+            </h1>
+            <p className="mt-2 text-sm text-gray-700">
+              Set up your automated SMS response system with AI-powered capabilities.
+            </p>
+          </div>
+          <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
+            <button
+              type="button"
+              onClick={() => setShowSMSWizard(false)}
+              className="inline-flex items-center justify-center rounded-md border border-transparent bg-gray-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 sm:w-auto"
+            >
+              Back to Workflows
+            </button>
+          </div>
+        </div>
+        <SMSConfigWizard
+          onComplete={handleSMSConfigComplete}
+          onCancel={() => setShowSMSWizard(false)}
+        />
+      </div>
+    );
+  }
 
   if (isCreating || selectedWorkflow) {
     return (
@@ -53,6 +112,7 @@ export default function Workflows() {
         <WorkflowBuilder
           clientId="1"
           workflowId={selectedWorkflow || undefined}
+          smsConfig={smsConfig}
         />
       </div>
     );
@@ -73,8 +133,31 @@ export default function Workflows() {
             onClick={() => setIsCreating(true)}
             className="inline-flex items-center justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto"
           >
-            Create Workflow
+            Create Custom Workflow
           </button>
+        </div>
+      </div>
+
+      {/* Template Cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-8">
+        <div className="relative rounded-lg border border-gray-300 bg-white px-6 py-5 shadow-sm hover:border-indigo-500 hover:ring-1 hover:ring-indigo-500">
+          <div className="flex items-center space-x-3">
+            <div className="flex-shrink-0">
+              <span className="text-2xl">📱</span>
+            </div>
+            <div className="min-w-0 flex-1">
+              <a href="#" onClick={(e) => {
+                e.preventDefault();
+                setShowSMSWizard(true);
+              }} className="focus:outline-none">
+                <span className="absolute inset-0" aria-hidden="true" />
+                <p className="text-sm font-medium text-gray-900">SMS Automation</p>
+                <p className="truncate text-sm text-gray-500">
+                  Automatically respond to customer texts with AI-generated replies
+                </p>
+              </a>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -88,7 +171,7 @@ export default function Workflows() {
                 </div>
               ) : !workflows?.length ? (
                 <div className="p-4 text-center text-sm text-gray-700">
-                  No workflows yet. Create your first one!
+                  No custom workflows yet. Create your first one or use a template above!
                 </div>
               ) : (
                 <table className="min-w-full divide-y divide-gray-300">

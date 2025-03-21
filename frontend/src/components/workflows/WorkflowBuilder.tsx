@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import ReactFlow, {
   Connection,
   Edge,
@@ -48,6 +48,15 @@ interface WorkflowNode {
 interface WorkflowBuilderProps {
   clientId: string;
   workflowId?: string;
+  smsConfig?: {
+    twilio: {
+      type: string;
+      aiEnabled: string;
+      phoneNumber: string;
+      prompt: string;
+    };
+    instructions: string[];
+  };
 }
 
 interface Workflow {
@@ -74,7 +83,7 @@ const defaultPrompt = `You are a helpful AI assistant communicating via SMS. You
 4. Keep responses under 160 characters when possible
 5. Escalate to a human agent when necessary`;
 
-export default function WorkflowBuilder({ clientId, workflowId }: WorkflowBuilderProps) {
+export default function WorkflowBuilder({ clientId, workflowId, smsConfig }: WorkflowBuilderProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState<WorkflowNode[]>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [workflowName, setWorkflowName] = useState('New Workflow');
@@ -314,6 +323,64 @@ export default function WorkflowBuilder({ clientId, workflowId }: WorkflowBuilde
         return { label: 'New Node' };
     }
   };
+
+  useEffect(() => {
+    if (smsConfig) {
+      const newNodes: WorkflowNode[] = [];
+      
+      // Add Twilio node
+      newNodes.push({
+        id: `twilio-${Date.now()}`,
+        type: 'twilio',
+        position: { x: 100, y: 100 },
+        data: {
+          label: 'SMS Communication',
+          type: smsConfig.twilio.type,
+          aiModel: smsConfig.twilio.aiEnabled === 'true' ? 'gpt-4' : undefined,
+          prompt: smsConfig.twilio.prompt,
+          phoneNumber: smsConfig.twilio.phoneNumber,
+          webhookUrl: webhookUrls.twilio,
+          onUpdate: createNodeUpdateHandler(`twilio-${Date.now()}`)
+        }
+      });
+
+      // Add response handlers
+      newNodes.push({
+        id: `response-success-${Date.now()}`,
+        type: 'response',
+        position: { x: 400, y: 100 },
+        data: {
+          label: 'Success Handler',
+          responseType: 'success',
+          action: 'continue',
+          onUpdate: createNodeUpdateHandler(`response-success-${Date.now()}`)
+        }
+      });
+
+      newNodes.push({
+        id: `response-error-${Date.now()}`,
+        type: 'response',
+        position: { x: 400, y: 250 },
+        data: {
+          label: 'Error Handler',
+          responseType: 'error',
+          action: 'retry',
+          onUpdate: createNodeUpdateHandler(`response-error-${Date.now()}`)
+        }
+      });
+
+      // Set nodes and show instructions
+      setNodes(newNodes);
+      
+      // Show setup instructions
+      if (smsConfig.instructions.length > 0) {
+        const instructionsHtml = smsConfig.instructions
+          .map(instruction => `• ${instruction}`)
+          .join('\n');
+        toast(instructionsHtml, { duration: 10000 });
+      }
+    }
+  }, [smsConfig]);
 
   // Execute workflow mutation
   const executeMutation = useMutation(
