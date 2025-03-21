@@ -12,12 +12,25 @@ interface BrandToneConfig {
   wordsToAvoid: string[];
 }
 
+interface AITrainingConfig {
+  openAIKey: string;
+  qaPairs: Array<{ question: string; answer: string }>;
+  faqDocuments: Array<{ name: string; content: string }>;
+  chatHistory: Array<{ customer: string; response: string }>;
+}
+
 const INITIAL_CONFIG = {
   brandTone: {
     voiceType: 'professional' as const,
     greetings: [],
     phrasingExamples: [],
     wordsToAvoid: []
+  },
+  aiTraining: {
+    openAIKey: '',
+    qaPairs: [],
+    faqDocuments: [],
+    chatHistory: []
   }
 };
 
@@ -27,6 +40,14 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
   const [newGreeting, setNewGreeting] = useState('');
   const [newPhrase, setNewPhrase] = useState('');
   const [newWordToAvoid, setNewWordToAvoid] = useState('');
+  
+  // AI Training state
+  const [newQuestion, setNewQuestion] = useState('');
+  const [newAnswer, setNewAnswer] = useState('');
+  const [newFAQName, setNewFAQName] = useState('');
+  const [newFAQContent, setNewFAQContent] = useState('');
+  const [newCustomerMessage, setNewCustomerMessage] = useState('');
+  const [newResponse, setNewResponse] = useState('');
 
   const handleVoiceTypeChange = (type: BrandToneConfig['voiceType']) => {
     setConfig(prev => ({
@@ -77,12 +98,93 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
     }
   };
 
+  const addQAPair = () => {
+    if (newQuestion.trim() && newAnswer.trim()) {
+      setConfig(prev => ({
+        ...prev,
+        aiTraining: {
+          ...prev.aiTraining,
+          qaPairs: [...prev.aiTraining.qaPairs, {
+            question: newQuestion.trim(),
+            answer: newAnswer.trim()
+          }]
+        }
+      }));
+      setNewQuestion('');
+      setNewAnswer('');
+    }
+  };
+
+  const addFAQDocument = () => {
+    if (newFAQName.trim() && newFAQContent.trim()) {
+      setConfig(prev => ({
+        ...prev,
+        aiTraining: {
+          ...prev.aiTraining,
+          faqDocuments: [...prev.aiTraining.faqDocuments, {
+            name: newFAQName.trim(),
+            content: newFAQContent.trim()
+          }]
+        }
+      }));
+      setNewFAQName('');
+      setNewFAQContent('');
+    }
+  };
+
+  const addChatExample = () => {
+    if (newCustomerMessage.trim() && newResponse.trim()) {
+      setConfig(prev => ({
+        ...prev,
+        aiTraining: {
+          ...prev.aiTraining,
+          chatHistory: [...prev.aiTraining.chatHistory, {
+            customer: newCustomerMessage.trim(),
+            response: newResponse.trim()
+          }]
+        }
+      }));
+      setNewCustomerMessage('');
+      setNewResponse('');
+    }
+  };
+
   const removeItem = (array: string[], index: number, field: keyof BrandToneConfig) => {
     setConfig(prev => ({
       ...prev,
       brandTone: {
         ...prev.brandTone,
         [field]: array.filter((_, i) => i !== index)
+      }
+    }));
+  };
+
+  const removeQAPair = (index: number) => {
+    setConfig(prev => ({
+      ...prev,
+      aiTraining: {
+        ...prev.aiTraining,
+        qaPairs: prev.aiTraining.qaPairs.filter((_, i) => i !== index)
+      }
+    }));
+  };
+
+  const removeFAQDocument = (index: number) => {
+    setConfig(prev => ({
+      ...prev,
+      aiTraining: {
+        ...prev.aiTraining,
+        faqDocuments: prev.aiTraining.faqDocuments.filter((_, i) => i !== index)
+      }
+    }));
+  };
+
+  const removeChatExample = (index: number) => {
+    setConfig(prev => ({
+      ...prev,
+      aiTraining: {
+        ...prev.aiTraining,
+        chatHistory: prev.aiTraining.chatHistory.filter((_, i) => i !== index)
       }
     }));
   };
@@ -227,6 +329,175 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
     </div>
   );
 
+  const renderAITrainingStep = () => (
+    <div className="space-y-8">
+      <div>
+        <label className="block text-sm font-medium text-gray-700">OpenAI API Key</label>
+        <div className="mt-2">
+          <input
+            type="password"
+            value={config.aiTraining.openAIKey}
+            onChange={(e) => setConfig(prev => ({
+              ...prev,
+              aiTraining: {
+                ...prev.aiTraining,
+                openAIKey: e.target.value
+              }
+            }))}
+            placeholder="sk-..."
+            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Q&A Pairs</label>
+        <div className="mt-2 space-y-3">
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <input
+                type="text"
+                value={newQuestion}
+                onChange={(e) => setNewQuestion(e.target.value)}
+                placeholder="Question..."
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              />
+            </div>
+            <div className="flex-1">
+              <input
+                type="text"
+                value={newAnswer}
+                onChange={(e) => setNewAnswer(e.target.value)}
+                placeholder="Answer..."
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={addQAPair}
+              className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+            >
+              Add
+            </button>
+          </div>
+          <div className="space-y-2">
+            {config.aiTraining.qaPairs.map((pair, index) => (
+              <div key={index} className="flex items-start gap-2 p-3 bg-gray-50 rounded-lg">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-900">Q: {pair.question}</p>
+                  <p className="text-sm text-gray-600">A: {pair.answer}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeQAPair(index)}
+                  className="text-gray-400 hover:text-gray-500"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700">FAQ Documents</label>
+        <div className="mt-2 space-y-3">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newFAQName}
+              onChange={(e) => setNewFAQName(e.target.value)}
+              placeholder="Document name..."
+              className="block w-1/3 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            />
+            <textarea
+              value={newFAQContent}
+              onChange={(e) => setNewFAQContent(e.target.value)}
+              placeholder="Document content..."
+              rows={2}
+              className="block flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            />
+            <button
+              type="button"
+              onClick={addFAQDocument}
+              className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+            >
+              Add
+            </button>
+          </div>
+          <div className="space-y-2">
+            {config.aiTraining.faqDocuments.map((doc, index) => (
+              <div key={index} className="flex items-start gap-2 p-3 bg-gray-50 rounded-lg">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-900">{doc.name}</p>
+                  <p className="text-sm text-gray-600 line-clamp-2">{doc.content}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeFAQDocument(index)}
+                  className="text-gray-400 hover:text-gray-500"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Chat Examples</label>
+        <div className="mt-2 space-y-3">
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <input
+                type="text"
+                value={newCustomerMessage}
+                onChange={(e) => setNewCustomerMessage(e.target.value)}
+                placeholder="Customer message..."
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              />
+            </div>
+            <div className="flex-1">
+              <input
+                type="text"
+                value={newResponse}
+                onChange={(e) => setNewResponse(e.target.value)}
+                placeholder="Ideal response..."
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={addChatExample}
+              className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+            >
+              Add
+            </button>
+          </div>
+          <div className="space-y-2">
+            {config.aiTraining.chatHistory.map((chat, index) => (
+              <div key={index} className="flex items-start gap-2 p-3 bg-gray-50 rounded-lg">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-900">Customer: {chat.customer}</p>
+                  <p className="text-sm text-gray-600">Response: {chat.response}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeChatExample(index)}
+                  className="text-gray-400 hover:text-gray-500"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="max-w-3xl mx-auto p-6 bg-white rounded-lg shadow">
       {/* Progress bar */}
@@ -255,6 +526,7 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
 
       {/* Step content */}
       {step === 1 && renderBrandToneStep()}
+      {step === 2 && renderAITrainingStep()}
 
       {/* Navigation */}
       <div className="mt-8 flex justify-between">
