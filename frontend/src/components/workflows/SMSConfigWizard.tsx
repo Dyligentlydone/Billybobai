@@ -49,13 +49,11 @@ interface MonitoringConfig {
     errorRate: number;    // percentage
     dailyVolume: number;  // messages per day
   };
-  notifications: {
-    email: boolean;
-    emailRecipients: string[];
-    slack: boolean;
-    slackChannels: string[];
-    webhook: boolean;
-    webhookUrl?: string;
+  slackNotifications: {
+    enabled: boolean;
+    webhookUrl: string;
+    channel: string;     // without #
+    mentionUser?: string; // for critical alerts
   };
   metrics: {
     responseTime: boolean;
@@ -126,13 +124,11 @@ const INITIAL_CONFIG = {
       errorRate: 5,       // 5%
       dailyVolume: 1000   // 1,000 messages/day
     },
-    notifications: {
-      email: true,
-      emailRecipients: [],
-      slack: false,
-      slackChannels: [],
-      webhook: false,
-      webhookUrl: ''
+    slackNotifications: {
+      enabled: false,
+      webhookUrl: '',
+      channel: '',
+      mentionUser: ''
     },
     metrics: {
       responseTime: true,
@@ -1328,177 +1324,114 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
         </div>
       </div>
 
-      {/* Notifications */}
+      {/* Slack Notifications */}
       <div>
-        <label className="block text-sm font-medium text-gray-700">Notifications</label>
+        <label className="block text-sm font-medium text-gray-700">Slack Notifications</label>
         <div className="mt-4 space-y-4">
-          {/* Email Settings */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={config.monitoring.notifications.email}
-                  onChange={(e) => setConfig(prev => ({
-                    ...prev,
-                    monitoring: {
-                      ...prev.monitoring,
-                      notifications: {
-                        ...prev.monitoring.notifications,
-                        email: e.target.checked
-                      }
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                checked={config.monitoring.slackNotifications.enabled}
+                onChange={(e) => setConfig(prev => ({
+                  ...prev,
+                  monitoring: {
+                    ...prev.monitoring,
+                    slackNotifications: {
+                      ...prev.monitoring.slackNotifications,
+                      enabled: e.target.checked
                     }
-                  }))}
-                  className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                />
-                <label className="ml-2 block text-sm text-gray-700">
-                  Email Notifications
-                </label>
-              </div>
+                  }
+                }))}
+                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <label className="ml-2 block text-sm text-gray-700">
+                Enable Slack Alerts
+              </label>
             </div>
-            {config.monitoring.notifications.email && (
-              <div className="ml-6">
-                <label className="block text-sm font-medium text-gray-600">Recipients</label>
-                <div className="mt-1">
-                  <textarea
-                    rows={3}
-                    placeholder="Enter email addresses (one per line)"
-                    value={config.monitoring.notifications.emailRecipients.join('\n')}
-                    onChange={(e) => setConfig(prev => ({
-                      ...prev,
-                      monitoring: {
-                        ...prev.monitoring,
-                        notifications: {
-                          ...prev.monitoring.notifications,
-                          emailRecipients: e.target.value.split('\n').filter(email => email.trim())
-                        }
-                      }
-                    }))}
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                  />
-                </div>
-                <p className="mt-1 text-xs text-gray-500">Separate multiple email addresses with new lines</p>
-              </div>
-            )}
           </div>
 
-          {/* Slack Settings */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
+          {config.monitoring.slackNotifications.enabled && (
+            <div className="ml-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-600">Webhook URL</label>
                 <input
-                  type="checkbox"
-                  checked={config.monitoring.notifications.slack}
+                  type="url"
+                  value={config.monitoring.slackNotifications.webhookUrl}
                   onChange={(e) => setConfig(prev => ({
                     ...prev,
                     monitoring: {
                       ...prev.monitoring,
-                      notifications: {
-                        ...prev.monitoring.notifications,
-                        slack: e.target.checked
+                      slackNotifications: {
+                        ...prev.monitoring.slackNotifications,
+                        webhookUrl: e.target.value
                       }
                     }
                   }))}
-                  className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  placeholder="https://hooks.slack.com/services/..."
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                 />
-                <label className="ml-2 block text-sm text-gray-700">
-                  Slack Notifications
-                </label>
-              </div>
-            </div>
-            {config.monitoring.notifications.slack && (
-              <div className="ml-6">
-                <label className="block text-sm font-medium text-gray-600">Channels</label>
-                <div className="mt-1">
-                  <textarea
-                    rows={3}
-                    placeholder="Enter channel names (one per line, without #)"
-                    value={config.monitoring.notifications.slackChannels.join('\n')}
-                    onChange={(e) => setConfig(prev => ({
-                      ...prev,
-                      monitoring: {
-                        ...prev.monitoring,
-                        notifications: {
-                          ...prev.monitoring.notifications,
-                          slackChannels: e.target.value.split('\n').filter(channel => channel.trim())
-                        }
-                      }
-                    }))}
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                  />
-                </div>
                 <div className="mt-1 flex items-center gap-2">
-                  <p className="text-xs text-gray-500">Separate multiple channels with new lines. Don't include the # symbol.</p>
                   <a 
                     href="https://api.slack.com/messaging/webhooks" 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="text-xs text-indigo-600 hover:text-indigo-500"
                   >
-                    Set up Slack
+                    How to get webhook URL
                   </a>
                 </div>
               </div>
-            )}
-          </div>
 
-          {/* Webhook Settings */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={config.monitoring.notifications.webhook}
-                  onChange={(e) => setConfig(prev => ({
-                    ...prev,
-                    monitoring: {
-                      ...prev.monitoring,
-                      notifications: {
-                        ...prev.monitoring.notifications,
-                        webhook: e.target.checked
+              <div>
+                <label className="block text-sm font-medium text-gray-600">Channel</label>
+                <div className="mt-1 flex items-center">
+                  <span className="text-gray-500 text-sm mr-2">#</span>
+                  <input
+                    type="text"
+                    value={config.monitoring.slackNotifications.channel}
+                    onChange={(e) => setConfig(prev => ({
+                      ...prev,
+                      monitoring: {
+                        ...prev.monitoring,
+                        slackNotifications: {
+                          ...prev.monitoring.slackNotifications,
+                          channel: e.target.value.replace(/^#/, '')
+                        }
                       }
-                    }
-                  }))}
-                  className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                />
-                <label className="ml-2 block text-sm text-gray-700">
-                  Webhook Notifications
-                </label>
+                    }))}
+                    placeholder="alerts"
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  />
+                </div>
+                <p className="mt-1 text-xs text-gray-500">Channel name without the # symbol</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-600">Critical Alert Mentions</label>
+                <div className="mt-1 flex items-center">
+                  <span className="text-gray-500 text-sm mr-2">@</span>
+                  <input
+                    type="text"
+                    value={config.monitoring.slackNotifications.mentionUser || ''}
+                    onChange={(e) => setConfig(prev => ({
+                      ...prev,
+                      monitoring: {
+                        ...prev.monitoring,
+                        slackNotifications: {
+                          ...prev.monitoring.slackNotifications,
+                          mentionUser: e.target.value.replace(/^@/, '')
+                        }
+                      }
+                    }))}
+                    placeholder="username"
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  />
+                </div>
+                <p className="mt-1 text-xs text-gray-500">Username to @mention for critical alerts (high error rates)</p>
               </div>
             </div>
-            {config.monitoring.notifications.webhook && (
-              <div className="ml-6">
-                <label className="block text-sm font-medium text-gray-600">Webhook URL</label>
-                <input
-                  type="url"
-                  value={config.monitoring.notifications.webhookUrl || ''}
-                  onChange={(e) => setConfig(prev => ({
-                    ...prev,
-                    monitoring: {
-                      ...prev.monitoring,
-                      notifications: {
-                        ...prev.monitoring.notifications,
-                        webhookUrl: e.target.value
-                      }
-                    }
-                  }))}
-                  placeholder="https://your-webhook-url"
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                />
-                <div className="mt-1 flex items-center gap-2">
-                  <p className="text-xs text-gray-500">Compatible with services like PagerDuty, OpsGenie, etc.</p>
-                  <a 
-                    href="https://support.pagerduty.com/docs/services-and-integrations" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-xs text-indigo-600 hover:text-indigo-500"
-                  >
-                    Set up PagerDuty
-                  </a>
-                </div>
-              </div>
-            )}
-          </div>
+          )}
         </div>
       </div>
 
