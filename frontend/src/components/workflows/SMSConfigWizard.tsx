@@ -26,6 +26,23 @@ interface ContextConfig {
   intentExamples: Array<{ intent: string; examples: string[] }>;
 }
 
+interface ResponseConfig {
+  templates: Array<{
+    name: string;
+    template: string;
+    variables: string[];
+    description: string;
+  }>;
+  fallbackMessage: string;
+  messageStructure: Array<{
+    id: string;
+    name: string;
+    enabled: boolean;
+    defaultContent: string;
+  }>;
+  characterLimit: number;
+}
+
 const INITIAL_CONFIG = {
   brandTone: {
     voiceType: 'professional' as const,
@@ -44,6 +61,37 @@ const INITIAL_CONFIG = {
     contextualTriggers: [],
     knowledgeBase: [],
     intentExamples: []
+  },
+  response: {
+    templates: [],
+    fallbackMessage: "I apologize, but I'm having trouble understanding your request. Could you please rephrase it?",
+    messageStructure: [
+      {
+        id: 'greeting',
+        name: 'Greeting',
+        enabled: true,
+        defaultContent: 'Hi there!'
+      },
+      {
+        id: 'mainContent',
+        name: 'Main Content',
+        enabled: true,
+        defaultContent: '{content}'
+      },
+      {
+        id: 'nextSteps',
+        name: 'Next Steps',
+        enabled: true,
+        defaultContent: 'Here are the next steps: {steps}'
+      },
+      {
+        id: 'signOff',
+        name: 'Sign Off',
+        enabled: true,
+        defaultContent: 'Best regards'
+      }
+    ],
+    characterLimit: 160
   }
 };
 
@@ -69,6 +117,16 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
   const [newContent, setNewContent] = useState('');
   const [newIntent, setNewIntent] = useState('');
   const [newExample, setNewExample] = useState('');
+
+  // Response Templates state
+  const [newTemplateName, setNewTemplateName] = useState('');
+  const [newTemplate, setNewTemplate] = useState('');
+  const [newVariables, setNewVariables] = useState('');
+  const [newDescription, setNewDescription] = useState('');
+
+  // Message Structure state
+  const [newSectionName, setNewSectionName] = useState('');
+  const [newSectionContent, setNewSectionContent] = useState('');
 
   const handleVoiceTypeChange = (type: BrandToneConfig['voiceType']) => {
     setConfig(prev => ({
@@ -306,6 +364,82 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
             ? { ...i, examples: i.examples.filter(e => e !== example) }
             : i
         ).filter(i => i.examples.length > 0)
+      }
+    }));
+  };
+
+  const addTemplate = () => {
+    if (newTemplateName.trim() && newTemplate.trim()) {
+      const variables = newVariables.split(',')
+        .map(v => v.trim())
+        .filter(v => v.length > 0);
+
+      setConfig(prev => ({
+        ...prev,
+        response: {
+          ...prev.response,
+          templates: [...prev.response.templates, {
+            name: newTemplateName.trim(),
+            template: newTemplate.trim(),
+            variables,
+            description: newDescription.trim()
+          }]
+        }
+      }));
+      setNewTemplateName('');
+      setNewTemplate('');
+      setNewVariables('');
+      setNewDescription('');
+    }
+  };
+
+  const removeTemplate = (index: number) => {
+    setConfig(prev => ({
+      ...prev,
+      response: {
+        ...prev.response,
+        templates: prev.response.templates.filter((_, i) => i !== index)
+      }
+    }));
+  };
+
+  const addMessageSection = () => {
+    if (newSectionName.trim()) {
+      setConfig(prev => ({
+        ...prev,
+        response: {
+          ...prev.response,
+          messageStructure: [...prev.response.messageStructure, {
+            id: newSectionName.toLowerCase().replace(/\s+/g, '_'),
+            name: newSectionName.trim(),
+            enabled: true,
+            defaultContent: newSectionContent.trim() || '{content}'
+          }]
+        }
+      }));
+      setNewSectionName('');
+      setNewSectionContent('');
+    }
+  };
+
+  const removeMessageSection = (id: string) => {
+    setConfig(prev => ({
+      ...prev,
+      response: {
+        ...prev.response,
+        messageStructure: prev.response.messageStructure.filter(section => section.id !== id)
+      }
+    }));
+  };
+
+  const updateMessageSection = (id: string, updates: Partial<ResponseConfig['messageStructure'][0]>) => {
+    setConfig(prev => ({
+      ...prev,
+      response: {
+        ...prev.response,
+        messageStructure: prev.response.messageStructure.map(section =>
+          section.id === id ? { ...section, ...updates } : section
+        )
       }
     }));
   };
@@ -794,6 +928,268 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
     </div>
   );
 
+  const renderResponseStep = () => (
+    <div className="space-y-8">
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Message Structure</label>
+        <div className="mt-2">
+          <p className="text-sm text-gray-500 mb-3">
+            Define the sections of your AI responses and their default content
+          </p>
+          
+          {/* Add new section */}
+          <div className="mb-4 space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <input
+                type="text"
+                value={newSectionName}
+                onChange={(e) => setNewSectionName(e.target.value)}
+                placeholder="Section name..."
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              />
+              <button
+                type="button"
+                onClick={addMessageSection}
+                className="inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+              >
+                Add Section
+              </button>
+            </div>
+            <textarea
+              value={newSectionContent}
+              onChange={(e) => setNewSectionContent(e.target.value)}
+              placeholder="Default content... Use {variables} for placeholders"
+              rows={2}
+              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            />
+          </div>
+
+          {/* Existing sections */}
+          <div className="space-y-4">
+            {config.response.messageStructure.map((section) => (
+              <div key={section.id} className="p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={section.enabled}
+                        onChange={(e) => updateMessageSection(section.id, { enabled: e.target.checked })}
+                        className="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                      />
+                      <input
+                        type="text"
+                        value={section.name}
+                        onChange={(e) => updateMessageSection(section.id, { name: e.target.value })}
+                        className="block flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeMessageSection(section.id)}
+                    className="ml-2 text-gray-400 hover:text-gray-500"
+                  >
+                    ×
+                  </button>
+                </div>
+                <textarea
+                  value={section.defaultContent}
+                  onChange={(e) => updateMessageSection(section.id, { defaultContent: e.target.value })}
+                  rows={2}
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  placeholder="Default content for this section..."
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Character Limit</label>
+        <div className="mt-2">
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min="50"
+              max="1600"
+              value={config.response.characterLimit}
+              onChange={(e) => setConfig(prev => ({
+                ...prev,
+                response: {
+                  ...prev.response,
+                  characterLimit: parseInt(e.target.value) || 160
+                }
+              }))}
+              className="block w-24 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            />
+            <span className="text-sm text-gray-500">characters per message</span>
+          </div>
+          <p className="mt-1 text-sm text-gray-500">
+            Maximum length for each SMS message. Standard SMS limit is 160 characters.
+          </p>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Fallback Message</label>
+        <div className="mt-2">
+          <textarea
+            value={config.response.fallbackMessage}
+            onChange={(e) => setConfig(prev => ({
+              ...prev,
+              response: {
+                ...prev.response,
+                fallbackMessage: e.target.value
+              }
+            }))}
+            rows={2}
+            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            placeholder="Message to send when AI cannot understand the request..."
+          />
+          <p className="mt-1 text-sm text-gray-500">
+            This message will be sent when the AI is unable to generate a suitable response.
+          </p>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Response Templates</label>
+        <div className="mt-2 space-y-3">
+          <div className="p-4 border border-gray-200 rounded-lg">
+            <h4 className="text-sm font-medium text-gray-900 mb-4">Create New Template</h4>
+            
+            {/* Template Name and Category */}
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Template Name</label>
+                <input
+                  type="text"
+                  value={newTemplateName}
+                  onChange={(e) => setNewTemplateName(e.target.value)}
+                  placeholder="e.g., Order Status Update"
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Variables</label>
+                <input
+                  type="text"
+                  value={newVariables}
+                  onChange={(e) => setNewVariables(e.target.value)}
+                  placeholder="e.g., orderNumber, status, delivery"
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                />
+              </div>
+            </div>
+
+            {/* Template Content */}
+            <div className="mb-3">
+              <label className="block text-sm font-medium text-gray-600 mb-1">Template Content</label>
+              <textarea
+                value={newTemplate}
+                onChange={(e) => setNewTemplate(e.target.value)}
+                placeholder="Your order #{orderNumber} is {status}. Expected delivery: {delivery}"
+                rows={3}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Use {'{variable}'} syntax for variables. Example: Hello {'{name}'}, your order is {'{status}'}
+              </p>
+            </div>
+
+            {/* Template Description */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-600 mb-1">When to Use</label>
+              <textarea
+                value={newDescription}
+                onChange={(e) => setNewDescription(e.target.value)}
+                placeholder="e.g., Use this template when customers ask about their order status"
+                rows={2}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              />
+            </div>
+
+            {/* Preview Section */}
+            {newTemplate && (
+              <div className="mb-4 p-3 bg-gray-50 rounded border border-gray-200">
+                <label className="block text-sm font-medium text-gray-600 mb-2">Preview</label>
+                <div className="text-sm text-gray-800">
+                  {newTemplate.replace(/{(\w+)}/g, (match, variable) => 
+                    `<span class="text-purple-600">[${variable}]</span>`
+                  )}
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {newVariables.split(',')
+                    .map(v => v.trim())
+                    .filter(v => v.length > 0)
+                    .map((variable) => (
+                      <span
+                        key={variable}
+                        className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800"
+                      >
+                        {variable}
+                      </span>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={addTemplate}
+              disabled={!newTemplateName.trim() || !newTemplate.trim()}
+              className="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-300 disabled:cursor-not-allowed"
+            >
+              Add Template
+            </button>
+          </div>
+
+          {/* Template List */}
+          <div className="space-y-3">
+            {config.response.templates.length > 0 ? (
+              config.response.templates.map((template, index) => (
+                <div key={index} className="p-4 bg-white border border-gray-200 rounded-lg">
+                  <div className="flex justify-between items-start mb-2">
+                    <h4 className="text-sm font-medium text-gray-900">{template.name}</h4>
+                    <button
+                      type="button"
+                      onClick={() => removeTemplate(index)}
+                      className="text-gray-400 hover:text-gray-500"
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-2">{template.description}</p>
+                  <div className="p-3 bg-gray-50 rounded text-sm font-mono">
+                    {template.template}
+                  </div>
+                  {template.variables.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {template.variables.map((variable) => (
+                        <span
+                          key={variable}
+                          className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800"
+                        >
+                          {variable}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-4 text-sm text-gray-500">
+                No templates added yet. Templates help maintain consistent responses for common scenarios.
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="max-w-3xl mx-auto p-6 bg-white rounded-lg shadow">
       {/* Progress bar */}
@@ -824,6 +1220,7 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
       {step === 1 && renderBrandToneStep()}
       {step === 2 && renderAITrainingStep()}
       {step === 3 && renderContextStep()}
+      {step === 4 && renderResponseStep()}
 
       {/* Navigation */}
       <div className="mt-8 flex justify-between">
