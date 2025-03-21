@@ -1,0 +1,191 @@
+{
+  "retail": {
+    "name": "Retail: Email + SMS",
+    "description": "Complete retail automation with order confirmations and shipping updates",
+    "channels": ["email", "sms"],
+    "workflows": {
+      "orderConfirmation": {
+        "trigger": "new_order",
+        "actions": [
+          {
+            "type": "sendgrid.email",
+            "template": "order_confirmation",
+            "config": {
+              "subject": "Order Confirmation - {{order_number}}",
+              "template_id": "d-xxxxxxxxxxxxx",
+              "dynamic_template_data": {
+                "order_number": "{{order_number}}",
+                "customer_name": "{{customer_name}}",
+                "order_details": "{{order_details}}"
+              }
+            }
+          },
+          {
+            "type": "twilio.sms",
+            "template": "order_confirmation_sms",
+            "config": {
+              "message": "Thank you for your order #{{order_number}}! We'll notify you when it ships."
+            }
+          }
+        ]
+      },
+      "shippingUpdate": {
+        "trigger": "order_shipped",
+        "actions": [
+          {
+            "type": "sendgrid.email",
+            "template": "shipping_notification",
+            "config": {
+              "subject": "Your Order Has Shipped - {{order_number}}",
+              "template_id": "d-xxxxxxxxxxxxx",
+              "dynamic_template_data": {
+                "order_number": "{{order_number}}",
+                "tracking_number": "{{tracking_number}}",
+                "tracking_url": "{{tracking_url}}"
+              }
+            }
+          },
+          {
+            "type": "twilio.sms",
+            "template": "shipping_notification_sms",
+            "config": {
+              "message": "Your order #{{order_number}} has shipped! Track it here: {{tracking_url}}"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "restaurant": {
+    "name": "Restaurant: Reservation System",
+    "description": "Automated reservation confirmations and reminders",
+    "channels": ["email", "sms", "voice"],
+    "workflows": {
+      "reservationConfirmation": {
+        "trigger": "new_reservation",
+        "actions": [
+          {
+            "type": "sendgrid.email",
+            "template": "reservation_confirmation",
+            "config": {
+              "subject": "Reservation Confirmation - {{restaurant_name}}",
+              "template_id": "d-xxxxxxxxxxxxx",
+              "dynamic_template_data": {
+                "reservation_id": "{{reservation_id}}",
+                "customer_name": "{{customer_name}}",
+                "restaurant_name": "{{restaurant_name}}",
+                "date_time": "{{date_time}}",
+                "party_size": "{{party_size}}"
+              }
+            }
+          },
+          {
+            "type": "twilio.sms",
+            "template": "reservation_confirmation_sms",
+            "config": {
+              "message": "Your reservation at {{restaurant_name}} for {{party_size}} on {{date_time}} is confirmed! Reply Y to confirm or N to cancel."
+            }
+          }
+        ]
+      },
+      "reservationReminder": {
+        "trigger": "reservation_reminder",
+        "actions": [
+          {
+            "type": "twilio.voice",
+            "template": "reservation_reminder_call",
+            "config": {
+              "twiml": "<Response><Say>This is a reminder for your reservation at {{restaurant_name}} today at {{time}}. Press 1 to confirm or 2 to cancel.</Say></Response>"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "healthcare": {
+    "name": "Healthcare: Appointment Management",
+    "description": "HIPAA-compliant appointment scheduling and reminders",
+    "channels": ["email", "sms", "voice"],
+    "workflows": {
+      "appointmentConfirmation": {
+        "trigger": "new_appointment",
+        "actions": [
+          {
+            "type": "sendgrid.email",
+            "template": "appointment_confirmation",
+            "config": {
+              "subject": "Appointment Confirmation",
+              "template_id": "d-xxxxxxxxxxxxx",
+              "dynamic_template_data": {
+                "appointment_id": "{{appointment_id}}",
+                "patient_name": "{{patient_name}}",
+                "doctor_name": "{{doctor_name}}",
+                "date_time": "{{date_time}}",
+                "location": "{{location}}"
+              }
+            }
+          }
+        ]
+      },
+      "appointmentReminder": {
+        "trigger": "appointment_reminder",
+        "actions": [
+          {
+            "type": "twilio.sms",
+            "template": "appointment_reminder_sms",
+            "config": {
+              "message": "Reminder: You have an appointment tomorrow at {{time}}. Reply Y to confirm or N to reschedule."
+            }
+          }
+        ]
+      }
+    }
+  },
+  "support": {
+    "name": "Customer Support: Omnichannel",
+    "description": "Complete customer support automation with chatbot and ticket management",
+    "channels": ["email", "chat", "voice"],
+    "workflows": {
+      "ticketCreation": {
+        "trigger": "new_support_request",
+        "actions": [
+          {
+            "type": "zendesk.ticket",
+            "template": "create_ticket",
+            "config": {
+              "subject": "{{issue_type}} - {{customer_name}}",
+              "priority": "{{priority}}",
+              "tags": ["{{issue_type}}", "auto_created"]
+            }
+          },
+          {
+            "type": "sendgrid.email",
+            "template": "ticket_confirmation",
+            "config": {
+              "subject": "Support Ticket Created - {{ticket_id}}",
+              "template_id": "d-xxxxxxxxxxxxx",
+              "dynamic_template_data": {
+                "ticket_id": "{{ticket_id}}",
+                "customer_name": "{{customer_name}}",
+                "issue_summary": "{{issue_summary}}"
+              }
+            }
+          }
+        ]
+      },
+      "chatbotFlow": {
+        "trigger": "chat_initiated",
+        "actions": [
+          {
+            "type": "twilio.flex",
+            "template": "support_chatbot",
+            "config": {
+              "initial_message": "Hi! I'm here to help. What can I assist you with today?",
+              "fallback_queue": "support_agents"
+            }
+          }
+        ]
+      }
+    }
+  }
+}
