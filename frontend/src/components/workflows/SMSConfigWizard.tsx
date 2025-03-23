@@ -71,8 +71,9 @@ interface MonitoringConfig {
 interface SystemIntegrationConfig {
   zendesk?: {
     enabled: boolean;
-    apiKey: string;
-    domain: string;
+    email: string;
+    apiToken: string;
+    subdomain: string;
     defaultPriority: string;
     createTickets: boolean;
     updateExisting: boolean;
@@ -197,8 +198,9 @@ const INITIAL_CONFIG = {
   systemIntegration: {
     zendesk: {
       enabled: false,
-      apiKey: '',
-      domain: '',
+      email: '',
+      apiToken: '',
+      subdomain: '',
       defaultPriority: 'normal',
       createTickets: true,
       updateExisting: true
@@ -1739,17 +1741,17 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
         {config.systemIntegration.zendesk.enabled && (
           <div className="ml-7 space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-600">API Key</label>
+              <label className="block text-sm font-medium text-gray-600">Email</label>
               <input
-                type="password"
-                value={config.systemIntegration.zendesk.apiKey}
+                type="email"
+                value={config.systemIntegration.zendesk.email}
                 onChange={(e) => setConfig(prev => ({
                   ...prev,
                   systemIntegration: {
                     ...prev.systemIntegration,
                     zendesk: {
                       ...prev.systemIntegration.zendesk,
-                      apiKey: e.target.value
+                      email: e.target.value
                     }
                   }
                 }))}
@@ -1758,21 +1760,40 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-600">Domain</label>
+              <label className="block text-sm font-medium text-gray-600">API Token</label>
+              <input
+                type="password"
+                value={config.systemIntegration.zendesk.apiToken}
+                onChange={(e) => setConfig(prev => ({
+                  ...prev,
+                  systemIntegration: {
+                    ...prev.systemIntegration,
+                    zendesk: {
+                      ...prev.systemIntegration.zendesk,
+                      apiToken: e.target.value
+                    }
+                  }
+                }))}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-600">Subdomain</label>
               <div className="mt-1 flex rounded-md shadow-sm">
                 <span className="inline-flex items-center rounded-l-md border border-r-0 border-gray-300 bg-gray-50 px-3 text-gray-500 sm:text-sm">
                   https://
                 </span>
                 <input
                   type="text"
-                  value={config.systemIntegration.zendesk.domain}
+                  value={config.systemIntegration.zendesk.subdomain}
                   onChange={(e) => setConfig(prev => ({
                     ...prev,
                     systemIntegration: {
                       ...prev.systemIntegration,
                       zendesk: {
                         ...prev.systemIntegration.zendesk,
-                        domain: e.target.value
+                        subdomain: e.target.value
                       }
                     }
                   }))}
