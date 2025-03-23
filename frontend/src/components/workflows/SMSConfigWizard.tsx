@@ -68,6 +68,37 @@ interface MonitoringConfig {
   };
 }
 
+interface SystemIntegrationConfig {
+  zendesk?: {
+    enabled: boolean;
+    apiKey: string;
+    domain: string;
+    defaultPriority: string;
+    createTickets: boolean;
+    updateExisting: boolean;
+  };
+  salesforce?: {
+    enabled: boolean;
+    instanceUrl: string;
+    apiVersion: string;
+    createLeads: boolean;
+    updateCases: boolean;
+  };
+  hubspot?: {
+    enabled: boolean;
+    apiKey: string;
+    createContacts: boolean;
+    updateDeals: boolean;
+  };
+  webhook?: {
+    enabled: boolean;
+    url: string;
+    method: 'POST' | 'PUT';
+    headers: Record<string, string>;
+    events: string[];
+  };
+}
+
 const INITIAL_CONFIG = {
   brandTone: {
     voiceType: 'professional' as const,
@@ -140,6 +171,36 @@ const INITIAL_CONFIG = {
     retention: {
       logsRetentionDays: 30,
       messageHistoryDays: 90
+    }
+  },
+  systemIntegration: {
+    zendesk: {
+      enabled: false,
+      apiKey: '',
+      domain: '',
+      defaultPriority: 'normal',
+      createTickets: true,
+      updateExisting: true
+    },
+    salesforce: {
+      enabled: false,
+      instanceUrl: '',
+      apiVersion: '54.0',
+      createLeads: false,
+      updateCases: true
+    },
+    hubspot: {
+      enabled: false,
+      apiKey: '',
+      createContacts: false,
+      updateDeals: false
+    },
+    webhook: {
+      enabled: false,
+      url: '',
+      method: 'POST' as const,
+      headers: {},
+      events: []
     }
   }
 };
@@ -1619,6 +1680,230 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
     </div>
   );
 
+  const renderSystemIntegrationStep = () => (
+    <div className="space-y-8">
+      <div>
+        <h3 className="text-lg font-medium text-gray-900">System Integration</h3>
+        <p className="mt-1 text-sm text-gray-500">
+          Connect your SMS automation with your existing business systems.
+        </p>
+      </div>
+
+      {/* Zendesk Integration */}
+      <div className="space-y-4">
+        <div className="flex items-start">
+          <div className="flex h-5 items-center">
+            <input
+              type="checkbox"
+              checked={config.systemIntegration.zendesk.enabled}
+              onChange={(e) => setConfig(prev => ({
+                ...prev,
+                systemIntegration: {
+                  ...prev.systemIntegration,
+                  zendesk: {
+                    ...prev.systemIntegration.zendesk,
+                    enabled: e.target.checked
+                  }
+                }
+              }))}
+              className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            />
+          </div>
+          <div className="ml-3">
+            <label className="text-sm font-medium text-gray-700">Zendesk Integration</label>
+            <p className="text-sm text-gray-500">Create and update Zendesk tickets from SMS conversations</p>
+          </div>
+        </div>
+
+        {config.systemIntegration.zendesk.enabled && (
+          <div className="ml-7 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-600">API Key</label>
+              <input
+                type="password"
+                value={config.systemIntegration.zendesk.apiKey}
+                onChange={(e) => setConfig(prev => ({
+                  ...prev,
+                  systemIntegration: {
+                    ...prev.systemIntegration,
+                    zendesk: {
+                      ...prev.systemIntegration.zendesk,
+                      apiKey: e.target.value
+                    }
+                  }
+                }))}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-600">Domain</label>
+              <div className="mt-1 flex rounded-md shadow-sm">
+                <span className="inline-flex items-center rounded-l-md border border-r-0 border-gray-300 bg-gray-50 px-3 text-gray-500 sm:text-sm">
+                  https://
+                </span>
+                <input
+                  type="text"
+                  value={config.systemIntegration.zendesk.domain}
+                  onChange={(e) => setConfig(prev => ({
+                    ...prev,
+                    systemIntegration: {
+                      ...prev.systemIntegration,
+                      zendesk: {
+                        ...prev.systemIntegration.zendesk,
+                        domain: e.target.value
+                      }
+                    }
+                  }))}
+                  placeholder="your-domain.zendesk.com"
+                  className="block w-full flex-1 rounded-none rounded-r-md border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={config.systemIntegration.zendesk.createTickets}
+                  onChange={(e) => setConfig(prev => ({
+                    ...prev,
+                    systemIntegration: {
+                      ...prev.systemIntegration,
+                      zendesk: {
+                        ...prev.systemIntegration.zendesk,
+                        createTickets: e.target.checked
+                      }
+                    }
+                  }))}
+                  className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <label className="ml-2 text-sm text-gray-600">Create tickets for new conversations</label>
+              </div>
+
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={config.systemIntegration.zendesk.updateExisting}
+                  onChange={(e) => setConfig(prev => ({
+                    ...prev,
+                    systemIntegration: {
+                      ...prev.systemIntegration,
+                      zendesk: {
+                        ...prev.systemIntegration.zendesk,
+                        updateExisting: e.target.checked
+                      }
+                    }
+                  }))}
+                  className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <label className="ml-2 text-sm text-gray-600">Update existing tickets</label>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Webhook Integration */}
+      <div className="space-y-4">
+        <div className="flex items-start">
+          <div className="flex h-5 items-center">
+            <input
+              type="checkbox"
+              checked={config.systemIntegration.webhook.enabled}
+              onChange={(e) => setConfig(prev => ({
+                ...prev,
+                systemIntegration: {
+                  ...prev.systemIntegration,
+                  webhook: {
+                    ...prev.systemIntegration.webhook,
+                    enabled: e.target.checked
+                  }
+                }
+              }))}
+              className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            />
+          </div>
+          <div className="ml-3">
+            <label className="text-sm font-medium text-gray-700">Custom Webhook</label>
+            <p className="text-sm text-gray-500">Send events to your own endpoint</p>
+          </div>
+        </div>
+
+        {config.systemIntegration.webhook.enabled && (
+          <div className="ml-7 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-600">Webhook URL</label>
+              <input
+                type="url"
+                value={config.systemIntegration.webhook.url}
+                onChange={(e) => setConfig(prev => ({
+                  ...prev,
+                  systemIntegration: {
+                    ...prev.systemIntegration,
+                    webhook: {
+                      ...prev.systemIntegration.webhook,
+                      url: e.target.value
+                    }
+                  }
+                }))}
+                placeholder="https://your-domain.com/webhook"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-600">Events to Send</label>
+              <div className="mt-2 space-y-2">
+                {['message.received', 'message.sent', 'message.failed', 'conversation.started', 'conversation.ended'].map((event) => (
+                  <div key={event} className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={config.systemIntegration.webhook.events.includes(event)}
+                      onChange={(e) => {
+                        const events = e.target.checked
+                          ? [...config.systemIntegration.webhook.events, event]
+                          : config.systemIntegration.webhook.events.filter(e => e !== event);
+                        
+                        setConfig(prev => ({
+                          ...prev,
+                          systemIntegration: {
+                            ...prev.systemIntegration,
+                            webhook: {
+                              ...prev.systemIntegration.webhook,
+                              events
+                            }
+                          }
+                        }));
+                      }}
+                      className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <label className="ml-2 text-sm text-gray-600">{event}</label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-md bg-blue-50 p-4">
+        <div className="flex">
+          <div className="flex-shrink-0">
+            <svg className="h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <div className="ml-3 flex-1 md:flex md:justify-between">
+            <p className="text-sm text-blue-700">
+              Need to integrate with a different system? Contact us for custom integrations.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="max-w-3xl mx-auto p-6 bg-white rounded-lg shadow">
       {/* Progress bar */}
@@ -1651,6 +1936,7 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
       {step === 3 && renderContextStep()}
       {step === 4 && renderResponseStep()}
       {step === 5 && renderMonitoringStep()}
+      {step === 6 && renderSystemIntegrationStep()}
 
       {/* Navigation */}
       <div className="mt-8 flex justify-between">
