@@ -3,6 +3,8 @@ import time
 from datetime import datetime
 from routes.monitoring import record_message_metrics
 from utils.openai_client import generate_response
+from utils.message_quality import MessageQualityAnalyzer
+from utils.cost_tracking import CostTracker
 from twilio.rest import Client as TwilioClient
 
 class SMSProcessor:
@@ -21,11 +23,21 @@ class SMSProcessor:
             config['twilio']['auth_token']
         )
         
+        # Initialize quality analyzer and cost tracker
+        self.quality_analyzer = MessageQualityAnalyzer()
+        self.cost_tracker = CostTracker()
+        
         # Get monitoring thresholds
         self.thresholds = config.get('monitoring', {}).get('alertThresholds', {
-            'responseTime': 5000,  # 5 seconds default
-            'errorRate': 5,       # 5% default
-            'dailyVolume': 1000   # 1000 messages default
+            'response_time': 5000,     # 5 seconds default
+            'ai_time': 3000,          # 3 seconds default
+            'min_confidence': 0.7,     # 70% confidence default
+            'min_sentiment': 0.3,      # 30% positive sentiment default
+            'min_relevance': 0.8,      # 80% relevance default
+            'min_quality_score': 0.7,  # 70% quality score default
+            'daily_cost': 100,         # $100 daily cost default
+            'errorRate': 5,            # 5% error rate default
+            'dailyVolume': 1000        # 1000 messages default
         })
 
     async def process_incoming_message(self, from_number: str, message_body: str) -> Tuple[bool, Optional[str]]:
@@ -35,13 +47,36 @@ class SMSProcessor:
         """
         start_time = time.time()
         error = None
+        metrics = {}
         
         try:
             # Generate AI response
-            response = await generate_response(
+            ai_start_time = time.time()
+            response, ai_metrics = await generate_response(
                 message_body,
                 self.config['ai']['prompt_template'],
                 self.config['ai']['brand_voice']
+            )
+            ai_time = int((time.time() - ai_start_time) * 1000)
+            
+            # Analyze message quality
+            quality_metrics = self.quality_analyzer.analyze_message_quality(
+                self.business_id,
+                self.workflow_id,
+                message_body,
+                response
+            )
+            
+            # Calculate costs
+            cost_metrics = self.cost_tracker.calculate_message_costs(
+                business_id=self.business_id,
+                message_length=len(response),
+                token_counts={
+                    'input': ai_metrics['prompt_tokens'],
+                    'output': ai_metrics['completion_tokens']
+                },
+                model=self.config['ai'].get('model', 'gpt35'),
+                is_international=self._is_international(from_number)
             )
             
             # Send response via Twilio
@@ -52,6 +87,30 @@ class SMSProcessor:
             )
             
             success = True
+            
+            # Update cost tracking
+            self.cost_tracker.update_usage(self.business_id, cost_metrics)
+            
+            # Compile all metrics
+            metrics = {
+                'response_time': int((time.time() - start_time) * 1000),
+                'ai_time': ai_time,
+                'tokens': ai_metrics['total_tokens'],
+                'confidence': ai_metrics.get('confidence', 1.0),
+                'sentiment': quality_metrics['customer_metrics']['sentiment'],
+                'relevance': quality_metrics['response_metrics']['context_relevance'],
+                'quality_score': quality_metrics['quality_score'],
+                'is_follow_up': quality_metrics['is_follow_up'],
+                'sms_cost': cost_metrics['sms_cost'],
+                'ai_cost': cost_metrics['ai_cost'],
+                'total_cost': cost_metrics['total_cost'],
+                # Additional quality metrics
+                'tone_match': quality_metrics['response_metrics']['tone_match'],
+                'completeness': quality_metrics['response_metrics']['completeness'],
+                'personalization': quality_metrics['response_metrics']['personalization'],
+                'clarity': quality_metrics['response_metrics']['clarity'],
+                'customer_urgency': quality_metrics['customer_metrics']['urgency']
+            }
             
         except Exception as e:
             error = str(e)
@@ -69,17 +128,17 @@ class SMSProcessor:
                     error = f"Original error: {error}. Fallback error: {str(fallback_error)}"
         
         finally:
-            # Calculate response time
-            response_time = int((time.time() - start_time) * 1000)  # Convert to milliseconds
+            # Add error to metrics if present
+            if error:
+                metrics['error'] = error
             
-            # Record metrics
+            # Record all metrics
             record_message_metrics(
                 business_id=self.business_id,
                 workflow_id=self.workflow_id,
                 workflow_name=self.workflow_name,
-                response_time=response_time,
-                error=error,
-                thresholds=self.thresholds
+                thresholds=self.thresholds,
+                metrics=metrics
             )
         
         return success, error
@@ -91,12 +150,19 @@ class SMSProcessor:
         if status in ['failed', 'undelivered']:
             error = f"Message delivery failed. Status: {status}"
             
-            # Record the error
+            # Record the error with minimal metrics
             record_message_metrics(
                 business_id=self.business_id,
                 workflow_id=self.workflow_id,
                 workflow_name=self.workflow_name,
-                response_time=0,  # Not applicable for delivery status
-                error=error,
-                thresholds=self.thresholds
+                thresholds=self.thresholds,
+                metrics={'error': error}
             )
+    
+    def _is_international(self, phone_number: str) -> bool:
+        """Check if a phone number is international (non-US)"""
+        # Remove any formatting
+        cleaned = ''.join(filter(str.isdigit, phone_number))
+        
+        # Check if it's a US number (including +1)
+        return not (cleaned.startswith('1') and len(cleaned) == 11 or len(cleaned) == 10)
