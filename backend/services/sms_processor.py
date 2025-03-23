@@ -1,4 +1,4 @@
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, NamedTuple
 import time
 from datetime import datetime
 from routes.monitoring import record_message_metrics
@@ -6,12 +6,18 @@ from utils.openai_client import generate_response
 from utils.message_quality import MessageQualityAnalyzer
 from utils.cost_tracking import CostTracker
 from twilio.rest import Client as TwilioClient
+import logging
+
+class ProcessingResult(NamedTuple):
+    success: bool
+    response: Optional[str]
+    error: Optional[str]
+    message_sid: Optional[str]
+    sent_via_api: bool
 
 class SMSProcessor:
     def __init__(self, business_id: str, workflow_id: str, workflow_name: str, config: Dict):
-        """
-        Initialize SMS processor with business and workflow info
-        """
+        """Initialize SMS processor with business and workflow info"""
         self.business_id = business_id
         self.workflow_id = workflow_id
         self.workflow_name = workflow_name
@@ -40,14 +46,27 @@ class SMSProcessor:
             'dailyVolume': 1000        # 1000 messages default
         })
 
-    async def process_incoming_message(self, from_number: str, message_body: str) -> Tuple[bool, Optional[str]]:
+    async def process_incoming_message(
+        self, 
+        from_number: str, 
+        message_body: str,
+        use_twiml: bool = False
+    ) -> ProcessingResult:
         """
-        Process an incoming SMS message and send AI-generated response
-        Returns: (success, error_message if any)
+        Process an incoming SMS message and optionally send AI-generated response
+        Args:
+            from_number: Sender's phone number
+            message_body: Content of the message
+            use_twiml: If True, return response for TwiML instead of sending via API
+        Returns: 
+            ProcessingResult containing success status, response text, error (if any),
+            message SID (if sent via API), and whether message was sent via API
         """
         start_time = time.time()
         error = None
         metrics = {}
+        message_sid = None
+        response = None
         
         try:
             # Generate AI response
@@ -79,14 +98,16 @@ class SMSProcessor:
                 is_international=self._is_international(from_number)
             )
             
-            # Send response via Twilio
-            message = self.twilio_client.messages.create(
-                body=response,
-                from_=self.config['twilio']['phone_number'],
-                to=from_number
-            )
-            
-            success = True
+            # Send response via Twilio API if not using TwiML
+            if not use_twiml:
+                twilio_message = self.twilio_client.messages.create(
+                    body=response,
+                    from_=self.config['twilio']['phone_number'],
+                    to=from_number,
+                    status_callback=f"{self.config['twilio']['status_callback_url']}/{self.workflow_id}"
+                )
+                message_sid = twilio_message.sid
+                logging.info(f"Sent message via Twilio API. SID: {message_sid}")
             
             # Update cost tracking
             self.cost_tracker.update_usage(self.business_id, cost_metrics)
@@ -104,6 +125,8 @@ class SMSProcessor:
                 'sms_cost': cost_metrics['sms_cost'],
                 'ai_cost': cost_metrics['ai_cost'],
                 'total_cost': cost_metrics['total_cost'],
+                'message_sid': message_sid,
+                'sent_via_api': not use_twiml,
                 # Additional quality metrics
                 'tone_match': quality_metrics['response_metrics']['tone_match'],
                 'completeness': quality_metrics['response_metrics']['completeness'],
@@ -114,18 +137,25 @@ class SMSProcessor:
             
         except Exception as e:
             error = str(e)
-            success = False
+            logging.error(f"Error processing message: {error}")
             
-            # Send fallback message if configured
-            if self.config.get('fallback_message'):
+            # Get fallback message
+            response = self.get_fallback_message()
+            
+            # Send fallback via API if not using TwiML
+            if not use_twiml and response:
                 try:
-                    self.twilio_client.messages.create(
-                        body=self.config['fallback_message'],
+                    twilio_message = self.twilio_client.messages.create(
+                        body=response,
                         from_=self.config['twilio']['phone_number'],
-                        to=from_number
+                        to=from_number,
+                        status_callback=f"{self.config['twilio']['status_callback_url']}/{self.workflow_id}"
                     )
+                    message_sid = twilio_message.sid
+                    logging.info(f"Sent fallback message via Twilio API. SID: {message_sid}")
                 except Exception as fallback_error:
                     error = f"Original error: {error}. Fallback error: {str(fallback_error)}"
+                    logging.error(f"Failed to send fallback message: {error}")
         
         finally:
             # Add error to metrics if present
@@ -141,14 +171,28 @@ class SMSProcessor:
                 metrics=metrics
             )
         
-        return success, error
+        return ProcessingResult(
+            success=error is None,
+            response=response,
+            error=error,
+            message_sid=message_sid,
+            sent_via_api=not use_twiml
+        )
 
-    def process_delivery_status(self, message_sid: str, status: str) -> None:
-        """
-        Process message delivery status updates
-        """
+    def get_fallback_message(self) -> str:
+        """Get the configured fallback message"""
+        return self.config.get('fallback_message', 
+            "We're sorry, but we couldn't process your message at this time. Please try again later."
+        )
+
+    def process_delivery_status(self, message_sid: str, status: str, error_code: Optional[str] = None) -> None:
+        """Process message delivery status updates"""
         if status in ['failed', 'undelivered']:
             error = f"Message delivery failed. Status: {status}"
+            if error_code:
+                error += f", Error code: {error_code}"
+            
+            logging.error(f"Message delivery failed. SID: {message_sid}. {error}")
             
             # Record the error with minimal metrics
             record_message_metrics(
@@ -156,7 +200,12 @@ class SMSProcessor:
                 workflow_id=self.workflow_id,
                 workflow_name=self.workflow_name,
                 thresholds=self.thresholds,
-                metrics={'error': error}
+                metrics={
+                    'error': error,
+                    'message_sid': message_sid,
+                    'delivery_status': status,
+                    'error_code': error_code
+                }
             )
     
     def _is_international(self, phone_number: str) -> bool:
