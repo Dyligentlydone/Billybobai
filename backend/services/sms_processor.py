@@ -3,11 +3,14 @@ import time
 from datetime import datetime
 import sqlite3
 import json
+import os
 from routes.monitoring import record_message_metrics
 from utils.openai_client import generate_response
 from utils.message_quality import MessageQualityAnalyzer
 from utils.cost_tracking import CostTracker
 from twilio.rest import Client as TwilioClient
+from zenpy import Zenpy
+from zenpy.lib.api_objects import Ticket, User, Comment
 import logging
 
 class ProcessingResult(NamedTuple):
@@ -15,6 +18,7 @@ class ProcessingResult(NamedTuple):
     response: Optional[str]
     error: Optional[str]
     message_sid: Optional[str]
+    ticket_id: Optional[int]
     sent_via_api: bool
 
 class BusinessConfig(NamedTuple):
@@ -27,6 +31,8 @@ class BusinessConfig(NamedTuple):
     max_response_tokens: int
     temperature: float
     fallback_message: Optional[str]
+    zendesk_enabled: bool
+    zendesk_config: Optional[Dict]
 
 class SMSProcessor:
     def __init__(self, business_id: str, workflow_id: str, workflow_name: str, config: Dict):
@@ -42,6 +48,19 @@ class SMSProcessor:
             config['twilio']['account_sid'],
             config['twilio']['auth_token']
         )
+        
+        # Initialize Zendesk client if configured
+        self.zendesk_client = None
+        if config.get('zendesk', {}).get('enabled', False):
+            try:
+                self.zendesk_client = Zenpy(
+                    email=config['zendesk']['email'],
+                    token=config['zendesk']['api_token'],
+                    subdomain=config['zendesk']['subdomain']
+                )
+                logging.info(f"Initialized Zendesk client for workflow {workflow_id}")
+            except Exception as e:
+                logging.error(f"Failed to initialize Zendesk client: {str(e)}")
         
         # Initialize quality analyzer and cost tracker
         self.quality_analyzer = MessageQualityAnalyzer()
@@ -68,13 +87,22 @@ class SMSProcessor:
             cursor = conn.cursor()
             
             cursor.execute("""
-                SELECT * FROM business_configs 
-                WHERE phone_number = ? AND workflow_id = ?
+                SELECT bc.*, c.zendesk_subdomain, c.zendesk_email, c.zendesk_api_token
+                FROM business_configs bc
+                JOIN clients c ON bc.business_id = c.id
+                WHERE bc.phone_number = ? AND bc.workflow_id = ?
             """, (phone_number, self.workflow_id))
             
             row = cursor.fetchone()
             
             if row:
+                # Check if Zendesk is configured
+                zendesk_enabled = all([
+                    row['zendesk_subdomain'],
+                    row['zendesk_email'],
+                    row['zendesk_api_token']
+                ])
+                
                 return BusinessConfig(
                     workflow_id=row['workflow_id'],
                     phone_number=row['phone_number'],
@@ -84,7 +112,13 @@ class SMSProcessor:
                     ai_model=row['ai_model'],
                     max_response_tokens=row['max_response_tokens'],
                     temperature=row['temperature'],
-                    fallback_message=row['fallback_message']
+                    fallback_message=row['fallback_message'],
+                    zendesk_enabled=zendesk_enabled,
+                    zendesk_config={
+                        'subdomain': row['zendesk_subdomain'],
+                        'email': row['zendesk_email'],
+                        'api_token': row['zendesk_api_token']
+                    } if zendesk_enabled else None
                 )
             else:
                 # Return default configuration
@@ -97,7 +131,9 @@ class SMSProcessor:
                     ai_model='gpt-4',
                     max_response_tokens=300,
                     temperature=0.7,
-                    fallback_message=self.config.get('fallback_message')
+                    fallback_message=self.config.get('fallback_message'),
+                    zendesk_enabled=False,
+                    zendesk_config=None
                 )
                 
         except Exception as e:
@@ -105,6 +141,62 @@ class SMSProcessor:
             raise
         finally:
             conn.close()
+
+    async def create_zendesk_ticket(
+        self,
+        from_number: str,
+        message_body: str,
+        response: str,
+        business_config: BusinessConfig
+    ) -> Optional[int]:
+        """Create a Zendesk ticket for the SMS interaction"""
+        if not self.zendesk_client or not business_config.zendesk_enabled:
+            return None
+            
+        try:
+            # Try to find existing user by phone number
+            users = self.zendesk_client.search(type='user', phone=from_number)
+            
+            if users:
+                requester_id = next(users).id
+            else:
+                # Create new user if not found
+                user = self.zendesk_client.users.create(User(
+                    name=f"SMS User ({from_number})",
+                    phone=from_number,
+                    role="end-user"
+                ))
+                requester_id = user.id
+            
+            # Create ticket
+            ticket = self.zendesk_client.tickets.create(Ticket(
+                subject=f"SMS Conversation - {self.workflow_name}",
+                requester_id=requester_id,
+                tags=['sms', self.workflow_name, self.business_id],
+                custom_fields=[
+                    {'id': 'workflow_id', 'value': self.workflow_id},
+                    {'id': 'business_id', 'value': self.business_id}
+                ],
+                comment=Comment(
+                    body=f"""Customer Message:
+{message_body}
+
+AI Response:
+{response}
+
+Phone Number: {from_number}
+Workflow: {self.workflow_name}
+Business ID: {self.business_id}
+"""
+                )
+            ))
+            
+            logging.info(f"Created Zendesk ticket {ticket.id} for message from {from_number}")
+            return ticket.id
+            
+        except Exception as e:
+            logging.error(f"Failed to create Zendesk ticket: {str(e)}")
+            return None
 
     async def process_incoming_message(
         self, 
@@ -118,6 +210,7 @@ class SMSProcessor:
         metrics = {}
         message_sid = None
         response = None
+        ticket_id = None
         
         try:
             # Load business configuration
@@ -136,6 +229,14 @@ class SMSProcessor:
                 temperature=business_config.temperature
             )
             ai_time = int((time.time() - ai_start_time) * 1000)
+            
+            # Create Zendesk ticket
+            ticket_id = await self.create_zendesk_ticket(
+                from_number=from_number,
+                message_body=message_body,
+                response=response,
+                business_config=business_config
+            )
             
             # Analyze message quality
             quality_metrics = self.quality_analyzer.analyze_message_quality(
@@ -185,6 +286,7 @@ class SMSProcessor:
                 'ai_cost': cost_metrics['ai_cost'],
                 'total_cost': cost_metrics['total_cost'],
                 'message_sid': message_sid,
+                'ticket_id': ticket_id,
                 'sent_via_api': not use_twiml,
                 # Additional quality metrics
                 'tone_match': quality_metrics['response_metrics']['tone_match'],
@@ -235,6 +337,7 @@ class SMSProcessor:
             response=response,
             error=error,
             message_sid=message_sid,
+            ticket_id=ticket_id,
             sent_via_api=not use_twiml
         )
 
