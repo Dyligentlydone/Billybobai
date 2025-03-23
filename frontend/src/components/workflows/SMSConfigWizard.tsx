@@ -99,7 +99,28 @@ interface SystemIntegrationConfig {
   };
 }
 
+interface TwilioConfig {
+  accountSid: string;
+  authToken: string;
+  phoneNumber: string;
+  messagingServiceSid?: string;
+  webhookUrl: string;
+  fallbackUrl?: string;
+  statusCallback?: string;
+  retryCount: number;
+}
+
 const INITIAL_CONFIG = {
+  twilio: {
+    accountSid: '',
+    authToken: '',
+    phoneNumber: '',
+    messagingServiceSid: '',
+    webhookUrl: '',
+    fallbackUrl: '',
+    statusCallback: '',
+    retryCount: 3
+  },
   brandTone: {
     voiceType: 'professional' as const,
     greetings: [],
@@ -1904,6 +1925,193 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
     </div>
   );
 
+  const renderTwilioConfigStep = () => (
+    <div className="space-y-8">
+      <div>
+        <h3 className="text-lg font-medium text-gray-900">Twilio Configuration</h3>
+        <p className="mt-1 text-sm text-gray-500">
+          Configure your Twilio account settings for SMS automation.
+        </p>
+      </div>
+
+      {/* Core Twilio Settings */}
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-600">Account SID</label>
+          <input
+            type="password"
+            value={config.twilio.accountSid}
+            onChange={(e) => setConfig(prev => ({
+              ...prev,
+              twilio: {
+                ...prev.twilio,
+                accountSid: e.target.value
+              }
+            }))}
+            placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          />
+          <p className="mt-1 text-xs text-gray-500">Find this in your Twilio Console</p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-600">Auth Token</label>
+          <input
+            type="password"
+            value={config.twilio.authToken}
+            onChange={(e) => setConfig(prev => ({
+              ...prev,
+              twilio: {
+                ...prev.twilio,
+                authToken: e.target.value
+              }
+            }))}
+            placeholder="your_auth_token"
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          />
+          <p className="mt-1 text-xs text-gray-500">Your Twilio account's auth token</p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-600">Phone Number</label>
+          <input
+            type="tel"
+            value={config.twilio.phoneNumber}
+            onChange={(e) => setConfig(prev => ({
+              ...prev,
+              twilio: {
+                ...prev.twilio,
+                phoneNumber: e.target.value
+              }
+            }))}
+            placeholder="+1234567890"
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          />
+          <p className="mt-1 text-xs text-gray-500">Your Twilio phone number in E.164 format</p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-600">Messaging Service SID (Optional)</label>
+          <input
+            type="text"
+            value={config.twilio.messagingServiceSid}
+            onChange={(e) => setConfig(prev => ({
+              ...prev,
+              twilio: {
+                ...prev.twilio,
+                messagingServiceSid: e.target.value
+              }
+            }))}
+            placeholder="MGxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          />
+          <p className="mt-1 text-xs text-gray-500">If you're using a Messaging Service instead of a single phone number</p>
+        </div>
+      </div>
+
+      {/* Advanced Settings */}
+      <div>
+        <h4 className="text-sm font-medium text-gray-900">Advanced Settings</h4>
+        <div className="mt-4 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-600">Webhook URL</label>
+            <input
+              type="url"
+              value={config.twilio.webhookUrl}
+              onChange={(e) => setConfig(prev => ({
+                ...prev,
+                twilio: {
+                  ...prev.twilio,
+                  webhookUrl: e.target.value
+                }
+              }))}
+              placeholder="https://your-domain.com/api/sms/webhook"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            />
+            <p className="mt-1 text-xs text-gray-500">URL that Twilio will call when receiving messages</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-600">Fallback URL (Optional)</label>
+            <input
+              type="url"
+              value={config.twilio.fallbackUrl}
+              onChange={(e) => setConfig(prev => ({
+                ...prev,
+                twilio: {
+                  ...prev.twilio,
+                  fallbackUrl: e.target.value
+                }
+              }))}
+              placeholder="https://your-domain.com/api/sms/fallback"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            />
+            <p className="mt-1 text-xs text-gray-500">URL that Twilio will call if the primary webhook fails</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-600">Status Callback URL (Optional)</label>
+            <input
+              type="url"
+              value={config.twilio.statusCallback}
+              onChange={(e) => setConfig(prev => ({
+                ...prev,
+                twilio: {
+                  ...prev.twilio,
+                  statusCallback: e.target.value
+                }
+              }))}
+              placeholder="https://your-domain.com/api/sms/status"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            />
+            <p className="mt-1 text-xs text-gray-500">URL for receiving message delivery status updates</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-600">Retry Count</label>
+            <input
+              type="number"
+              min="0"
+              max="10"
+              value={config.twilio.retryCount}
+              onChange={(e) => setConfig(prev => ({
+                ...prev,
+                twilio: {
+                  ...prev.twilio,
+                  retryCount: parseInt(e.target.value) || 0
+                }
+              }))}
+              className="mt-1 block w-24 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            />
+            <p className="mt-1 text-xs text-gray-500">Number of times to retry failed message deliveries (0-10)</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Help Text */}
+      <div className="rounded-md bg-blue-50 p-4">
+        <div className="flex">
+          <div className="flex-shrink-0">
+            <svg className="h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <div className="ml-3">
+            <h3 className="text-sm font-medium text-blue-800">Need help?</h3>
+            <div className="mt-2 text-sm text-blue-700">
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Find your Account SID and Auth Token in the <a href="https://www.twilio.com/console" target="_blank" rel="noopener noreferrer" className="underline">Twilio Console</a></li>
+                <li>Phone numbers should be in E.164 format (e.g., +1234567890)</li>
+                <li>Make sure your webhook URL is publicly accessible</li>
+                <li>Consider using ngrok for local development</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="max-w-3xl mx-auto p-6 bg-white rounded-lg shadow">
       {/* Progress bar */}
@@ -1913,13 +2121,13 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
             Step {step} of 7
           </span>
           <span className="text-sm font-medium text-gray-500">
-            {step === 1 && 'Brand Tone & Style'}
-            {step === 2 && 'AI Training'}
-            {step === 3 && 'Contextual Understanding'}
-            {step === 4 && 'Response Templates'}
-            {step === 5 && 'Monitoring'}
-            {step === 6 && 'System Integration'}
-            {step === 7 && 'Testing'}
+            {step === 1 && 'Twilio Configuration'}
+            {step === 2 && 'Brand Tone & Style'}
+            {step === 3 && 'AI Training'}
+            {step === 4 && 'Contextual Understanding'}
+            {step === 5 && 'Response Templates'}
+            {step === 6 && 'Monitoring'}
+            {step === 7 && 'System Integration'}
           </span>
         </div>
         <div className="h-2 bg-gray-200 rounded-full">
@@ -1931,12 +2139,13 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
       </div>
 
       {/* Step content */}
-      {step === 1 && renderBrandToneStep()}
-      {step === 2 && renderAITrainingStep()}
-      {step === 3 && renderContextStep()}
-      {step === 4 && renderResponseStep()}
-      {step === 5 && renderMonitoringStep()}
-      {step === 6 && renderSystemIntegrationStep()}
+      {step === 1 && renderTwilioConfigStep()}
+      {step === 2 && renderBrandToneStep()}
+      {step === 3 && renderAITrainingStep()}
+      {step === 4 && renderContextStep()}
+      {step === 5 && renderResponseStep()}
+      {step === 6 && renderMonitoringStep()}
+      {step === 7 && renderSystemIntegrationStep()}
 
       {/* Navigation */}
       <div className="mt-8 flex justify-between">
