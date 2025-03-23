@@ -11,6 +11,13 @@ from routes import auth, workflows, monitoring, sms_routes
 
 load_dotenv()
 
+# Configure logging
+import logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+
 def create_app():
     app = Flask(__name__)
     CORS(app)
@@ -27,12 +34,36 @@ def create_app():
         return conn
 
     def init_db():
-        conn = get_db()
-        with app.open_resource('schema.sql', mode='r') as f:
-            conn.cursor().executescript(f.read())
-        conn.commit()
-        conn.close()
+        """Initialize database with schema"""
+        import sqlite3
+        from pathlib import Path
+        
+        # Get schema path
+        schema_path = Path(__file__).parent / 'schema.sql'
+        
+        # Connect to database
+        conn = sqlite3.connect('whys.db')
+        
+        try:
+            # Read schema
+            with open(schema_path) as f:
+                conn.executescript(f.read())
+            
+            # Commit changes
+            conn.commit()
+            logging.info("Database initialized successfully")
+            
+        except Exception as e:
+            logging.error(f"Error initializing database: {str(e)}")
+            raise
+            
+        finally:
+            conn.close()
 
+    # Initialize database
+    with app.app_context():
+        init_db()
+    
     @app.route('/api/analytics', methods=['GET'])
     def get_analytics():
         try:

@@ -1,6 +1,8 @@
 from typing import Dict, Optional, Tuple, NamedTuple
 import time
 from datetime import datetime
+import sqlite3
+import json
 from routes.monitoring import record_message_metrics
 from utils.openai_client import generate_response
 from utils.message_quality import MessageQualityAnalyzer
@@ -15,6 +17,17 @@ class ProcessingResult(NamedTuple):
     message_sid: Optional[str]
     sent_via_api: bool
 
+class BusinessConfig(NamedTuple):
+    workflow_id: str
+    phone_number: str
+    tone: str
+    context: Dict
+    brand_voice: Optional[str]
+    ai_model: str
+    max_response_tokens: int
+    temperature: float
+    fallback_message: Optional[str]
+
 class SMSProcessor:
     def __init__(self, business_id: str, workflow_id: str, workflow_name: str, config: Dict):
         """Initialize SMS processor with business and workflow info"""
@@ -22,6 +35,7 @@ class SMSProcessor:
         self.workflow_id = workflow_id
         self.workflow_name = workflow_name
         self.config = config
+        self.db_path = 'whys.db'
         
         # Initialize Twilio client
         self.twilio_client = TwilioClient(
@@ -46,22 +60,59 @@ class SMSProcessor:
             'dailyVolume': 1000        # 1000 messages default
         })
 
+    def load_business_config(self, phone_number: str) -> BusinessConfig:
+        """Load business configuration from database"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                SELECT * FROM business_configs 
+                WHERE phone_number = ? AND workflow_id = ?
+            """, (phone_number, self.workflow_id))
+            
+            row = cursor.fetchone()
+            
+            if row:
+                return BusinessConfig(
+                    workflow_id=row['workflow_id'],
+                    phone_number=row['phone_number'],
+                    tone=row['tone'],
+                    context=json.loads(row['context']),
+                    brand_voice=row['brand_voice'],
+                    ai_model=row['ai_model'],
+                    max_response_tokens=row['max_response_tokens'],
+                    temperature=row['temperature'],
+                    fallback_message=row['fallback_message']
+                )
+            else:
+                # Return default configuration
+                return BusinessConfig(
+                    workflow_id=self.workflow_id,
+                    phone_number=phone_number,
+                    tone='professional',
+                    context={},
+                    brand_voice=None,
+                    ai_model='gpt-4',
+                    max_response_tokens=300,
+                    temperature=0.7,
+                    fallback_message=self.config.get('fallback_message')
+                )
+                
+        except Exception as e:
+            logging.error(f"Error loading business config: {str(e)}")
+            raise
+        finally:
+            conn.close()
+
     async def process_incoming_message(
         self, 
         from_number: str, 
         message_body: str,
         use_twiml: bool = False
     ) -> ProcessingResult:
-        """
-        Process an incoming SMS message and optionally send AI-generated response
-        Args:
-            from_number: Sender's phone number
-            message_body: Content of the message
-            use_twiml: If True, return response for TwiML instead of sending via API
-        Returns: 
-            ProcessingResult containing success status, response text, error (if any),
-            message SID (if sent via API), and whether message was sent via API
-        """
+        """Process an incoming SMS message and optionally send AI-generated response"""
         start_time = time.time()
         error = None
         metrics = {}
@@ -69,12 +120,20 @@ class SMSProcessor:
         response = None
         
         try:
-            # Generate AI response
+            # Load business configuration
+            business_config = self.load_business_config(from_number)
+            
+            # Generate AI response with business-specific settings
             ai_start_time = time.time()
             response, ai_metrics = await generate_response(
                 message_body,
                 self.config['ai']['prompt_template'],
-                self.config['ai']['brand_voice']
+                tone=business_config.tone,
+                context=business_config.context,
+                brand_voice=business_config.brand_voice,
+                model=business_config.ai_model,
+                max_tokens=business_config.max_response_tokens,
+                temperature=business_config.temperature
             )
             ai_time = int((time.time() - ai_start_time) * 1000)
             
@@ -94,7 +153,7 @@ class SMSProcessor:
                     'input': ai_metrics['prompt_tokens'],
                     'output': ai_metrics['completion_tokens']
                 },
-                model=self.config['ai'].get('model', 'gpt35'),
+                model=business_config.ai_model,
                 is_international=self._is_international(from_number)
             )
             
@@ -102,7 +161,7 @@ class SMSProcessor:
             if not use_twiml:
                 twilio_message = self.twilio_client.messages.create(
                     body=response,
-                    from_=self.config['twilio']['phone_number'],
+                    from_=business_config.phone_number,  # Use business-specific number
                     to=from_number,
                     status_callback=f"{self.config['twilio']['status_callback_url']}/{self.workflow_id}"
                 )
@@ -139,15 +198,15 @@ class SMSProcessor:
             error = str(e)
             logging.error(f"Error processing message: {error}")
             
-            # Get fallback message
-            response = self.get_fallback_message()
+            # Get fallback message from business config
+            response = business_config.fallback_message if 'business_config' in locals() else self.get_fallback_message()
             
             # Send fallback via API if not using TwiML
             if not use_twiml and response:
                 try:
                     twilio_message = self.twilio_client.messages.create(
                         body=response,
-                        from_=self.config['twilio']['phone_number'],
+                        from_=business_config.phone_number if 'business_config' in locals() else self.config['twilio']['phone_number'],
                         to=from_number,
                         status_callback=f"{self.config['twilio']['status_callback_url']}/{self.workflow_id}"
                     )
