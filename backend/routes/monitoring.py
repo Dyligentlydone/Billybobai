@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from services.monitoring import MonitoringService
-from typing import Dict, Optional
+from typing import Dict, Optional, Any
+import logging
 
 # Global monitoring service instance
 monitor = MonitoringService()
@@ -51,15 +52,32 @@ def test_alerts():
     return jsonify({'error': 'Failed to send test alert'}), 500
 
 # These functions should be called from your message processing logic
-def record_message_metrics(business_id: str, workflow_id: str, workflow_name: str, 
-                         response_time: int, error: Optional[str], thresholds: Dict):
-    """Record all metrics for a message"""
-    # Record the message
-    monitor.record_message(business_id, workflow_id, workflow_name, thresholds)
-    
-    # Record response time
-    monitor.record_response_time(business_id, workflow_id, workflow_name, response_time, thresholds)
-    
-    # Record error if present
-    if error:
-        monitor.record_error(business_id, workflow_id, workflow_name, error, thresholds)
+def record_message_metrics(
+    business_id: str,
+    workflow_id: str,
+    workflow_name: str,
+    thresholds: Dict[str, Any],
+    metrics: Dict[str, Any]
+) -> None:
+    """Record message processing metrics"""
+    try:
+        # Log metrics
+        logging.info(f"Message metrics for {workflow_name} ({workflow_id}):")
+        logging.info(f"Business ID: {business_id}")
+        logging.info("Metrics:")
+        for key, value in metrics.items():
+            logging.info(f"  {key}: {value}")
+        
+        # Check thresholds
+        if 'response_time' in metrics and metrics['response_time'] > thresholds.get('response_time', 5000):
+            logging.warning(f"Response time ({metrics['response_time']}ms) exceeded threshold")
+            
+        if 'ai_time' in metrics and metrics['ai_time'] > thresholds.get('ai_time', 3000):
+            logging.warning(f"AI processing time ({metrics['ai_time']}ms) exceeded threshold")
+            
+        if 'error' in metrics:
+            logging.error(f"Error in message processing: {metrics['error']}")
+            
+    except Exception as e:
+        logging.error(f"Error recording metrics: {str(e)}")
+        # Don't raise the error - we don't want metrics recording to break message processing

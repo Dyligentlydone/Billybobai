@@ -1,17 +1,16 @@
 from typing import Dict, Optional, Tuple, NamedTuple
 import time
 from datetime import datetime
-import sqlite3
-import json
 import os
+import json
+import logging
 from routes.monitoring import record_message_metrics
-from utils.openai_client import generate_response
+from utils.openai_client import initialize as init_openai, generate_response
 from utils.message_quality import MessageQualityAnalyzer
 from utils.cost_tracking import CostTracker
 from twilio.rest import Client as TwilioClient
 from zenpy import Zenpy
 from zenpy.lib.api_objects import Ticket, User, Comment
-import logging
 
 class ProcessingResult(NamedTuple):
     success: bool
@@ -21,19 +20,6 @@ class ProcessingResult(NamedTuple):
     ticket_id: Optional[int]
     sent_via_api: bool
 
-class BusinessConfig(NamedTuple):
-    workflow_id: str
-    phone_number: str
-    tone: str
-    context: Dict
-    brand_voice: Optional[str]
-    ai_model: str
-    max_response_tokens: int
-    temperature: float
-    fallback_message: Optional[str]
-    zendesk_enabled: bool
-    zendesk_config: Optional[Dict]
-
 class SMSProcessor:
     def __init__(self, business_id: str, workflow_id: str, workflow_name: str, config: Dict):
         """Initialize SMS processor with business and workflow info"""
@@ -41,22 +27,26 @@ class SMSProcessor:
         self.workflow_id = workflow_id
         self.workflow_name = workflow_name
         self.config = config
-        self.db_path = 'whys.db'
+        
+        # Initialize OpenAI
+        init_openai(os.getenv('OPENAI_API_KEY'))
         
         # Initialize Twilio client
         self.twilio_client = TwilioClient(
-            config['twilio']['account_sid'],
-            config['twilio']['auth_token']
+            os.getenv('TWILIO_ACCOUNT_SID'),
+            os.getenv('TWILIO_AUTH_TOKEN')
         )
+        self.twilio_phone = os.getenv('TWILIO_PHONE_NUMBER')
+        self.messaging_service_sid = os.getenv('TWILIO_MESSAGING_SERVICE_SID')
         
         # Initialize Zendesk client if configured
         self.zendesk_client = None
         if config.get('zendesk', {}).get('enabled', False):
             try:
                 self.zendesk_client = Zenpy(
-                    email=config['zendesk']['email'],
-                    token=config['zendesk']['api_token'],
-                    subdomain=config['zendesk']['subdomain']
+                    email=os.getenv('ZENDESK_EMAIL'),
+                    token=os.getenv('ZENDESK_API_TOKEN'),
+                    subdomain=os.getenv('ZENDESK_SUBDOMAIN')
                 )
                 logging.info(f"Initialized Zendesk client for workflow {workflow_id}")
             except Exception as e:
@@ -79,78 +69,14 @@ class SMSProcessor:
             'dailyVolume': 1000        # 1000 messages default
         })
 
-    def load_business_config(self, phone_number: str) -> BusinessConfig:
-        """Load business configuration from database"""
-        try:
-            conn = sqlite3.connect(self.db_path)
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
-            
-            cursor.execute("""
-                SELECT bc.*, c.zendesk_subdomain, c.zendesk_email, c.zendesk_api_token
-                FROM business_configs bc
-                JOIN clients c ON bc.business_id = c.id
-                WHERE bc.phone_number = ? AND bc.workflow_id = ?
-            """, (phone_number, self.workflow_id))
-            
-            row = cursor.fetchone()
-            
-            if row:
-                # Check if Zendesk is configured
-                zendesk_enabled = all([
-                    row['zendesk_subdomain'],
-                    row['zendesk_email'],
-                    row['zendesk_api_token']
-                ])
-                
-                return BusinessConfig(
-                    workflow_id=row['workflow_id'],
-                    phone_number=row['phone_number'],
-                    tone=row['tone'],
-                    context=json.loads(row['context']),
-                    brand_voice=row['brand_voice'],
-                    ai_model=row['ai_model'],
-                    max_response_tokens=row['max_response_tokens'],
-                    temperature=row['temperature'],
-                    fallback_message=row['fallback_message'],
-                    zendesk_enabled=zendesk_enabled,
-                    zendesk_config={
-                        'subdomain': row['zendesk_subdomain'],
-                        'email': row['zendesk_email'],
-                        'api_token': row['zendesk_api_token']
-                    } if zendesk_enabled else None
-                )
-            else:
-                # Return default configuration
-                return BusinessConfig(
-                    workflow_id=self.workflow_id,
-                    phone_number=phone_number,
-                    tone='professional',
-                    context={},
-                    brand_voice=None,
-                    ai_model='gpt-4',
-                    max_response_tokens=300,
-                    temperature=0.7,
-                    fallback_message=self.config.get('fallback_message'),
-                    zendesk_enabled=False,
-                    zendesk_config=None
-                )
-                
-        except Exception as e:
-            logging.error(f"Error loading business config: {str(e)}")
-            raise
-        finally:
-            conn.close()
-
     async def create_zendesk_ticket(
         self,
         from_number: str,
         message_body: str,
-        response: str,
-        business_config: BusinessConfig
+        response: str
     ) -> Optional[int]:
         """Create a Zendesk ticket for the SMS interaction"""
-        if not self.zendesk_client or not business_config.zendesk_enabled:
+        if not self.zendesk_client:
             return None
             
         try:
@@ -213,105 +139,86 @@ Business ID: {self.business_id}
         ticket_id = None
         
         try:
-            # Load business configuration
-            business_config = self.load_business_config(from_number)
+            # Get business context
+            context = {
+                'business_name': self.config.get('business_name', ''),
+                'workflow_name': self.workflow_name,
+                'common_questions': self.config.get('common_questions', []),
+                'product_info': self.config.get('product_info', {}),
+                'tone': self.config.get('tone', 'professional')
+            }
             
-            # Generate AI response with business-specific settings
+            # Generate AI response
             ai_start_time = time.time()
-            response, ai_metrics = await generate_response(
-                message_body,
-                self.config['ai']['prompt_template'],
-                tone=business_config.tone,
-                context=business_config.context,
-                brand_voice=business_config.brand_voice,
-                model=business_config.ai_model,
-                max_tokens=business_config.max_response_tokens,
-                temperature=business_config.temperature
+            result = await generate_response(
+                message=message_body,
+                context=context,
+                tone=self.config.get('tone', 'professional'),
+                model=self.config.get('ai_model', 'gpt-3.5-turbo')
             )
+            
+            response = result.text
             ai_time = int((time.time() - ai_start_time) * 1000)
             
-            # Create Zendesk ticket
-            ticket_id = await self.create_zendesk_ticket(
-                from_number=from_number,
-                message_body=message_body,
-                response=response,
-                business_config=business_config
-            )
-            
-            # Analyze message quality
-            quality_metrics = self.quality_analyzer.analyze_message_quality(
-                self.business_id,
-                self.workflow_id,
-                message_body,
-                response
-            )
-            
-            # Calculate costs
-            cost_metrics = self.cost_tracker.calculate_message_costs(
-                business_id=self.business_id,
-                message_length=len(response),
-                token_counts={
-                    'input': ai_metrics['prompt_tokens'],
-                    'output': ai_metrics['completion_tokens']
-                },
-                model=business_config.ai_model,
-                is_international=self._is_international(from_number)
-            )
+            # Create Zendesk ticket if enabled
+            if self.config.get('zendesk', {}).get('enabled', False):
+                ticket_id = await self.create_zendesk_ticket(
+                    from_number=from_number,
+                    message_body=message_body,
+                    response=response
+                )
             
             # Send response via Twilio API if not using TwiML
             if not use_twiml:
-                twilio_message = self.twilio_client.messages.create(
-                    body=response,
-                    from_=business_config.phone_number,  # Use business-specific number
-                    to=from_number,
-                    status_callback=f"{self.config['twilio']['status_callback_url']}/{self.workflow_id}"
-                )
+                message_params = {
+                    'body': response,
+                    'to': from_number,
+                    'status_callback': f"{self.config.get('status_callback_url', '')}/{self.workflow_id}"
+                }
+                
+                # Use either messaging service or phone number
+                if self.messaging_service_sid:
+                    message_params['messaging_service_sid'] = self.messaging_service_sid
+                else:
+                    message_params['from_'] = self.twilio_phone
+                
+                twilio_message = self.twilio_client.messages.create(**message_params)
                 message_sid = twilio_message.sid
                 logging.info(f"Sent message via Twilio API. SID: {message_sid}")
             
-            # Update cost tracking
-            self.cost_tracker.update_usage(self.business_id, cost_metrics)
-            
-            # Compile all metrics
+            # Compile metrics
             metrics = {
                 'response_time': int((time.time() - start_time) * 1000),
                 'ai_time': ai_time,
-                'tokens': ai_metrics['total_tokens'],
-                'confidence': ai_metrics.get('confidence', 1.0),
-                'sentiment': quality_metrics['customer_metrics']['sentiment'],
-                'relevance': quality_metrics['response_metrics']['context_relevance'],
-                'quality_score': quality_metrics['quality_score'],
-                'is_follow_up': quality_metrics['is_follow_up'],
-                'sms_cost': cost_metrics['sms_cost'],
-                'ai_cost': cost_metrics['ai_cost'],
-                'total_cost': cost_metrics['total_cost'],
+                'tokens': result.tokens_used,
+                'confidence': result.confidence,
+                'cost': result.cost,
+                'model': result.model_used,
                 'message_sid': message_sid,
                 'ticket_id': ticket_id,
-                'sent_via_api': not use_twiml,
-                # Additional quality metrics
-                'tone_match': quality_metrics['response_metrics']['tone_match'],
-                'completeness': quality_metrics['response_metrics']['completeness'],
-                'personalization': quality_metrics['response_metrics']['personalization'],
-                'clarity': quality_metrics['response_metrics']['clarity'],
-                'customer_urgency': quality_metrics['customer_metrics']['urgency']
+                'sent_via_api': not use_twiml
             }
             
         except Exception as e:
             error = str(e)
             logging.error(f"Error processing message: {error}")
-            
-            # Get fallback message from business config
-            response = business_config.fallback_message if 'business_config' in locals() else self.get_fallback_message()
+            response = self.get_fallback_message()
             
             # Send fallback via API if not using TwiML
             if not use_twiml and response:
                 try:
-                    twilio_message = self.twilio_client.messages.create(
-                        body=response,
-                        from_=business_config.phone_number if 'business_config' in locals() else self.config['twilio']['phone_number'],
-                        to=from_number,
-                        status_callback=f"{self.config['twilio']['status_callback_url']}/{self.workflow_id}"
-                    )
+                    message_params = {
+                        'body': response,
+                        'to': from_number,
+                        'status_callback': f"{self.config.get('status_callback_url', '')}/{self.workflow_id}"
+                    }
+                    
+                    if self.messaging_service_sid:
+                        message_params['messaging_service_sid'] = self.messaging_service_sid
+                    else:
+                        message_params['from_'] = self.twilio_phone
+                    
+                    twilio_message = self.twilio_client.messages.create(**message_params)
                     message_sid = twilio_message.sid
                     logging.info(f"Sent fallback message via Twilio API. SID: {message_sid}")
                 except Exception as fallback_error:
@@ -323,7 +230,7 @@ Business ID: {self.business_id}
             if error:
                 metrics['error'] = error
             
-            # Record all metrics
+            # Record metrics
             record_message_metrics(
                 business_id=self.business_id,
                 workflow_id=self.workflow_id,
@@ -349,31 +256,16 @@ Business ID: {self.business_id}
 
     def process_delivery_status(self, message_sid: str, status: str, error_code: Optional[str] = None) -> None:
         """Process message delivery status updates"""
-        if status in ['failed', 'undelivered']:
-            error = f"Message delivery failed. Status: {status}"
+        try:
+            logging.info(f"Message {message_sid} status update: {status}")
             if error_code:
-                error += f", Error code: {error_code}"
+                logging.error(f"Message {message_sid} error: {error_code}")
+                
+            # TODO: Update message status in database once implemented
             
-            logging.error(f"Message delivery failed. SID: {message_sid}. {error}")
-            
-            # Record the error with minimal metrics
-            record_message_metrics(
-                business_id=self.business_id,
-                workflow_id=self.workflow_id,
-                workflow_name=self.workflow_name,
-                thresholds=self.thresholds,
-                metrics={
-                    'error': error,
-                    'message_sid': message_sid,
-                    'delivery_status': status,
-                    'error_code': error_code
-                }
-            )
-    
+        except Exception as e:
+            logging.error(f"Error processing status update: {str(e)}")
+
     def _is_international(self, phone_number: str) -> bool:
         """Check if a phone number is international (non-US)"""
-        # Remove any formatting
-        cleaned = ''.join(filter(str.isdigit, phone_number))
-        
-        # Check if it's a US number (including +1)
-        return not (cleaned.startswith('1') and len(cleaned) == 11 or len(cleaned) == 10)
+        return not phone_number.startswith('+1')
