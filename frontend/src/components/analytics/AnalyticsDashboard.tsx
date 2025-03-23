@@ -66,35 +66,44 @@ export default function AnalyticsDashboard({ clientId }: AnalyticsDashboardProps
         </select>
       </div>
 
-      {/* Usage metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* SMS Automation Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <MetricCard
           title="Total Messages"
-          value={analytics?.twilio.totalMessages || 0}
-          change={analytics?.twilio.messageChange || 0}
+          value={analytics?.sms.totalMessages || 0}
+          change={analytics?.sms.messageChange || 0}
+          icon="💬"
+        />
+        <MetricCard
+          title="Response Time"
+          value={analytics?.sms.avgResponseTime || 0}
+          change={analytics?.sms.responseTimeChange || 0}
+          icon="⚡"
+          unit="sec"
+        />
+        <MetricCard
+          title="AI Cost"
+          value={analytics?.sms.aiCost || 0}
+          change={analytics?.sms.aiCostChange || 0}
+          icon="🤖"
+          unit="$"
+        />
+        <MetricCard
+          title="SMS Cost"
+          value={analytics?.sms.smsCost || 0}
+          change={analytics?.sms.smsCostChange || 0}
           icon="📱"
-        />
-        <MetricCard
-          title="Total Emails"
-          value={analytics?.sendgrid.totalEmails || 0}
-          change={analytics?.sendgrid.emailChange || 0}
-          icon="✉️"
-        />
-        <MetricCard
-          title="Total Tickets"
-          value={analytics?.zendesk.totalTickets || 0}
-          change={analytics?.zendesk.ticketChange || 0}
-          icon="🎫"
+          unit="$"
         />
       </div>
 
-      {/* Usage trends */}
+      {/* Message Quality Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold mb-4">Message Volume</h3>
+          <h3 className="text-lg font-semibold mb-4">Message Quality</h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={analytics?.twilio.dailyMessages || []}>
+              <LineChart data={analytics?.sms.qualityMetrics || []}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" />
                 <YAxis />
@@ -102,15 +111,15 @@ export default function AnalyticsDashboard({ clientId }: AnalyticsDashboardProps
                 <Legend />
                 <Line
                   type="monotone"
-                  dataKey="sms"
+                  dataKey="sentiment"
                   stroke="#3B82F6"
-                  name="SMS"
+                  name="Sentiment"
                 />
                 <Line
                   type="monotone"
-                  dataKey="voice"
+                  dataKey="quality"
                   stroke="#10B981"
-                  name="Voice"
+                  name="Quality"
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -118,43 +127,53 @@ export default function AnalyticsDashboard({ clientId }: AnalyticsDashboardProps
         </div>
 
         <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold mb-4">Email Performance</h3>
+          <h3 className="text-lg font-semibold mb-4">Response Distribution</h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={analytics?.sendgrid.emailMetrics || []}>
+              <BarChart data={analytics?.sms.responseTypes || []}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
+                <XAxis dataKey="type" />
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="delivered" fill="#3B82F6" name="Delivered" />
-                <Bar dataKey="opened" fill="#10B981" name="Opened" />
-                <Bar dataKey="clicked" fill="#6366F1" name="Clicked" />
+                <Bar dataKey="count" fill="#3B82F6" name="Count" />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
       </div>
 
-      {/* Cost analysis */}
+      {/* Cost Analysis */}
       <div className="bg-white p-6 rounded-lg shadow">
-        <h3 className="text-lg font-semibold mb-4">Cost Analysis</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <CostCard
-            service="Twilio"
-            costs={analytics?.costs.twilio || {}}
-            icon="📱"
-          />
-          <CostCard
-            service="SendGrid"
-            costs={analytics?.costs.sendgrid || {}}
-            icon="✉️"
-          />
-          <CostCard
-            service="Zendesk"
-            costs={analytics?.costs.zendesk || {}}
-            icon="🎫"
-          />
+        <h3 className="text-lg font-semibold mb-4">Daily Cost Breakdown</h3>
+        <div className="h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={analytics?.sms.dailyCosts || []}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="date" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Line
+                type="monotone"
+                dataKey="ai"
+                stroke="#3B82F6"
+                name="AI Cost"
+              />
+              <Line
+                type="monotone"
+                dataKey="sms"
+                stroke="#10B981"
+                name="SMS Cost"
+              />
+              <Line
+                type="monotone"
+                dataKey="total"
+                stroke="#6366F1"
+                name="Total Cost"
+              />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
       </div>
     </div>
@@ -166,58 +185,26 @@ interface MetricCardProps {
   value: number;
   change: number;
   icon: string;
+  unit?: string;
 }
 
-function MetricCard({ title, value, change, icon }: MetricCardProps) {
+function MetricCard({ title, value, change, icon, unit }: MetricCardProps) {
+  const formatValue = (val: number) => {
+    if (unit === 'sec') return `${val.toFixed(2)}s`;
+    if (unit === '$') return `$${val.toFixed(2)}`;
+    return val.toLocaleString();
+  };
+
   return (
     <div className="bg-white p-6 rounded-lg shadow">
       <div className="flex items-center">
         <span className="text-2xl mr-2">{icon}</span>
         <h3 className="text-lg font-semibold">{title}</h3>
       </div>
-      <p className="text-3xl font-bold mt-2">{value.toLocaleString()}</p>
+      <p className="text-3xl font-bold mt-2">{formatValue(value)}</p>
       <div className={`flex items-center mt-2 ${change >= 0 ? 'text-green-500' : 'text-red-500'}`}>
         <span>{change >= 0 ? '↑' : '↓'}</span>
         <span className="ml-1">{Math.abs(change)}% vs previous period</span>
-      </div>
-    </div>
-  );
-}
-
-interface CostCardProps {
-  service: string;
-  costs: {
-    current: number;
-    previous: number;
-    breakdown: {
-      [key: string]: number;
-    };
-  };
-  icon: string;
-}
-
-function CostCard({ service, costs, icon }: CostCardProps) {
-  const change = ((costs.current - costs.previous) / costs.previous) * 100;
-
-  return (
-    <div className="bg-gray-50 p-4 rounded-lg">
-      <div className="flex items-center">
-        <span className="text-2xl mr-2">{icon}</span>
-        <h4 className="text-lg font-semibold">{service}</h4>
-      </div>
-      <p className="text-2xl font-bold mt-2">${costs.current.toFixed(2)}</p>
-      <div className={`flex items-center mt-2 ${change >= 0 ? 'text-red-500' : 'text-green-500'}`}>
-        <span>{change >= 0 ? '↑' : '↓'}</span>
-        <span className="ml-1">{Math.abs(change).toFixed(1)}% vs previous period</span>
-      </div>
-      <div className="mt-4">
-        <h5 className="text-sm font-semibold mb-2">Cost Breakdown</h5>
-        {Object.entries(costs.breakdown || {}).map(([key, value]) => (
-          <div key={key} className="flex justify-between text-sm">
-            <span className="text-gray-600">{key}</span>
-            <span className="font-medium">${value.toFixed(2)}</span>
-          </div>
-        ))}
       </div>
     </div>
   );

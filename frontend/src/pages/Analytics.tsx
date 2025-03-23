@@ -1,8 +1,9 @@
+import { useState } from 'react';
 import AnalyticsDashboard from '../components/analytics/AnalyticsDashboard';
+import BusinessSelector from '../components/business/BusinessSelector';
 
 export default function Analytics() {
-  // TODO: Get clientId from context or URL params
-  const clientId = '1'; // Temporary hardcoded value
+  const [selectedBusinessId, setSelectedBusinessId] = useState<string>('');
 
   return (
     <div className="space-y-6">
@@ -10,11 +11,21 @@ export default function Analytics() {
         <div className="sm:flex-auto">
           <h1 className="text-2xl font-semibold text-gray-900">Analytics</h1>
           <p className="mt-2 text-sm text-gray-700">
-            View metrics and trends across your Twilio, SendGrid, and Zendesk integrations.
+            View metrics and performance for your SMS automation workflows.
           </p>
         </div>
+        <div className="mt-4 sm:mt-0">
+          <BusinessSelector onBusinessChange={setSelectedBusinessId} />
+        </div>
       </div>
-      <AnalyticsDashboard clientId={clientId} />
+      
+      {selectedBusinessId ? (
+        <AnalyticsDashboard clientId={selectedBusinessId} />
+      ) : (
+        <div className="text-center py-12 bg-gray-50 rounded-lg">
+          <p className="text-gray-500">Select a business to view its analytics</p>
+        </div>
+      )}
     </div>
   );
 }

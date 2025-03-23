@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import axios from 'axios';
+import BusinessSelector from '../components/business/BusinessSelector';
+import AnalyticsDashboard from '../components/analytics/AnalyticsDashboard';
 
 export default function Dashboard() {
   const [message, setMessage] = useState('');
+  const [selectedBusinessId, setSelectedBusinessId] = useState<string>('');
 
   const checkServer = () => {
     axios.get('/api/health')
@@ -19,7 +22,15 @@ export default function Dashboard() {
             Welcome to Twilio Automation Hub. Manage your communication workflows across multiple channels.
           </p>
         </div>
+        <div className="mt-4 sm:mt-0">
+          <BusinessSelector onBusinessChange={setSelectedBusinessId} />
+        </div>
       </div>
+
+      {selectedBusinessId && (
+        <AnalyticsDashboard clientId={selectedBusinessId} />
+      )}
+
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         <div className="bg-white overflow-hidden shadow rounded-lg">
           <div className="p-5">
@@ -73,6 +84,7 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
       <div className="bg-white shadow sm:rounded-lg">
         <div className="px-4 py-5 sm:p-6">
           <h3 className="text-lg leading-6 font-medium text-gray-900">Server Status</h3>

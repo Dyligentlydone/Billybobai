@@ -7,7 +7,7 @@ from sendgrid import SendGridAPIClient
 from zenpy import Zenpy
 import sqlite3
 from dotenv import load_dotenv
-from routes import auth, workflows, monitoring, sms_routes
+from routes import auth, workflows, monitoring, sms_routes, analytics
 
 load_dotenv()
 
@@ -27,6 +27,7 @@ def create_app():
     app.register_blueprint(workflows.bp)
     app.register_blueprint(monitoring.bp)
     app.register_blueprint(sms_routes.sms_bp)
+    app.register_blueprint(analytics.bp)
 
     def get_db():
         conn = sqlite3.connect('whys.db')
