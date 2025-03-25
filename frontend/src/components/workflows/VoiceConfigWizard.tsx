@@ -396,8 +396,40 @@ export const VoiceConfigWizard: React.FC<VoiceConfigWizardProps> = ({
                   />
                 )}
               />
-              
-              {/* ... other business fields ... */}
+
+              <Controller
+                name="business.phone"
+                control={control}
+                rules={{ required: 'Phone number is required' }}
+                render={({ field, fieldState: { error } }) => (
+                  <TextField
+                    {...field}
+                    label="Business Phone"
+                    error={!!error}
+                    helperText={error?.message}
+                  />
+                )}
+              />
+
+              <Controller
+                name="business.timezone"
+                control={control}
+                rules={{ required: 'Timezone is required' }}
+                render={({ field }) => (
+                  <FormControl fullWidth>
+                    <InputLabel>Timezone</InputLabel>
+                    <Select {...field} label="Timezone">
+                      <MenuItem value="America/New_York">America/New_York</MenuItem>
+                      <MenuItem value="America/Chicago">America/Chicago</MenuItem>
+                      <MenuItem value="America/Denver">America/Denver</MenuItem>
+                      <MenuItem value="America/Los_Angeles">America/Los_Angeles</MenuItem>
+                      <MenuItem value="America/Phoenix">America/Phoenix</MenuItem>
+                      <MenuItem value="America/Anchorage">America/Anchorage</MenuItem>
+                      <MenuItem value="Pacific/Honolulu">Pacific/Honolulu</MenuItem>
+                    </Select>
+                  </FormControl>
+                )}
+              />
 
               <Typography variant="h6" sx={{ mt: 2 }}>
                 Greeting Configuration
@@ -490,6 +522,83 @@ export const VoiceConfigWizard: React.FC<VoiceConfigWizardProps> = ({
                   />
                 </Grid>
               </Grid>
+            </Box>
+          </CardContent>
+        </Card>
+
+        <Card sx={{ mt: 2 }}>
+          <CardContent>
+            <Typography variant="h5" gutterBottom>
+              Integration Settings
+            </Typography>
+            <Box sx={{ display: 'grid', gap: 2 }}>
+              <Typography variant="h6" gutterBottom>
+                Twilio Configuration
+              </Typography>
+              <Controller
+                name="integration.twilio.accountSid"
+                control={control}
+                rules={{ required: 'Twilio Account SID is required' }}
+                render={({ field, fieldState: { error } }) => (
+                  <TextField
+                    {...field}
+                    label="Account SID"
+                    error={!!error}
+                    helperText={error?.message || 'Find this in your Twilio Console'}
+                    fullWidth
+                  />
+                )}
+              />
+
+              <Controller
+                name="integration.twilio.authToken"
+                control={control}
+                rules={{ required: 'Twilio Auth Token is required' }}
+                render={({ field, fieldState: { error } }) => (
+                  <TextField
+                    {...field}
+                    type="password"
+                    label="Auth Token"
+                    error={!!error}
+                    helperText={error?.message || 'Find this in your Twilio Console'}
+                    fullWidth
+                  />
+                )}
+              />
+
+              <Controller
+                name="integration.twilio.phoneNumber"
+                control={control}
+                rules={{ required: 'Twilio Phone Number is required' }}
+                render={({ field, fieldState: { error } }) => (
+                  <TextField
+                    {...field}
+                    label="Phone Number"
+                    error={!!error}
+                    helperText={error?.message || 'The Twilio number to use for calls'}
+                    fullWidth
+                  />
+                )}
+              />
+
+              <Typography variant="h6" sx={{ mt: 2 }}>
+                OpenAI Configuration
+              </Typography>
+              <Controller
+                name="integration.openai.apiKey"
+                control={control}
+                rules={{ required: 'OpenAI API Key is required' }}
+                render={({ field, fieldState: { error } }) => (
+                  <TextField
+                    {...field}
+                    type="password"
+                    label="API Key"
+                    error={!!error}
+                    helperText={error?.message || 'Your OpenAI API key for AI responses'}
+                    fullWidth
+                  />
+                )}
+              />
             </Box>
           </CardContent>
         </Card>
