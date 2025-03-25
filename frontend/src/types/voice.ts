@@ -3,7 +3,6 @@ export interface VoiceConfig {
     name: string;
     phone: string;
     timezone: string;
-    greeting: string;
   };
   integration: {
     twilio: {
@@ -13,18 +12,24 @@ export interface VoiceConfig {
     };
     openai: {
       apiKey: string;
-      model: string;
-      voiceId: string; // For text-to-speech
     };
   };
   callFlow: {
-    greeting: string;
+    greeting: {
+      enabled: boolean;
+      message: string;
+      voice: {
+        language: string;
+        gender: 'male' | 'female';
+        speed: number;
+      };
+    };
     mainMenu: {
       prompt: string;
       options: Array<{
         digit: string;
         description: string;
-        action: 'transfer' | 'message' | 'voicemail';
+        action: 'message' | 'transfer' | 'voicemail';
       }>;
     };
     fallback: {
@@ -34,10 +39,7 @@ export interface VoiceConfig {
     businessHours: {
       enabled: boolean;
       timezone: string;
-      hours: Record<string, {
-        start: string;
-        end: string;
-      }>;
+      hours: Record<string, { start: string; end: string; }>;
       outOfHoursMessage: string;
     };
     voicePreferences: {
@@ -45,5 +47,62 @@ export interface VoiceConfig {
       speed: number;
       gender: 'male' | 'female';
     };
+    workflow?: {
+      nodes: VoiceNodeData[];
+      edges: Array<{
+        id: string;
+        source: string;
+        target: string;
+      }>;
+    };
   };
+}
+
+// Voice workflow node types
+export type VoiceNodeType = 
+  | 'menu'           // IVR menu with options
+  | 'message'        // AI response
+  | 'transfer'       // Transfer to agent
+  | 'voicemail'      // Record voicemail
+  | 'hours'          // Business hours check
+  | 'condition'      // Conditional branching
+  | 'end';           // End call
+
+export interface VoiceNodeData {
+  label: string;
+  type: VoiceNodeType;
+  prompt?: string;
+  options?: Array<{
+    digit: string;
+    description: string;
+    nextNodeId?: string;
+  }>;
+  aiModel?: string;
+  maxTokens?: number;
+  transferNumber?: string;
+  maxDuration?: number;
+  transcribe?: boolean;
+  timezone?: string;
+  schedule?: Array<{
+    day: string;
+    open: string;
+    close: string;
+  }>;
+  outOfHoursNode?: string;
+  conditions?: Array<{
+    condition: string;
+    nextNodeId: string;
+  }>;
+  voice?: {
+    language: string;
+    gender: string;
+    speed: number;
+  };
+}
+
+export interface VoiceWorkflowNode {
+  id: string;
+  type: 'voiceNode';
+  position: { x: number; y: number; };
+  data: VoiceNodeData;
 }
