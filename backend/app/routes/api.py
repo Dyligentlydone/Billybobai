@@ -4,17 +4,52 @@ from ..services.sendgrid_service import SendGridService, EmailRequest, TemplateP
 from ..services.zendesk_service import ZendeskService, TicketRequest
 from ..services.ai_service import AIService
 from flask_jwt_extended import jwt_required
-from ..models import Workflow, db
+from ..models.workflow import Workflow
+from ..database import db
 from ..services.workflow_engine import WorkflowEngine
 from datetime import datetime
 import asyncio
 import os
+from functools import wraps
+import hmac
+import hashlib
+from ..services.email_thread_service import EmailThreadService
+from ..services.business_service import BusinessService
+from ..models.email import InboundEmail
 
 api = Blueprint('api', __name__)
 twilio_service = TwilioService()
 sendgrid_service = SendGridService()
 zendesk_service = ZendeskService()
 ai_service = AIService()
+email_thread_service = EmailThreadService()
+business_service = BusinessService()
+
+def verify_sendgrid_webhook(f):
+    """Verify that the request came from SendGrid."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        signature = request.headers.get('X-Twilio-Email-Event-Webhook-Signature')
+        timestamp = request.headers.get('X-Twilio-Email-Event-Webhook-Timestamp')
+        
+        if not signature or not timestamp:
+            return jsonify({"error": "Missing signature headers"}), 401
+
+        # Verify signature
+        payload = timestamp + request.get_data(as_text=True)
+        signing_key = os.environ.get('SENDGRID_SIGNING_KEY')
+        
+        hmac_obj = hmac.new(
+            key=signing_key.encode(),
+            msg=payload.encode(),
+            digestmod=hashlib.sha256
+        )
+        
+        if not hmac.compare_digest(signature, hmac_obj.hexdigest()):
+            return jsonify({"error": "Invalid signature"}), 401
+            
+        return f(*args, **kwargs)
+    return decorated_function
 
 @api.route('/ai/analyze', methods=['POST'])
 async def analyze_requirements():
@@ -110,49 +145,96 @@ async def add_ticket_comment(ticket_id):
         return jsonify({"error": str(e)}), 500
 
 @api.route('/webhooks/sendgrid/inbound', methods=['POST'])
+@verify_sendgrid_webhook
 async def handle_inbound_email():
-    """Handle incoming emails from SendGrid."""
+    """Handle incoming emails from SendGrid for multiple businesses."""
     try:
         data = request.get_json()
         
-        # Extract email data from SendGrid's inbound parse webhook
-        from_email = data.get('from')
-        subject = data.get('subject')
-        text = data.get('text')
-        html = data.get('html')
+        # Extract business from the incoming email domain
+        to_email = data.get('to', '')
+        business_domain = to_email.split('@')[1] if '@' in to_email else None
         
-        # Get brand voice configuration from workflow
-        # For now, using default configuration
-        brand_voice = {
-            'voiceType': 'professional',
-            'greetings': ['Hello', 'Hi'],
-            'wordsToAvoid': []
-        }
+        if not business_domain:
+            return jsonify({"error": "Invalid recipient email"}), 400
+            
+        # Get business configuration
+        business = await business_service.get_business_by_domain(business_domain)
+        if not business:
+            return jsonify({"error": "Business not found"}), 404
+            
+        # Parse incoming email with business context
+        email = InboundEmail(
+            business_id=business.id,
+            from_email=data['from'],
+            to_email=data['to'],
+            subject=data['subject'],
+            text=data.get('text'),
+            html=data.get('html'),
+            spam_score=float(data.get('spam_score', 0)),
+            spam_report=data.get('spam_report', {}),
+            sender_ip=data.get('sender_ip'),
+            headers=data.get('headers', {}),
+            envelope=data.get('envelope', {}),
+            business_metadata={
+                "domain": business_domain,
+                "name": business.name
+            }
+        )
+
+        # Get or create email thread with business context
+        thread = await email_thread_service.get_or_create_thread(email)
         
-        # Generate AI response
+        # Get conversation history
+        history = await email_thread_service.get_thread_history(thread.thread_id)
+        
+        # Use business-specific brand voice configuration
+        brand_voice = business.config.brand_voice
+        
+        # Generate AI response using business context
         response = await ai_service.generate_email_response(
-            customer_email=text or html,
-            brand_voice=brand_voice
+            customer_email=email.text or email.html,
+            brand_voice=brand_voice,
+            conversation_history=history,
+            business_context={
+                "name": business.name,
+                "domain": business.domain
+            }
         )
         
-        # Send the response
+        # Send response using business's SendGrid configuration
         if response['type'] == 'template':
             await sendgrid_service.send_email(EmailRequest(
-                to=from_email,
-                subject=f"Re: {subject}",
+                to=email.from_email,
+                subject=f"Re: {email.subject}",
                 template_id=response['template_id'],
                 template_data=response['template_data'],
-                type='template'
+                type='template',
+                api_key=business.config.email_config['sendgrid']['api_key'],
+                from_email=business.config.email_config['sendgrid']['from_email']
             ))
         else:
             await sendgrid_service.send_email(EmailRequest(
-                to=from_email,
-                subject=f"Re: {subject}",
+                to=email.from_email,
+                subject=f"Re: {email.subject}",
                 content=response['content'],
-                type='custom'
+                type='custom',
+                api_key=business.config.email_config['sendgrid']['api_key'],
+                from_email=business.config.email_config['sendgrid']['from_email']
             ))
         
-        return jsonify({"status": "success"}), 200
+        # Save response to thread
+        await email_thread_service.add_response_to_thread(
+            thread.thread_id,
+            response['content'] if response['type'] == 'custom' else str(response['template_data'])
+        )
+        
+        return jsonify({
+            "status": "success",
+            "thread_id": thread.thread_id,
+            "business_id": business.id
+        }), 200
+        
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

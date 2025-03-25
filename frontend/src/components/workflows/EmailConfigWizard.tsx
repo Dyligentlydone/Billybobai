@@ -34,11 +34,34 @@ interface EmailTemplate {
 }
 
 interface EmailConfig {
+  business: {
+    name: string;
+    domain: string;
+    subdomain?: string;
+    supportEmail: string;
+    timezone: string;
+    industry: string;
+    size: 'small' | 'medium' | 'large' | 'enterprise';
+  };
   integration: {
-    sendgridApiKey: string;
-    openaiApiKey: string;
-    fromEmail: string;
-    fromName: string;
+    sendgrid: {
+      apiKey: string;
+      domain: string;
+      fromEmail: string;
+      fromName: string;
+      inboundDomain?: string;
+      inboundSubdomain?: string;
+      mxRecords?: {
+        host: string;
+        priority: number;
+        value: string;
+      }[];
+    };
+    openai: {
+      apiKey: string;
+      model: string;
+      maxTokens?: number;
+    };
   };
   brandTone: {
     voiceType: string;
@@ -58,66 +81,9 @@ interface EmailConfig {
     };
     outOfOffice: string;
     selectedTemplates: {
-      support: {
-        [key: string]: EmailTemplate & {
-          customization?: {
-            tone?: string;
-            customVariables?: { [key: string]: string };
-            schedule?: {
-              frequency?: 'immediate' | 'scheduled' | 'triggered';
-              trigger?: string;
-              delay?: string;
-            };
-            abTesting?: {
-              enabled?: boolean;
-              variants?: {
-                subject?: string[];
-                content?: string[];
-              };
-            };
-          };
-        };
-      };
-      marketing: {
-        [key: string]: EmailTemplate & {
-          customization?: {
-            tone?: string;
-            customVariables?: { [key: string]: string };
-            schedule?: {
-              frequency?: 'immediate' | 'scheduled' | 'triggered';
-              trigger?: string;
-              delay?: string;
-            };
-            abTesting?: {
-              enabled?: boolean;
-              variants?: {
-                subject?: string[];
-                content?: string[];
-              };
-            };
-          };
-        };
-      };
-      transactional: {
-        [key: string]: EmailTemplate & {
-          customization?: {
-            tone?: string;
-            customVariables?: { [key: string]: string };
-            schedule?: {
-              frequency?: 'immediate' | 'scheduled' | 'triggered';
-              trigger?: string;
-              delay?: string;
-            };
-            abTesting?: {
-              enabled?: boolean;
-              variants?: {
-                subject?: string[];
-                content?: string[];
-              };
-            };
-          };
-        };
-      };
+      support: { [key: string]: EmailTemplate };
+      marketing: { [key: string]: EmailTemplate };
+      transactional: { [key: string]: EmailTemplate };
     };
   };
 }
@@ -276,10 +242,30 @@ export default function EmailConfigWizard({
     try {
       // Save API keys to environment
       const config = {
+        business: {
+          name: data.business.name,
+          domain: data.business.domain,
+          subdomain: data.business.subdomain,
+          supportEmail: data.business.supportEmail,
+          timezone: data.business.timezone,
+          industry: data.business.industry,
+          size: data.business.size,
+        },
         integration: {
-          ...data.integration,
-          sendgridApiKey: data.integration.sendgridApiKey,
-          openaiApiKey: data.integration.openaiApiKey
+          sendgrid: {
+            apiKey: data.integration.sendgrid.apiKey,
+            domain: data.integration.sendgrid.domain,
+            fromEmail: data.integration.sendgrid.fromEmail,
+            fromName: data.integration.sendgrid.fromName,
+            inboundDomain: data.integration.sendgrid.inboundDomain,
+            inboundSubdomain: data.integration.sendgrid.inboundSubdomain,
+            mxRecords: data.integration.sendgrid.mxRecords,
+          },
+          openai: {
+            apiKey: data.integration.openai.apiKey,
+            model: data.integration.openai.model,
+            maxTokens: data.integration.openai.maxTokens,
+          }
         },
         brandTone: data.brandTone,
         templates: data.templates
@@ -300,6 +286,138 @@ export default function EmailConfigWizard({
           <div className="space-y-6">
             <div>
               <h3 className="text-lg font-medium leading-6 text-gray-900">
+                Business Configuration
+              </h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Configure your business settings.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+              <div className="sm:col-span-3">
+                <label htmlFor="businessName" className="block text-sm font-medium text-gray-700">
+                  Business Name
+                </label>
+                <div className="mt-1">
+                  <input
+                    type="text"
+                    {...register('business.name', { required: true })}
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  />
+                  {errors.business?.name && (
+                    <p className="mt-2 text-sm text-red-600">Business name is required</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="sm:col-span-3">
+                <label htmlFor="businessDomain" className="block text-sm font-medium text-gray-700">
+                  Business Domain
+                </label>
+                <div className="mt-1">
+                  <input
+                    type="text"
+                    {...register('business.domain', { required: true })}
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  />
+                  {errors.business?.domain && (
+                    <p className="mt-2 text-sm text-red-600">Business domain is required</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="sm:col-span-3">
+                <label htmlFor="businessSubdomain" className="block text-sm font-medium text-gray-700">
+                  Business Subdomain
+                </label>
+                <div className="mt-1">
+                  <input
+                    type="text"
+                    {...register('business.subdomain')}
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="sm:col-span-3">
+                <label htmlFor="supportEmail" className="block text-sm font-medium text-gray-700">
+                  Support Email
+                </label>
+                <div className="mt-1">
+                  <input
+                    type="email"
+                    {...register('business.supportEmail', { required: true })}
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  />
+                  {errors.business?.supportEmail && (
+                    <p className="mt-2 text-sm text-red-600">Support email is required</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="sm:col-span-3">
+                <label htmlFor="timezone" className="block text-sm font-medium text-gray-700">
+                  Timezone
+                </label>
+                <div className="mt-1">
+                  <select
+                    {...register('business.timezone', { required: true })}
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  >
+                    <option value="America/New_York">Eastern Time</option>
+                    <option value="America/Chicago">Central Time</option>
+                    <option value="America/Denver">Mountain Time</option>
+                    <option value="America/Los_Angeles">Pacific Time</option>
+                  </select>
+                  {errors.business?.timezone && (
+                    <p className="mt-2 text-sm text-red-600">Timezone is required</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="sm:col-span-3">
+                <label htmlFor="industry" className="block text-sm font-medium text-gray-700">
+                  Industry
+                </label>
+                <div className="mt-1">
+                  <input
+                    type="text"
+                    {...register('business.industry', { required: true })}
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  />
+                  {errors.business?.industry && (
+                    <p className="mt-2 text-sm text-red-600">Industry is required</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="sm:col-span-3">
+                <label htmlFor="size" className="block text-sm font-medium text-gray-700">
+                  Company Size
+                </label>
+                <div className="mt-1">
+                  <select
+                    {...register('business.size', { required: true })}
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  >
+                    <option value="small">Small</option>
+                    <option value="medium">Medium</option>
+                    <option value="large">Large</option>
+                    <option value="enterprise">Enterprise</option>
+                  </select>
+                  {errors.business?.size && (
+                    <p className="mt-2 text-sm text-red-600">Company size is required</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-medium leading-6 text-gray-900">
                 API Configuration
               </h3>
               <p className="mt-1 text-sm text-gray-500">
@@ -315,11 +433,59 @@ export default function EmailConfigWizard({
                 <div className="mt-1">
                   <input
                     type="password"
-                    {...register('integration.sendgridApiKey', { required: true })}
+                    {...register('integration.sendgrid.apiKey', { required: true })}
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                   />
-                  {errors.integration?.sendgridApiKey && (
+                  {errors.integration?.sendgrid?.apiKey && (
                     <p className="mt-2 text-sm text-red-600">API key is required</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="sm:col-span-4">
+                <label htmlFor="sendgridDomain" className="block text-sm font-medium text-gray-700">
+                  SendGrid Domain
+                </label>
+                <div className="mt-1">
+                  <input
+                    type="text"
+                    {...register('integration.sendgrid.domain', { required: true })}
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  />
+                  {errors.integration?.sendgrid?.domain && (
+                    <p className="mt-2 text-sm text-red-600">Domain is required</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="sm:col-span-3">
+                <label htmlFor="sendgridFromEmail" className="block text-sm font-medium text-gray-700">
+                  SendGrid From Email
+                </label>
+                <div className="mt-1">
+                  <input
+                    type="email"
+                    {...register('integration.sendgrid.fromEmail', { required: true })}
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  />
+                  {errors.integration?.sendgrid?.fromEmail && (
+                    <p className="mt-2 text-sm text-red-600">From email is required</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="sm:col-span-3">
+                <label htmlFor="sendgridFromName" className="block text-sm font-medium text-gray-700">
+                  SendGrid From Name
+                </label>
+                <div className="mt-1">
+                  <input
+                    type="text"
+                    {...register('integration.sendgrid.fromName', { required: true })}
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  />
+                  {errors.integration?.sendgrid?.fromName && (
+                    <p className="mt-2 text-sm text-red-600">From name is required</p>
                   )}
                 </div>
               </div>
@@ -331,43 +497,27 @@ export default function EmailConfigWizard({
                 <div className="mt-1">
                   <input
                     type="password"
-                    {...register('integration.openaiApiKey', { required: true })}
+                    {...register('integration.openai.apiKey', { required: true })}
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                   />
-                  {errors.integration?.openaiApiKey && (
+                  {errors.integration?.openai?.apiKey && (
                     <p className="mt-2 text-sm text-red-600">API key is required</p>
                   )}
                 </div>
               </div>
 
               <div className="sm:col-span-3">
-                <label htmlFor="fromEmail" className="block text-sm font-medium text-gray-700">
-                  From Email
-                </label>
-                <div className="mt-1">
-                  <input
-                    type="email"
-                    {...register('integration.fromEmail', { required: true })}
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                  />
-                  {errors.integration?.fromEmail && (
-                    <p className="mt-2 text-sm text-red-600">From email is required</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="sm:col-span-3">
-                <label htmlFor="fromName" className="block text-sm font-medium text-gray-700">
-                  From Name
+                <label htmlFor="openaiModel" className="block text-sm font-medium text-gray-700">
+                  OpenAI Model
                 </label>
                 <div className="mt-1">
                   <input
                     type="text"
-                    {...register('integration.fromName', { required: true })}
+                    {...register('integration.openai.model', { required: true })}
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                   />
-                  {errors.integration?.fromName && (
-                    <p className="mt-2 text-sm text-red-600">From name is required</p>
+                  {errors.integration?.openai?.model && (
+                    <p className="mt-2 text-sm text-red-600">Model is required</p>
                   )}
                 </div>
               </div>
@@ -375,7 +525,7 @@ export default function EmailConfigWizard({
           </div>
         )}
 
-        {step === 2 && (
+        {step === 3 && (
           <div className="space-y-6">
             <div>
               <h3 className="text-lg font-medium leading-6 text-gray-900">
@@ -435,7 +585,7 @@ export default function EmailConfigWizard({
           </div>
         )}
 
-        {step === 3 && (
+        {step === 4 && (
           <div className="space-y-6">
             <div>
               <h3 className="text-lg font-medium leading-6 text-gray-900">
@@ -975,7 +1125,7 @@ export default function EmailConfigWizard({
           </div>
         )}
 
-        {step === 4 && (
+        {step === 5 && (
           <div className="space-y-6">
             <div>
               <h3 className="text-lg font-medium leading-6 text-gray-900">
@@ -1052,7 +1202,7 @@ export default function EmailConfigWizard({
             >
               Cancel
             </button>
-            {step < 4 ? (
+            {step < 5 ? (
               <button
                 type="button"
                 onClick={() => setStep(step + 1)}
