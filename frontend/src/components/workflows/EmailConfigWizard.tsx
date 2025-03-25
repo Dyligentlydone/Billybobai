@@ -36,6 +36,7 @@ interface EmailTemplate {
 interface EmailConfig {
   integration: {
     sendgridApiKey: string;
+    openaiApiKey: string;
     fromEmail: string;
     fromName: string;
   };
@@ -271,20 +272,25 @@ export default function EmailConfigWizard({
     }
   };
 
-  const onSubmit = (data: EmailConfig) => {
-    if (!data.integration.sendgridApiKey || !data.integration.fromEmail || !data.integration.fromName) {
-      toast.error('Please fill in all SendGrid integration details before creating');
-      return;
+  const onSubmit = async (data: EmailConfig) => {
+    try {
+      // Save API keys to environment
+      const config = {
+        integration: {
+          ...data.integration,
+          sendgridApiKey: data.integration.sendgridApiKey,
+          openaiApiKey: data.integration.openaiApiKey
+        },
+        brandTone: data.brandTone,
+        templates: data.templates
+      };
+
+      // Call parent's onComplete with config
+      onComplete(config);
+    } catch (error) {
+      toast.error('Failed to save configuration');
+      console.error('Config error:', error);
     }
-    
-    onComplete({
-      ...data,
-      brandTone: {
-        ...data.brandTone,
-        greetings: data.brandTone.greetings ? data.brandTone.greetings[0].split(',').map(g => g.trim()) : [],
-        wordsToAvoid: data.brandTone.wordsToAvoid ? data.brandTone.wordsToAvoid[0].split(',').map(w => w.trim()) : []
-      }
-    });
   };
 
   return (
@@ -294,10 +300,10 @@ export default function EmailConfigWizard({
           <div className="space-y-6">
             <div>
               <h3 className="text-lg font-medium leading-6 text-gray-900">
-                SendGrid Integration
+                API Configuration
               </h3>
               <p className="mt-1 text-sm text-gray-500">
-                Configure your SendGrid email settings.
+                Configure your API settings.
               </p>
             </div>
 
@@ -313,6 +319,22 @@ export default function EmailConfigWizard({
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                   />
                   {errors.integration?.sendgridApiKey && (
+                    <p className="mt-2 text-sm text-red-600">API key is required</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="sm:col-span-4">
+                <label htmlFor="openaiApiKey" className="block text-sm font-medium text-gray-700">
+                  OpenAI API Key
+                </label>
+                <div className="mt-1">
+                  <input
+                    type="password"
+                    {...register('integration.openaiApiKey', { required: true })}
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  />
+                  {errors.integration?.openaiApiKey && (
                     <p className="mt-2 text-sm text-red-600">API key is required</p>
                   )}
                 </div>

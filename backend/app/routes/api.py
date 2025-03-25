@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from ..services.twilio_service import TwilioService, MessageRequest
-from ..services.sendgrid_service import SendGridService, EmailRequest
+from ..services.sendgrid_service import SendGridService, EmailRequest, TemplatePreviewRequest
 from ..services.zendesk_service import ZendeskService, TicketRequest
 from ..services.ai_service import AIService
 from flask_jwt_extended import jwt_required
@@ -8,6 +8,7 @@ from ..models import Workflow, db
 from ..services.workflow_engine import WorkflowEngine
 from datetime import datetime
 import asyncio
+import os
 
 api = Blueprint('api', __name__)
 twilio_service = TwilioService()
@@ -51,6 +52,26 @@ async def send_email():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@api.route('/sendgrid/templates', methods=['GET'])
+async def get_templates():
+    """Fetch all available SendGrid templates."""
+    try:
+        templates = await sendgrid_service.get_templates()
+        return jsonify(templates), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@api.route('/sendgrid/templates/preview', methods=['POST'])
+async def preview_template():
+    """Generate a preview of a template with test data."""
+    try:
+        data = request.get_json()
+        preview_request = TemplatePreviewRequest(**data)
+        result = await sendgrid_service.preview_template(preview_request)
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @api.route('/zendesk/ticket', methods=['POST'])
 async def create_ticket():
     """Create a new Zendesk ticket."""
@@ -85,6 +106,72 @@ async def add_ticket_comment(ticket_id):
 
         result = await zendesk_service.add_comment(ticket_id, comment, public)
         return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@api.route('/webhooks/sendgrid/inbound', methods=['POST'])
+async def handle_inbound_email():
+    """Handle incoming emails from SendGrid."""
+    try:
+        data = request.get_json()
+        
+        # Extract email data from SendGrid's inbound parse webhook
+        from_email = data.get('from')
+        subject = data.get('subject')
+        text = data.get('text')
+        html = data.get('html')
+        
+        # Get brand voice configuration from workflow
+        # For now, using default configuration
+        brand_voice = {
+            'voiceType': 'professional',
+            'greetings': ['Hello', 'Hi'],
+            'wordsToAvoid': []
+        }
+        
+        # Generate AI response
+        response = await ai_service.generate_email_response(
+            customer_email=text or html,
+            brand_voice=brand_voice
+        )
+        
+        # Send the response
+        if response['type'] == 'template':
+            await sendgrid_service.send_email(EmailRequest(
+                to=from_email,
+                subject=f"Re: {subject}",
+                template_id=response['template_id'],
+                template_data=response['template_data'],
+                type='template'
+            ))
+        else:
+            await sendgrid_service.send_email(EmailRequest(
+                to=from_email,
+                subject=f"Re: {subject}",
+                content=response['content'],
+                type='custom'
+            ))
+        
+        return jsonify({"status": "success"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@api.route('/api/config/email', methods=['POST'])
+async def configure_email_automation():
+    """Configure email automation with API keys and settings."""
+    try:
+        data = request.get_json()
+        
+        # Update environment variables
+        os.environ['SENDGRID_API_KEY'] = data['integration']['sendgridApiKey']
+        os.environ['OPENAI_API_KEY'] = data['integration']['openaiApiKey']
+        os.environ['SENDGRID_FROM_EMAIL'] = data['integration']['fromEmail']
+        
+        # Reinitialize services with new keys
+        sendgrid_service.__init__()
+        ai_service.__init__()
+        
+        return jsonify({"status": "success", "message": "Email automation configured successfully"}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

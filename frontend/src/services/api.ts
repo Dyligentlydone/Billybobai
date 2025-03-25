@@ -48,6 +48,30 @@ export interface WorkflowConfig {
   instructions: string[];
 }
 
+export interface EmailTemplate {
+  subject: string;
+  content: string;
+}
+
+export interface EmailConfig {
+  integration: {
+    sendgridApiKey: string;
+    openaiApiKey: string;
+    fromEmail: string;
+    fromName: string;
+  };
+  brandTone: {
+    voiceType: string;
+    greetings: string[];
+    wordsToAvoid: string[];
+  };
+  templates: {
+    support: Record<string, EmailTemplate>;
+    marketing: Record<string, EmailTemplate>;
+    transactional: Record<string, EmailTemplate>;
+  };
+}
+
 // AI Service
 export const analyzeRequirements = async (description: string): Promise<WorkflowConfig> => {
   const { data } = await api.post('/api/ai/analyze', { description });
@@ -79,6 +103,12 @@ export const updateTicket = async (ticketId: number, updates: Partial<TicketRequ
 
 export const addTicketComment = async (ticketId: number, comment: string, isPublic = true) => {
   const { data } = await api.post(`/api/zendesk/ticket/${ticketId}/comment`, { comment, public: isPublic });
+  return data;
+};
+
+// API Configuration
+export const configureEmailAutomation = async (config: EmailConfig) => {
+  const { data } = await api.post('/api/config/email', config);
   return data;
 };
 
