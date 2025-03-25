@@ -48,15 +48,9 @@ interface WorkflowNode {
 interface WorkflowBuilderProps {
   clientId: string;
   workflowId?: string;
-  smsConfig?: {
-    twilio: {
-      type: string;
-      aiEnabled: string;
-      phoneNumber: string;
-      prompt: string;
-    };
-    instructions: string[];
-  };
+  smsConfig?: any;
+  emailConfig?: any;
+  voiceConfig?: any;
 }
 
 interface Workflow {
@@ -83,7 +77,13 @@ const defaultPrompt = `You are a helpful AI assistant communicating via SMS. You
 4. Keep responses under 160 characters when possible
 5. Escalate to a human agent when necessary`;
 
-export default function WorkflowBuilder({ clientId, workflowId, smsConfig }: WorkflowBuilderProps) {
+export default function WorkflowBuilder({
+  clientId,
+  workflowId,
+  smsConfig,
+  emailConfig,
+  voiceConfig
+}: WorkflowBuilderProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState<WorkflowNode[]>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [workflowName, setWorkflowName] = useState('New Workflow');
