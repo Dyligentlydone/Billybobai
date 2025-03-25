@@ -1,4 +1,6 @@
 import axios from 'axios';
+import { EmailConfig } from '../types/email';
+import { VoiceConfig } from '../types/voice';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -110,6 +112,23 @@ export const addTicketComment = async (ticketId: number, comment: string, isPubl
 export const configureEmailAutomation = async (config: EmailConfig) => {
   const { data } = await api.post('/api/config/email', config);
   return data;
+};
+
+// Voice configuration endpoints
+export const saveVoiceConfig = async (businessId: string, config: VoiceConfig): Promise<void> => {
+  await api.post('/voice/config', {
+    businessId,
+    config,
+  });
+};
+
+export const getVoiceConfigs = async (businessId: string): Promise<VoiceConfig[]> => {
+  const response = await api.get(`/voice/config/${businessId}`);
+  return response.data;
+};
+
+export const deleteVoiceConfig = async (phoneNumber: string): Promise<void> => {
+  await api.delete(`/voice/config/${phoneNumber}`);
 };
 
 // Webhook Configuration
