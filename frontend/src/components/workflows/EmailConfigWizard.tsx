@@ -38,16 +38,21 @@ export default function EmailConfigWizard({
   onCancel,
 }: EmailConfigWizardProps) {
   const [step, setStep] = useState(1);
-  const { register, handleSubmit, watch, formState: { errors } } = useForm<EmailConfig>();
+  const { register, handleSubmit, formState: { errors } } = useForm<EmailConfig>();
 
   const onSubmit = (data: EmailConfig) => {
-    // Format the data and pass it to parent
+    // Only validate all fields on final submit
+    if (!data.integration.sendgridApiKey || !data.integration.fromEmail || !data.integration.fromName) {
+      toast.error('Please fill in all SendGrid integration details before creating');
+      return;
+    }
+    
     onComplete({
       ...data,
       brandTone: {
         ...data.brandTone,
-        greetings: data.brandTone.greetings[0].split(',').map(g => g.trim()),
-        wordsToAvoid: data.brandTone.wordsToAvoid[0].split(',').map(w => w.trim())
+        greetings: data.brandTone.greetings ? data.brandTone.greetings[0].split(',').map(g => g.trim()) : [],
+        wordsToAvoid: data.brandTone.wordsToAvoid ? data.brandTone.wordsToAvoid[0].split(',').map(w => w.trim()) : []
       }
     });
   };
@@ -154,7 +159,7 @@ export default function EmailConfigWizard({
                 <div className="mt-1">
                   <input
                     type="text"
-                    {...register('brandTone.greetings', { required: true })}
+                    {...register('brandTone.greetings')}
                     placeholder="Hi, Hello, Good morning"
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                   />
@@ -168,7 +173,7 @@ export default function EmailConfigWizard({
                 <div className="mt-1">
                   <input
                     type="text"
-                    {...register('brandTone.wordsToAvoid', { required: true })}
+                    {...register('brandTone.wordsToAvoid')}
                     placeholder="yeah, nah, cool"
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                   />
@@ -209,7 +214,7 @@ export default function EmailConfigWizard({
                 </label>
                 <div className="mt-1">
                   <select
-                    {...register('templates.businessHours.timezone')}
+                    {...register('templates.businessHours.timezone', { required: true })}
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                   >
                     <option value="America/New_York">Eastern Time</option>
@@ -217,6 +222,9 @@ export default function EmailConfigWizard({
                     <option value="America/Denver">Mountain Time</option>
                     <option value="America/Los_Angeles">Pacific Time</option>
                   </select>
+                  {errors.templates?.businessHours?.timezone && (
+                    <p className="mt-2 text-sm text-red-600">Timezone is required</p>
+                  )}
                 </div>
               </div>
 
