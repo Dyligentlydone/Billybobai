@@ -71,32 +71,80 @@ export type VoiceNodeType =
 export interface VoiceNodeData {
   label: string;
   type: VoiceNodeType;
+  // Menu Node
   prompt?: string;
-  options?: Array<{
-    digit: string;
-    description: string;
-    nextNodeId?: string;
-  }>;
+  options?: MenuOption[];
+  timeoutSeconds?: number;
+  maxRetries?: number;
+  invalidInputMessage?: string;
+  timeoutMessage?: string;
+  defaultRouteNodeId?: string;
+  repeatOptionsMessage?: string;
+  invalidInputAction?: 'repeat' | 'default' | 'disconnect';
+  gatherConfig?: {
+    finishOnKey: string;
+    numDigits?: number;
+    timeout: number;
+  };
+  // Message Node
   aiModel?: string;
   maxTokens?: number;
+  // Transfer Node
   transferNumber?: string;
+  // Voicemail Node
   maxDuration?: number;
   transcribe?: boolean;
+  // Hours Node
   timezone?: string;
-  schedule?: Array<{
-    day: string;
-    open: string;
-    close: string;
-  }>;
+  schedule?: BusinessHours[];
   outOfHoursNode?: string;
-  conditions?: Array<{
-    condition: string;
-    nextNodeId: string;
-  }>;
+  // Condition Node
+  conditions?: Condition[];
+  // Voice Settings
   voice?: {
     language: string;
     gender: string;
     speed: number;
+  };
+}
+
+export interface MenuOption {
+  digit: string;
+  description: string;
+  nextNodeId: string;
+}
+
+export interface BusinessHours {
+  day: string;
+  start: string;
+  end: string;
+}
+
+export interface Condition {
+  type: string;
+  operator: string;
+  value: string;
+  nextNodeId: string;
+}
+
+export interface MenuNodeData extends VoiceNodeData {
+  prompt: string;
+  options: Array<{
+    digit: string;
+    description: string;
+    nextNodeId: string;
+  }>;
+  timeoutSeconds: number;
+  maxRetries: number;
+  invalidInputMessage: string;
+  timeoutMessage: string;
+  defaultRouteNodeId?: string;
+  repeatOptionsMessage?: string;
+  invalidInputAction?: 'repeat' | 'default' | 'disconnect';
+  gatherConfig?: {
+    finishOnKey: string;
+    numDigits?: number;
+    timeout: number;
   };
 }
 

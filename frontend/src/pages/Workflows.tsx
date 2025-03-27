@@ -4,6 +4,9 @@ import axios from 'axios';
 import WorkflowBuilder from '../components/workflows/WorkflowBuilder';
 import SMSConfigWizard from '../components/workflows/SMSConfigWizard';
 import EmailConfigWizard from '../components/workflows/EmailConfigWizard';
+import { VoiceWizard } from '../components/wizard/VoiceWizard';
+import { WizardProvider } from '../contexts/WizardContext';
+import { Dialog, DialogContent, DialogActions, Button } from '@mui/material';
 
 interface Workflow {
   _id: string;
@@ -18,8 +21,10 @@ export default function Workflows() {
   const [isCreating, setIsCreating] = useState(false);
   const [showSMSWizard, setShowSMSWizard] = useState(false);
   const [showEmailWizard, setShowEmailWizard] = useState(false);
+  const [showVoiceWizard, setShowVoiceWizard] = useState(false);
   const [smsConfig, setSMSConfig] = useState<any>(null);
   const [emailConfig, setEmailConfig] = useState<any>(null);
+  const [voiceConfig, setVoiceConfig] = useState<any>(null);
 
   const { data: workflows, isLoading } = useQuery<Workflow[]>(
     'workflows',
@@ -79,6 +84,30 @@ export default function Workflows() {
       ]
     });
     setShowEmailWizard(false);
+    setIsCreating(true);
+  };
+
+  const handleVoiceConfigComplete = (config: any) => {
+    setVoiceConfig({
+      twilio: {
+        type: 'voice',
+        aiEnabled: 'true',
+        phoneNumber: config.integration.twilio.phoneNumber,
+        prompt: `You are an AI voice assistant for ${config.business.name}. Guidelines:
+          - Voice: ${config.callFlow.voicePreferences.gender}, ${config.callFlow.voicePreferences.language}
+          - Greeting: ${config.callFlow.greeting}
+          - Keep responses clear and concise
+          - Use fallback message if unable to respond
+          - Respect business hours: ${JSON.stringify(config.callFlow.businessHours)}`,
+      },
+      instructions: [
+        'Configure Twilio webhook URL for voice',
+        'Set up call monitoring alerts',
+        'Test with sample calls',
+        'Enable production mode when ready'
+      ]
+    });
+    setShowVoiceWizard(false);
     setIsCreating(true);
   };
 
@@ -142,6 +171,29 @@ export default function Workflows() {
     );
   }
 
+  if (showVoiceWizard) {
+    return (
+      <Dialog
+        open={showVoiceWizard}
+        onClose={() => setShowVoiceWizard(false)}
+        maxWidth="lg"
+        fullWidth
+      >
+        <DialogContent>
+          <WizardProvider>
+            <VoiceWizard
+              onComplete={handleVoiceConfigComplete}
+              onCancel={() => setShowVoiceWizard(false)}
+            />
+          </WizardProvider>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowVoiceWizard(false)}>Cancel</Button>
+        </DialogActions>
+      </Dialog>
+    );
+  }
+
   if (isCreating || selectedWorkflow) {
     return (
       <div className="space-y-6">
@@ -174,6 +226,7 @@ export default function Workflows() {
           workflowId={selectedWorkflow || undefined}
           smsConfig={smsConfig}
           emailConfig={emailConfig}
+          voiceConfig={voiceConfig}
         />
       </div>
     );
@@ -200,46 +253,52 @@ export default function Workflows() {
       </div>
 
       {/* Template Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-8">
+      <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-8">
         {/* SMS Automation Card */}
-        <div className="relative rounded-lg border border-gray-300 bg-white px-6 py-5 shadow-sm hover:border-indigo-500 hover:ring-1 hover:ring-indigo-500">
-          <div className="flex items-center space-x-3">
-            <div className="flex-shrink-0">
-              <span className="text-2xl">📱</span>
-            </div>
-            <div className="min-w-0 flex-1">
-              <a href="#" onClick={(e) => {
-                e.preventDefault();
-                setShowSMSWizard(true);
-              }} className="focus:outline-none">
-                <span className="absolute inset-0" aria-hidden="true" />
-                <p className="text-sm font-medium text-gray-900">SMS Automation</p>
-                <p className="truncate text-sm text-gray-500">
-                  Automatically respond to customer texts with AI-generated replies
-                </p>
-              </a>
-            </div>
+        <div className="relative rounded-lg border border-gray-300 bg-white px-6 py-5 shadow-sm flex items-center space-x-3 hover:border-gray-400 focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500">
+          <div className="flex-1 min-w-0">
+            <button
+              onClick={() => setShowSMSWizard(true)}
+              className="focus:outline-none w-full text-left"
+            >
+              <span className="absolute inset-0" aria-hidden="true" />
+              <p className="text-sm font-medium text-gray-900">SMS Automation</p>
+              <p className="text-sm text-gray-500 truncate">
+                Configure automated SMS responses
+              </p>
+            </button>
           </div>
         </div>
 
         {/* Email Automation Card */}
-        <div className="relative rounded-lg border border-gray-300 bg-white px-6 py-5 shadow-sm hover:border-indigo-500 hover:ring-1 hover:ring-indigo-500">
-          <div className="flex items-center space-x-3">
-            <div className="flex-shrink-0">
-              <span className="text-2xl">📧</span>
-            </div>
-            <div className="min-w-0 flex-1">
-              <a href="#" onClick={(e) => {
-                e.preventDefault();
-                setShowEmailWizard(true);
-              }} className="focus:outline-none">
-                <span className="absolute inset-0" aria-hidden="true" />
-                <p className="text-sm font-medium text-gray-900">Email Automation</p>
-                <p className="truncate text-sm text-gray-500">
-                  Automatically respond to customer emails with AI-generated replies
-                </p>
-              </a>
-            </div>
+        <div className="relative rounded-lg border border-gray-300 bg-white px-6 py-5 shadow-sm flex items-center space-x-3 hover:border-gray-400 focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500">
+          <div className="flex-1 min-w-0">
+            <button
+              onClick={() => setShowEmailWizard(true)}
+              className="focus:outline-none w-full text-left"
+            >
+              <span className="absolute inset-0" aria-hidden="true" />
+              <p className="text-sm font-medium text-gray-900">Email Automation</p>
+              <p className="text-sm text-gray-500 truncate">
+                Configure automated email responses
+              </p>
+            </button>
+          </div>
+        </div>
+
+        {/* Voice Call Automation Card */}
+        <div className="relative rounded-lg border border-gray-300 bg-white px-6 py-5 shadow-sm flex items-center space-x-3 hover:border-gray-400 focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500">
+          <div className="flex-1 min-w-0">
+            <button
+              onClick={() => setShowVoiceWizard(true)}
+              className="focus:outline-none w-full text-left"
+            >
+              <span className="absolute inset-0" aria-hidden="true" />
+              <p className="text-sm font-medium text-gray-900">Voice Call Automation</p>
+              <p className="text-sm text-gray-500 truncate">
+                Configure automated voice responses
+              </p>
+            </button>
           </div>
         </div>
       </div>

@@ -13,6 +13,7 @@ import {
   Box,
   Grid,
   IconButton,
+  Typography,
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { VoiceNodeData } from '../../../types/voice';
@@ -33,7 +34,28 @@ export const NodeConfigDialog: React.FC<NodeConfigDialogProps> = ({
   const [data, setData] = React.useState<VoiceNodeData | null>(null);
 
   React.useEffect(() => {
-    setData(node);
+    if (node) {
+      // Set default values for new nodes
+      if (node.type === 'menu' && !node.options) {
+        setData({
+          ...node,
+          prompt: node.prompt || 'Welcome to our menu. Please select from the following options:',
+          options: node.options || [],
+          timeoutSeconds: node.timeoutSeconds || 5,
+          maxRetries: node.maxRetries || 3,
+          invalidInputMessage: node.invalidInputMessage || 'Sorry, that was not a valid option.',
+          timeoutMessage: node.timeoutMessage || 'Sorry, I did not receive any input.',
+          invalidInputAction: node.invalidInputAction || 'repeat',
+          gatherConfig: node.gatherConfig || {
+            finishOnKey: '#',
+            numDigits: 1,
+            timeout: 5
+          }
+        });
+      } else {
+        setData(node);
+      }
+    }
   }, [node]);
 
   if (!data) return null;
@@ -46,19 +68,18 @@ export const NodeConfigDialog: React.FC<NodeConfigDialogProps> = ({
   };
 
   const handleAddMenuOption = () => {
-    if (data.options) {
-      setData({
-        ...data,
-        options: [
-          ...data.options,
-          {
-            digit: String(data.options.length + 1),
-            description: '',
-            nextNodeId: '',
-          },
-        ],
-      });
-    }
+    const currentOptions = data.options || [];
+    setData({
+      ...data,
+      options: [
+        ...currentOptions,
+        {
+          digit: String(currentOptions.length + 1),
+          description: '',
+          nextNodeId: '',
+        },
+      ],
+    });
   };
 
   const handleRemoveMenuOption = (index: number) => {
@@ -75,6 +96,7 @@ export const NodeConfigDialog: React.FC<NodeConfigDialogProps> = ({
       case 'menu':
         return (
           <>
+            {/* Basic Configuration */}
             <TextField
               fullWidth
               label="Menu Prompt"
@@ -84,7 +106,128 @@ export const NodeConfigDialog: React.FC<NodeConfigDialogProps> = ({
               multiline
               rows={2}
             />
+
+            {/* Input Settings */}
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={4}>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="Timeout (seconds)"
+                  value={data.timeoutSeconds || 5}
+                  onChange={(e) => setData({ ...data, timeoutSeconds: Number(e.target.value) })}
+                  size="small"
+                />
+              </Grid>
+              <Grid item xs={4}>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="Max Retries"
+                  value={data.maxRetries || 3}
+                  onChange={(e) => setData({ ...data, maxRetries: Number(e.target.value) })}
+                  size="small"
+                />
+              </Grid>
+              <Grid item xs={4}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Invalid Input Action</InputLabel>
+                  <Select
+                    value={data.invalidInputAction || 'repeat'}
+                    onChange={(e) => setData({ ...data, invalidInputAction: e.target.value as 'repeat' | 'default' | 'disconnect' })}
+                    label="Invalid Input Action"
+                  >
+                    <MenuItem value="repeat">Repeat Menu</MenuItem>
+                    <MenuItem value="default">Default Route</MenuItem>
+                    <MenuItem value="disconnect">Disconnect</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
+
+            {/* Error Messages */}
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={6}>
+                <TextField
+                  fullWidth
+                  label="Invalid Input Message"
+                  value={data.invalidInputMessage || ''}
+                  onChange={(e) => setData({ ...data, invalidInputMessage: e.target.value })}
+                  size="small"
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <TextField
+                  fullWidth
+                  label="Timeout Message"
+                  value={data.timeoutMessage || ''}
+                  onChange={(e) => setData({ ...data, timeoutMessage: e.target.value })}
+                  size="small"
+                />
+              </Grid>
+            </Grid>
+
+            {/* Gather Configuration */}
+            <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+              <Typography variant="subtitle2" gutterBottom>
+                Input Settings
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={4}>
+                  <TextField
+                    fullWidth
+                    label="Finish Key"
+                    value={data.gatherConfig?.finishOnKey || '#'}
+                    onChange={(e) => setData({
+                      ...data,
+                      gatherConfig: {
+                        ...(data.gatherConfig || { timeout: 5 }),
+                        finishOnKey: e.target.value
+                      }
+                    })}
+                    size="small"
+                  />
+                </Grid>
+                <Grid item xs={4}>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    label="Number of Digits"
+                    value={data.gatherConfig?.numDigits || 1}
+                    onChange={(e) => setData({
+                      ...data,
+                      gatherConfig: {
+                        ...(data.gatherConfig || { finishOnKey: '#', timeout: 5 }),
+                        numDigits: Number(e.target.value)
+                      }
+                    })}
+                    size="small"
+                  />
+                </Grid>
+                <Grid item xs={4}>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    label="Input Timeout"
+                    value={data.gatherConfig?.timeout || 5}
+                    onChange={(e) => setData({
+                      ...data,
+                      gatherConfig: {
+                        ...(data.gatherConfig || { finishOnKey: '#' }),
+                        timeout: Number(e.target.value)
+                      }
+                    })}
+                    size="small"
+                  />
+                </Grid>
+              </Grid>
+            </Box>
+
+            {/* Menu Options */}
             <Box sx={{ mt: 2 }}>
+              <Typography variant="subtitle2" gutterBottom>
+                Menu Options
+              </Typography>
               {data.options?.map((option, index) => (
                 <Grid container spacing={2} key={index} sx={{ mb: 1 }}>
                   <Grid item xs={2}>
@@ -103,7 +246,7 @@ export const NodeConfigDialog: React.FC<NodeConfigDialogProps> = ({
                       size="small"
                     />
                   </Grid>
-                  <Grid item xs={8}>
+                  <Grid item xs={7}>
                     <TextField
                       fullWidth
                       label="Description"
@@ -120,6 +263,22 @@ export const NodeConfigDialog: React.FC<NodeConfigDialogProps> = ({
                     />
                   </Grid>
                   <Grid item xs={2}>
+                    <TextField
+                      fullWidth
+                      label="Next Node"
+                      value={option.nextNodeId}
+                      onChange={(e) =>
+                        setData({
+                          ...data,
+                          options: data.options?.map((opt, i) =>
+                            i === index ? { ...opt, nextNodeId: e.target.value } : opt
+                          ),
+                        })
+                      }
+                      size="small"
+                    />
+                  </Grid>
+                  <Grid item xs={1}>
                     <IconButton
                       onClick={() => handleRemoveMenuOption(index)}
                       color="error"
@@ -140,6 +299,18 @@ export const NodeConfigDialog: React.FC<NodeConfigDialogProps> = ({
                 Add Option
               </Button>
             </Box>
+
+            {/* Default Route */}
+            {data.invalidInputAction === 'default' && (
+              <TextField
+                fullWidth
+                label="Default Route Node ID"
+                value={data.defaultRouteNodeId || ''}
+                onChange={(e) => setData({ ...data, defaultRouteNodeId: e.target.value })}
+                margin="normal"
+                size="small"
+              />
+            )}
           </>
         );
 
