@@ -3,10 +3,11 @@ import { WizardState, WizardAction, WizardStep, VoicePersonalizationSettings } f
 
 const defaultVoiceSettings: VoicePersonalizationSettings = {
   voice: {
-    type: 'neural',
+    type: 'basic',
     gender: 'female',
     accent: 'American',
-    name: 'Sarah'
+    name: 'woman',
+    provider: 'twilio'
   },
   speech: {
     rate: 1.0,

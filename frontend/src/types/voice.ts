@@ -18,11 +18,7 @@ export interface VoiceConfig {
     greeting: {
       enabled: boolean;
       message: string;
-      voice: {
-        language: string;
-        gender: 'male' | 'female';
-        speed: number;
-      };
+      voiceSettings: VoiceSettings;
     };
     mainMenu: {
       prompt: string;
@@ -31,22 +27,21 @@ export interface VoiceConfig {
         description: string;
         action: 'message' | 'transfer' | 'voicemail';
       }>;
+      voiceSettings: VoiceSettings;
     };
     fallback: {
       message: string;
       action: 'transfer' | 'voicemail' | 'end';
+      voiceSettings: VoiceSettings;
     };
     businessHours: {
       enabled: boolean;
       timezone: string;
       hours: Record<string, { start: string; end: string; }>;
       outOfHoursMessage: string;
+      voiceSettings: VoiceSettings;
     };
-    voicePreferences: {
-      language: string;
-      speed: number;
-      gender: 'male' | 'female';
-    };
+    defaultVoiceSettings: VoiceSettings;
     workflow?: {
       nodes: VoiceNodeData[];
       edges: Array<{
@@ -106,6 +101,10 @@ export interface VoiceNodeData {
     gender: string;
     speed: number;
   };
+}
+
+export interface VoiceSettings {
+  voice: string;  // 'man' | 'woman'
 }
 
 export interface MenuOption {

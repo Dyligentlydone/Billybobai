@@ -40,10 +40,11 @@ export interface TestScenario {
 
 export interface VoicePersonalizationSettings {
   voice: {
-    type: 'neural' | 'standard';
+    type: 'basic' | 'neural' | 'standard';
     gender: 'male' | 'female';
     accent: string;
     name: string;
+    provider?: 'twilio' | 'polly' | 'google';
   };
   speech: {
     rate: number;  // 0.5 to 2.0

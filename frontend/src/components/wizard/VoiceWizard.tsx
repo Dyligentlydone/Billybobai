@@ -9,14 +9,13 @@ import {
   Container,
 } from '@mui/material';
 import { useWizardStep } from '../../contexts/WizardContext';
-import { WizardStep } from '../../types/wizard';
+import { WizardStep, VoicePersonalizationSettings } from '../../types/wizard';
 import { AccountConfig } from './steps/AccountConfig';
 import { PhoneSetup } from './steps/PhoneSetup';
 import { WorkflowSetup } from './steps/WorkflowSetup';
 import { TestingSetup } from './steps/TestingSetup';
 import { DeploySetup } from './steps/DeploySetup';
 import { VoicePersonalization } from '../voice/VoicePersonalization';
-import { VoicePersonalizationSettings } from '../../types/voice';
 
 const defaultVoiceSettings: VoicePersonalizationSettings = {
   voice: {
@@ -158,8 +157,7 @@ export function VoiceWizard({ onComplete, onCancel }: VoiceWizardProps) {
         return (
           <VoicePersonalization
             settings={state.voiceSettings || defaultVoiceSettings}
-            onChange={handleVoiceSettingsChange}
-            title="Voice Personalization"
+            onSettingsChange={handleVoiceSettingsChange}
           />
         );
       case 'workflow':
