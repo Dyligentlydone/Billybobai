@@ -58,6 +58,8 @@ const AnalyticsDashboard: React.FC<Props> = ({ businessId }) => {
     </div>
   );
 
+  const categories = ['SMS', 'Email', 'Voice'];
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
@@ -69,12 +71,11 @@ const AnalyticsDashboard: React.FC<Props> = ({ businessId }) => {
         )}
       </div>
       {renderOverview()}
-      
       <Tab.Group>
         <Tab.List className="flex space-x-1 rounded-xl bg-blue-900/20 p-1 mb-6">
-          {['SMS', 'Email', 'Voice'].map((tab) => (
+          {categories.map((category) => (
             <Tab
-              key={tab}
+              key={category}
               className={({ selected }) =>
                 classNames(
                   'w-full rounded-lg py-2.5 text-sm font-medium leading-5',
@@ -85,20 +86,35 @@ const AnalyticsDashboard: React.FC<Props> = ({ businessId }) => {
                 )
               }
             >
-              {tab}
+              {category}
             </Tab>
           ))}
         </Tab.List>
-        <Tab.Panels>
-          <Tab.Panel>
-            <SMSAnalytics metrics={data?.sms || mockAnalyticsData.sms} />
+        <Tab.Panels className="mt-2">
+          <Tab.Panel
+            className={classNames(
+              'rounded-xl bg-white p-3',
+              'ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2'
+            )}
+          >
+            <SMSAnalytics metrics={data?.sms || mockAnalyticsData.sms} businessId={businessId || ''} />
           </Tab.Panel>
-          <Tab.Panel>
+          <Tab.Panel
+            className={classNames(
+              'rounded-xl bg-white p-3',
+              'ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2'
+            )}
+          >
             <div className="text-center text-gray-500 py-12">
               Email analytics coming soon...
             </div>
           </Tab.Panel>
-          <Tab.Panel>
+          <Tab.Panel
+            className={classNames(
+              'rounded-xl bg-white p-3',
+              'ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2'
+            )}
+          >
             <div className="text-center text-gray-500 py-12">
               Voice analytics coming soon...
             </div>

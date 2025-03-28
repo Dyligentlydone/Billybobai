@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import analytics, business, messages, webhooks
+from .routers import analytics, business, conversations, messages, webhooks
 
-app = FastAPI()
+app = FastAPI(title="SMS Automation Hub API")
 
 # Configure CORS
 app.add_middleware(
@@ -14,11 +14,12 @@ app.add_middleware(
 )
 
 # Include routers
-app.include_router(analytics.router)
+app.include_router(analytics.router, tags=["analytics"])
 app.include_router(business.router)
+app.include_router(conversations.router, tags=["conversations"])
 app.include_router(messages.router)
 app.include_router(webhooks.router)
 
 @app.get("/")
 async def root():
-    return {"message": "Welcome to Twilio Automation Hub API"}
+    return {"message": "SMS Automation Hub API"}

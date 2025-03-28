@@ -1,13 +1,20 @@
 import React, { useState } from 'react';
 import { Switch } from '@headlessui/react';
 import { SMSMetrics } from '../../types/analytics';
+import { SMSConversations } from '../conversations/SMSConversations';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { Tab } from '@headlessui/react';
 
 interface Props {
   metrics: SMSMetrics;
+  businessId: string;
 }
 
-const SMSAnalytics: React.FC<Props> = ({ metrics }) => {
+function classNames(...classes: string[]) {
+  return classes.filter(Boolean).join(' ');
+}
+
+const SMSAnalytics: React.FC<Props> = ({ metrics, businessId }) => {
   const [enabledCategories, setEnabledCategories] = useState<Record<string, boolean>>({
     delivery_metrics: true,
     engagement_metrics: false,
@@ -125,10 +132,53 @@ const SMSAnalytics: React.FC<Props> = ({ metrics }) => {
     );
   };
 
-  return (
+  const renderMetrics = () => (
     <div className="space-y-6">
       {renderMetricToggles()}
       {Object.keys(categoryLabels).map(category => renderMetricCategory(category))}
+    </div>
+  );
+
+  return (
+    <div className="w-full">
+      <Tab.Group>
+        <Tab.List className="flex space-x-1 rounded-xl bg-blue-900/20 p-1 mb-6">
+          {['Metrics', 'Conversations'].map((tab) => (
+            <Tab
+              key={tab}
+              className={({ selected }) =>
+                classNames(
+                  'w-full rounded-lg py-2.5 text-sm font-medium leading-5',
+                  'ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2',
+                  selected
+                    ? 'bg-white text-blue-700 shadow'
+                    : 'text-blue-100 hover:bg-white/[0.12] hover:text-white'
+                )
+              }
+            >
+              {tab}
+            </Tab>
+          ))}
+        </Tab.List>
+        <Tab.Panels>
+          <Tab.Panel
+            className={classNames(
+              'rounded-xl bg-white p-3',
+              'ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2'
+            )}
+          >
+            {renderMetrics()}
+          </Tab.Panel>
+          <Tab.Panel
+            className={classNames(
+              'rounded-xl bg-white p-3',
+              'ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2'
+            )}
+          >
+            <SMSConversations businessId={businessId} />
+          </Tab.Panel>
+        </Tab.Panels>
+      </Tab.Group>
     </div>
   );
 };
