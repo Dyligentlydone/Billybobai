@@ -23,6 +23,7 @@
     "mongoose": "^8.12.1",
     "mongoose-encryption": "^2.1.2",
     "morgan": "^1.10.0",
+    "node-fetch": "^2.6.9",
     "node-zendesk": "^2.2.0",
     "openai": "^4.26.0",
     "twilio": "^4.21.0",

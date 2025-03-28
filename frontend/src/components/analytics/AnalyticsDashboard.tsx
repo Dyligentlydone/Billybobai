@@ -4,25 +4,32 @@ import axios from 'axios';
 import {
   LineChart,
   Line,
-  BarChart,
-  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   Legend,
-  ResponsiveContainer
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell
 } from 'recharts';
 import { format, subDays } from 'date-fns';
+import { Tab } from '@headlessui/react';
+import { AnalyticsData } from '../../types/analytics';
+
+const COLORS = ['#3B82F6', '#10B981', '#6366F1', '#F59E0B'];
 
 interface AnalyticsDashboardProps {
   clientId: string;
+  mockData?: AnalyticsData;
 }
 
-export default function AnalyticsDashboard({ clientId }: AnalyticsDashboardProps) {
+export default function AnalyticsDashboard({ clientId, mockData }: AnalyticsDashboardProps) {
   const [dateRange, setDateRange] = useState<number>(7); // days
+  const [selectedTab, setSelectedTab] = useState(0);
 
-  const { data: analytics, isLoading } = useQuery(
+  const { data: analytics, isLoading } = useQuery<AnalyticsData>(
     ['analytics', clientId, dateRange],
     async () => {
       const startDate = format(subDays(new Date(), dateRange), 'yyyy-MM-dd');
@@ -38,11 +45,14 @@ export default function AnalyticsDashboard({ clientId }: AnalyticsDashboardProps
       return data;
     },
     {
-      refetchInterval: 300000 // Refresh every 5 minutes
+      refetchInterval: 300000, // Refresh every 5 minutes
+      enabled: !mockData && !!clientId // Only fetch if we don't have mock data and have a clientId
     }
   );
 
-  if (isLoading) {
+  const data = mockData || analytics;
+
+  if (isLoading || (!data && !mockData)) {
     return (
       <div className="flex h-full items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-indigo-500"></div>
@@ -50,8 +60,47 @@ export default function AnalyticsDashboard({ clientId }: AnalyticsDashboardProps
     );
   }
 
+  if (!data) {
+    return (
+      <div className="text-center py-12 bg-gray-50 rounded-lg">
+        <p className="text-gray-500">No data available</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 p-6">
+      {/* Overview Section */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <MetricCard
+          title="Total Interactions"
+          value={data.overview.totalInteractions}
+          change={0}
+          icon="🔄"
+        />
+        <MetricCard
+          title="Total Cost"
+          value={data.overview.totalCost}
+          change={0}
+          icon="💰"
+          unit="$"
+        />
+        <MetricCard
+          title="Avg Response Time"
+          value={data.overview.averageResponseTime}
+          change={0}
+          icon="⚡"
+          unit="sec"
+        />
+        <MetricCard
+          title="Success Rate"
+          value={data.overview.successRate}
+          change={0}
+          icon="✅"
+          unit="%"
+        />
+      </div>
+
       {/* Date range selector */}
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-900">Analytics Dashboard</h2>
@@ -66,116 +115,80 @@ export default function AnalyticsDashboard({ clientId }: AnalyticsDashboardProps
         </select>
       </div>
 
-      {/* SMS Automation Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <MetricCard
-          title="Total Messages"
-          value={analytics?.sms.totalMessages || 0}
-          change={analytics?.sms.messageChange || 0}
-          icon="💬"
-        />
-        <MetricCard
-          title="Response Time"
-          value={analytics?.sms.avgResponseTime || 0}
-          change={analytics?.sms.responseTimeChange || 0}
-          icon="⚡"
-          unit="sec"
-        />
-        <MetricCard
-          title="AI Cost"
-          value={analytics?.sms.aiCost || 0}
-          change={analytics?.sms.aiCostChange || 0}
-          icon="🤖"
-          unit="$"
-        />
-        <MetricCard
-          title="SMS Cost"
-          value={analytics?.sms.smsCost || 0}
-          change={analytics?.sms.smsCostChange || 0}
-          icon="📱"
-          unit="$"
-        />
-      </div>
+      {/* Automation Type Tabs */}
+      <Tab.Group selectedIndex={selectedTab} onChange={setSelectedTab}>
+        <Tab.List className="flex space-x-1 rounded-xl bg-blue-900/20 p-1">
+          <Tab className={({ selected }) =>
+            `w-full rounded-lg py-2.5 text-sm font-medium leading-5
+             ${selected 
+               ? 'bg-white shadow text-blue-700'
+               : 'text-blue-100 hover:bg-white/[0.12] hover:text-white'
+             }`
+          }>
+            SMS
+          </Tab>
+          <Tab className={({ selected }) =>
+            `w-full rounded-lg py-2.5 text-sm font-medium leading-5
+             ${selected 
+               ? 'bg-white shadow text-blue-700'
+               : 'text-blue-100 hover:bg-white/[0.12] hover:text-white'
+             }`
+          }>
+            Email
+          </Tab>
+          <Tab className={({ selected }) =>
+            `w-full rounded-lg py-2.5 text-sm font-medium leading-5
+             ${selected 
+               ? 'bg-white shadow text-blue-700'
+               : 'text-blue-100 hover:bg-white/[0.12] hover:text-white'
+             }`
+          }>
+            Voice
+          </Tab>
+        </Tab.List>
 
-      {/* Message Quality Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold mb-4">Message Quality</h3>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={analytics?.sms.qualityMetrics || []}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="sentiment"
-                  stroke="#3B82F6"
-                  name="Sentiment"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="quality"
-                  stroke="#10B981"
-                  name="Quality"
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+        <Tab.Panels>
+          {/* SMS Panel */}
+          <Tab.Panel>
+            <AutomationMetrics
+              metrics={data.sms}
+              type="SMS"
+              specificMetrics={[
+                { label: 'Delivery Rate', value: data.sms.deliveryRate, unit: '%' },
+                { label: 'Opt-out Rate', value: data.sms.optOutRate, unit: '%' }
+              ]}
+            />
+          </Tab.Panel>
 
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold mb-4">Response Distribution</h3>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={analytics?.sms.responseTypes || []}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="type" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="count" fill="#3B82F6" name="Count" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </div>
+          {/* Email Panel */}
+          <Tab.Panel>
+            <AutomationMetrics
+              metrics={data.email}
+              type="Email"
+              specificMetrics={[
+                { label: 'Open Rate', value: data.email.openRate, unit: '%' },
+                { label: 'Click Rate', value: data.email.clickRate, unit: '%' },
+                { label: 'Bounce Rate', value: data.email.bounceRate, unit: '%' },
+                { label: 'Unsubscribe Rate', value: data.email.unsubscribeRate, unit: '%' }
+              ]}
+            />
+          </Tab.Panel>
 
-      {/* Cost Analysis */}
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h3 className="text-lg font-semibold mb-4">Daily Cost Breakdown</h3>
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={analytics?.sms.dailyCosts || []}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Line
-                type="monotone"
-                dataKey="ai"
-                stroke="#3B82F6"
-                name="AI Cost"
-              />
-              <Line
-                type="monotone"
-                dataKey="sms"
-                stroke="#10B981"
-                name="SMS Cost"
-              />
-              <Line
-                type="monotone"
-                dataKey="total"
-                stroke="#6366F1"
-                name="Total Cost"
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+          {/* Voice Panel */}
+          <Tab.Panel>
+            <AutomationMetrics
+              metrics={data.voice}
+              type="Voice"
+              specificMetrics={[
+                { label: 'Avg Call Duration', value: data.voice.callDuration, unit: 'sec' },
+                { label: 'Completion Rate', value: data.voice.completionRate, unit: '%' },
+                { label: 'Transfer Rate', value: data.voice.transferRate, unit: '%' },
+                { label: 'Voicemail Rate', value: data.voice.voicemailRate, unit: '%' }
+              ]}
+            />
+          </Tab.Panel>
+        </Tab.Panels>
+      </Tab.Group>
     </div>
   );
 }
@@ -189,22 +202,139 @@ interface MetricCardProps {
 }
 
 function MetricCard({ title, value, change, icon, unit }: MetricCardProps) {
-  const formatValue = (val: number) => {
-    if (unit === 'sec') return `${val.toFixed(2)}s`;
-    if (unit === '$') return `$${val.toFixed(2)}`;
-    return val.toLocaleString();
-  };
-
   return (
-    <div className="bg-white p-6 rounded-lg shadow">
+    <div className="bg-white rounded-lg shadow p-6">
       <div className="flex items-center">
-        <span className="text-2xl mr-2">{icon}</span>
-        <h3 className="text-lg font-semibold">{title}</h3>
+        <div className="text-2xl mr-2">{icon}</div>
+        <div>
+          <p className="text-sm font-medium text-gray-600">{title}</p>
+          <p className="text-2xl font-semibold text-gray-900">
+            {value.toLocaleString()}{unit ? ` ${unit}` : ''}
+          </p>
+        </div>
       </div>
-      <p className="text-3xl font-bold mt-2">{formatValue(value)}</p>
-      <div className={`flex items-center mt-2 ${change >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-        <span>{change >= 0 ? '↑' : '↓'}</span>
-        <span className="ml-1">{Math.abs(change)}% vs previous period</span>
+      <div className={`mt-2 flex items-center text-sm ${
+        change >= 0 ? 'text-green-600' : 'text-red-600'
+      }`}>
+        {change >= 0 ? '↑' : '↓'} {Math.abs(change)}%
+      </div>
+    </div>
+  );
+}
+
+interface AutomationMetricsProps {
+  metrics: any;
+  type: 'SMS' | 'Email' | 'Voice';
+  specificMetrics: Array<{
+    label: string;
+    value: number;
+    unit: string;
+  }>;
+}
+
+function AutomationMetrics({ metrics, type, specificMetrics }: AutomationMetricsProps) {
+  return (
+    <div className="space-y-6 mt-6">
+      {/* Type-specific metrics */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+        {specificMetrics.map((metric, index) => (
+          <div key={index} className="bg-white rounded-lg shadow p-4">
+            <h3 className="text-sm font-medium text-gray-600">{metric.label}</h3>
+            <p className="text-xl font-semibold text-gray-900">
+              {metric.value.toLocaleString()}{metric.unit}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      {/* Quality Metrics Chart */}
+      <div className="bg-white p-6 rounded-lg shadow">
+        <h3 className="text-lg font-semibold mb-4">Quality Metrics</h3>
+        <div className="h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={metrics.qualityMetrics}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="date" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Line
+                type="monotone"
+                dataKey="sentiment"
+                stroke="#3B82F6"
+                name="Sentiment"
+              />
+              <Line
+                type="monotone"
+                dataKey="quality"
+                stroke="#10B981"
+                name="Quality"
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Response Types */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h3 className="text-lg font-semibold mb-4">Response Distribution</h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={metrics.responseTypes}
+                  dataKey="count"
+                  nameKey="type"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={80}
+                  label
+                >
+                  {metrics.responseTypes.map((entry: any, index: number) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Cost Analysis */}
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h3 className="text-lg font-semibold mb-4">Cost Breakdown</h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={metrics.dailyCosts}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="ai"
+                  stroke="#3B82F6"
+                  name="AI Cost"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="service"
+                  stroke="#10B981"
+                  name={`${type} Cost`}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="total"
+                  stroke="#6366F1"
+                  name="Total Cost"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
       </div>
     </div>
   );
