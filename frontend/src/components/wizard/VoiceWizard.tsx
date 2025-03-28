@@ -15,6 +15,45 @@ import { PhoneSetup } from './steps/PhoneSetup';
 import { WorkflowSetup } from './steps/WorkflowSetup';
 import { TestingSetup } from './steps/TestingSetup';
 import { DeploySetup } from './steps/DeploySetup';
+import { VoicePersonalization } from '../voice/VoicePersonalization';
+import { VoicePersonalizationSettings } from '../../types/voice';
+
+const defaultVoiceSettings: VoicePersonalizationSettings = {
+  voice: {
+    type: 'neural',
+    gender: 'female',
+    accent: 'American',
+    name: 'Sarah'
+  },
+  speech: {
+    rate: 1.0,
+    pitch: 0,
+    emphasis: 'normal'
+  },
+  brand: {
+    tone: 'professional',
+    personality: ['helpful', 'friendly', 'efficient'],
+    customPhrases: {
+      greeting: ['Hello, thank you for calling'],
+      confirmation: ['I understand', 'Let me help you with that'],
+      farewell: ['Thank you for your time', 'Have a great day']
+    },
+    prosody: {
+      wordEmphasis: true,
+      naturalPauses: true,
+      intonation: 'natural'
+    }
+  },
+  timing: {
+    responseDelay: 500,
+    wordSpacing: 1.0,
+    pauseDuration: {
+      comma: 200,
+      period: 500,
+      question: 300
+    }
+  }
+};
 
 const steps: { id: WizardStep; label: string; description: string }[] = [
   {
@@ -31,6 +70,11 @@ const steps: { id: WizardStep; label: string; description: string }[] = [
     id: 'phone',
     label: 'Phone Setup',
     description: 'Set up your phone numbers and call handling',
+  },
+  {
+    id: 'voice',
+    label: 'Voice Settings',
+    description: 'Personalize your voice response system',
   },
   {
     id: 'workflow',
@@ -55,7 +99,7 @@ interface VoiceWizardProps {
 }
 
 export function VoiceWizard({ onComplete, onCancel }: VoiceWizardProps) {
-  const { currentStep, goToStep } = useWizardStep();
+  const { currentStep, goToStep, updateState, state } = useWizardStep();
   const activeStep = steps.findIndex(step => step.id === currentStep);
 
   const handleNext = () => {
@@ -63,7 +107,7 @@ export function VoiceWizard({ onComplete, onCancel }: VoiceWizardProps) {
     if (nextStep) {
       goToStep(nextStep.id);
     } else if (onComplete) {
-      onComplete({});
+      onComplete(state);
     }
   };
 
@@ -74,6 +118,13 @@ export function VoiceWizard({ onComplete, onCancel }: VoiceWizardProps) {
     } else if (onCancel) {
       onCancel();
     }
+  };
+
+  const handleVoiceSettingsChange = (settings: VoicePersonalizationSettings) => {
+    updateState({
+      ...state,
+      voiceSettings: settings
+    });
   };
 
   const renderStepContent = () => {
@@ -103,6 +154,14 @@ export function VoiceWizard({ onComplete, onCancel }: VoiceWizardProps) {
         return <AccountConfig />;
       case 'phone':
         return <PhoneSetup />;
+      case 'voice':
+        return (
+          <VoicePersonalization
+            settings={state.voiceSettings || defaultVoiceSettings}
+            onChange={handleVoiceSettingsChange}
+            title="Voice Personalization"
+          />
+        );
       case 'workflow':
         return <WorkflowSetup />;
       case 'testing':

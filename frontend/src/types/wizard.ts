@@ -1,4 +1,4 @@
-export type WizardStep = 'intro' | 'account' | 'phone' | 'workflow' | 'testing' | 'deploy';
+export type WizardStep = 'intro' | 'account' | 'phone' | 'voice' | 'workflow' | 'testing' | 'deploy';
 
 interface ServiceConfig {
   isValid: boolean;
@@ -38,6 +38,43 @@ export interface TestScenario {
   expectedOutput: string;
 }
 
+export interface VoicePersonalizationSettings {
+  voice: {
+    type: 'neural' | 'standard';
+    gender: 'male' | 'female';
+    accent: string;
+    name: string;
+  };
+  speech: {
+    rate: number;  // 0.5 to 2.0
+    pitch: number; // -20 to 20
+    emphasis: 'reduced' | 'normal' | 'enhanced';
+  };
+  brand: {
+    tone: 'professional' | 'friendly' | 'casual' | 'formal';
+    personality: string[];
+    customPhrases: {
+      greeting: string[];
+      confirmation: string[];
+      farewell: string[];
+    };
+    prosody: {
+      wordEmphasis: boolean;
+      naturalPauses: boolean;
+      intonation: 'natural' | 'expressive' | 'controlled';
+    };
+  };
+  timing: {
+    responseDelay: number;  // milliseconds
+    wordSpacing: number;    // 0.8 to 1.2
+    pauseDuration: {
+      comma: number;        // milliseconds
+      period: number;
+      question: number;
+    };
+  };
+}
+
 export interface WizardState {
   currentStep: WizardStep;
   services: {
@@ -48,6 +85,7 @@ export interface WizardState {
   phone: {
     phoneNumbers: PhoneConfig[];
   };
+  voiceSettings?: VoicePersonalizationSettings;
   workflow: {
     intentAnalysis: {
       prompt: string;
@@ -68,6 +106,7 @@ export type WizardAction =
   | { type: 'COMPLETE_STEP'; step: WizardStep }
   | { type: 'UPDATE_SERVICES'; services: Partial<WizardState['services']> }
   | { type: 'UPDATE_PHONE'; phone: Partial<WizardState['phone']> }
+  | { type: 'UPDATE_VOICE'; voiceSettings: VoicePersonalizationSettings }
   | { type: 'UPDATE_WORKFLOW'; workflow: Partial<WizardState['workflow']> }
   | { type: 'UPDATE_TESTING'; testing: Partial<WizardState['testing']> }
   | { type: 'UPDATE_DEPLOYMENT'; deployment: Partial<WizardState['deployment']> };
