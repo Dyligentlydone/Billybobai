@@ -9,33 +9,12 @@ const defaultVoiceSettings: VoicePersonalizationSettings = {
     name: 'woman',
     provider: 'twilio'
   },
-  speech: {
-    rate: 1.0,
-    pitch: 0,
-    emphasis: 'normal'
-  },
-  brand: {
-    tone: 'professional',
-    personality: ['helpful', 'friendly', 'efficient'],
-    customPhrases: {
-      greeting: ['Hello, thank you for calling'],
-      confirmation: ['I understand', 'Let me help you with that'],
-      farewell: ['Thank you for your time', 'Have a great day']
-    },
-    prosody: {
-      wordEmphasis: true,
-      naturalPauses: true,
-      intonation: 'natural'
-    }
-  },
-  timing: {
-    responseDelay: 500,
-    wordSpacing: 1.0,
-    pauseDuration: {
-      comma: 200,
-      period: 500,
-      question: 300
-    }
+  ssml: {
+    rate: 'medium',
+    pitch: 'medium',
+    volume: 'medium',
+    emphasis: 'none',
+    breakTime: 500
   }
 };
 

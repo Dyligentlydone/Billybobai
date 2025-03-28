@@ -38,41 +38,25 @@ export interface TestScenario {
   expectedOutput: string;
 }
 
+export type SSMLRate = 'x-slow' | 'slow' | 'medium' | 'fast' | 'x-fast';
+export type SSMLPitch = 'x-low' | 'low' | 'medium' | 'high' | 'x-high';
+export type SSMLVolume = 'silent' | 'x-soft' | 'soft' | 'medium' | 'loud' | 'x-loud';
+export type SSMLEmphasis = 'reduced' | 'none' | 'moderate' | 'strong';
+
 export interface VoicePersonalizationSettings {
   voice: {
     type: 'basic' | 'neural' | 'standard';
     gender: 'male' | 'female';
     accent: string;
     name: string;
-    provider?: 'twilio' | 'polly' | 'google';
+    provider: 'twilio' | 'polly' | 'google';
   };
-  speech: {
-    rate: number;  // 0.5 to 2.0
-    pitch: number; // -20 to 20
-    emphasis: 'reduced' | 'normal' | 'enhanced';
-  };
-  brand: {
-    tone: 'professional' | 'friendly' | 'casual' | 'formal';
-    personality: string[];
-    customPhrases: {
-      greeting: string[];
-      confirmation: string[];
-      farewell: string[];
-    };
-    prosody: {
-      wordEmphasis: boolean;
-      naturalPauses: boolean;
-      intonation: 'natural' | 'expressive' | 'controlled';
-    };
-  };
-  timing: {
-    responseDelay: number;  // milliseconds
-    wordSpacing: number;    // 0.8 to 1.2
-    pauseDuration: {
-      comma: number;        // milliseconds
-      period: number;
-      question: number;
-    };
+  ssml: {
+    rate: SSMLRate;
+    pitch: SSMLPitch;
+    volume: SSMLVolume;
+    emphasis: SSMLEmphasis;
+    breakTime: number;
   };
 }
 
