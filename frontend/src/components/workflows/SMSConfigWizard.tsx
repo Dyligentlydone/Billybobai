@@ -1,10 +1,5 @@
 import { useState } from 'react';
 
-interface Props {
-  onComplete: (config: any) => void;
-  onCancel: () => void;
-}
-
 interface BrandToneConfig {
   voiceType: 'professional' | 'friendly' | 'casual' | 'formal';
   greetings: string[];
@@ -24,6 +19,39 @@ interface ContextConfig {
   contextualTriggers: Array<{ trigger: string; response: string }>;
   knowledgeBase: Array<{ category: string; content: string }>;
   intentExamples: Array<{ intent: string; examples: string[] }>;
+}
+
+interface CalendlyConfig {
+  enabled: boolean;
+  access_token: string;
+  user_uri: string;
+  webhook_uri: string;
+  default_event_type: string;
+  booking_window_days: number;
+  min_notice_hours: number;
+  reminder_hours: number[];
+  allow_cancellation: boolean;
+  allow_rescheduling: boolean;
+}
+
+interface SystemIntegrationConfig {
+  zendesk: {
+    enabled: boolean;
+    email: string;
+    apiToken: string;
+    subdomain: string;
+    defaultPriority: string;
+    createTickets: boolean;
+    updateExisting: boolean;
+  };
+  calendly: CalendlyConfig;
+  webhook: {
+    enabled: boolean;
+    url: string;
+    method: 'POST' | 'PUT';
+    headers: Record<string, string>;
+    events: string[];
+  };
 }
 
 interface ResponseConfig {
@@ -68,38 +96,6 @@ interface MonitoringConfig {
   };
 }
 
-interface SystemIntegrationConfig {
-  zendesk?: {
-    enabled: boolean;
-    email: string;
-    apiToken: string;
-    subdomain: string;
-    defaultPriority: string;
-    createTickets: boolean;
-    updateExisting: boolean;
-  };
-  salesforce?: {
-    enabled: boolean;
-    instanceUrl: string;
-    apiVersion: string;
-    createLeads: boolean;
-    updateCases: boolean;
-  };
-  hubspot?: {
-    enabled: boolean;
-    apiKey: string;
-    createContacts: boolean;
-    updateDeals: boolean;
-  };
-  webhook?: {
-    enabled: boolean;
-    url: string;
-    method: 'POST' | 'PUT';
-    headers: Record<string, string>;
-    events: string[];
-  };
-}
-
 interface TwilioConfig {
   accountSid: string;
   authToken: string;
@@ -111,7 +107,22 @@ interface TwilioConfig {
   retryCount: number;
 }
 
-const INITIAL_CONFIG = {
+interface Config {
+  twilio: TwilioConfig;
+  brandTone: BrandToneConfig;
+  aiTraining: AITrainingConfig;
+  context: ContextConfig;
+  response: ResponseConfig;
+  monitoring: MonitoringConfig;
+  systemIntegration: SystemIntegrationConfig;
+}
+
+interface Props {
+  onComplete: (config: Config) => void;
+  onCancel: () => void;
+}
+
+const INITIAL_CONFIG: Config = {
   twilio: {
     accountSid: '',
     authToken: '',
@@ -123,7 +134,7 @@ const INITIAL_CONFIG = {
     retryCount: 3
   },
   brandTone: {
-    voiceType: 'professional' as const,
+    voiceType: 'professional',
     greetings: [],
     phrasingExamples: [],
     wordsToAvoid: []
@@ -205,23 +216,22 @@ const INITIAL_CONFIG = {
       createTickets: true,
       updateExisting: true
     },
-    salesforce: {
+    calendly: {
       enabled: false,
-      instanceUrl: '',
-      apiVersion: '54.0',
-      createLeads: false,
-      updateCases: true
-    },
-    hubspot: {
-      enabled: false,
-      apiKey: '',
-      createContacts: false,
-      updateDeals: false
+      access_token: '',
+      user_uri: '',
+      webhook_uri: '',
+      default_event_type: '',
+      booking_window_days: 14,
+      min_notice_hours: 4,
+      reminder_hours: [24],
+      allow_cancellation: true,
+      allow_rescheduling: true
     },
     webhook: {
       enabled: false,
       url: '',
-      method: 'POST' as const,
+      method: 'POST',
       headers: {},
       events: []
     }
@@ -230,7 +240,7 @@ const INITIAL_CONFIG = {
 
 export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
   const [step, setStep] = useState(1);
-  const [config, setConfig] = useState(INITIAL_CONFIG);
+  const [config, setConfig] = useState<Config>(INITIAL_CONFIG);
   const [newGreeting, setNewGreeting] = useState('');
   const [newPhrase, setNewPhrase] = useState('');
   const [newWordToAvoid, setNewWordToAvoid] = useState('');
@@ -575,6 +585,59 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
         )
       }
     }));
+  };
+
+  const handleZendeskChange = (updates: Partial<SystemIntegrationConfig['zendesk']>) => {
+    setConfig(prev => ({
+      ...prev,
+      systemIntegration: {
+        ...prev.systemIntegration,
+        zendesk: {
+          ...prev.systemIntegration.zendesk,
+          ...updates
+        }
+      }
+    }));
+  };
+
+  const handleCalendlyChange = (updates: Partial<SystemIntegrationConfig['calendly']>) => {
+    setConfig(prev => ({
+      ...prev,
+      systemIntegration: {
+        ...prev.systemIntegration,
+        calendly: {
+          ...prev.systemIntegration.calendly,
+          ...updates
+        }
+      }
+    }));
+  };
+
+  const handleWebhookChange = (updates: Partial<SystemIntegrationConfig['webhook']>) => {
+    setConfig(prev => ({
+      ...prev,
+      systemIntegration: {
+        ...prev.systemIntegration,
+        webhook: {
+          ...prev.systemIntegration.webhook,
+          ...updates
+        }
+      }
+    }));
+  };
+
+  const handlePhoneNumberChange = (phoneNumber: string) => {
+    const formattedNumber = phoneNumber.replace(/\D/g, '');
+    
+    if (formattedNumber.length === 10) {
+      setConfig(prev => ({
+        ...prev,
+        twilio: {
+          ...prev.twilio,
+          phoneNumber: `+1${formattedNumber}`
+        }
+      }));
+    }
   };
 
   const renderBrandToneStep = () => (
@@ -1196,7 +1259,7 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
             {/* Template Name and Category */}
             <div className="grid grid-cols-2 gap-3 mb-3">
               <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">Template Name</label>
+                <label className="block text-sm font-medium text-gray-600">Template Name</label>
                 <input
                   type="text"
                   value={newTemplateName}
@@ -1206,7 +1269,7 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">Variables</label>
+                <label className="block text-sm font-medium text-gray-600">Variables</label>
                 <input
                   type="text"
                   value={newVariables}
@@ -1219,7 +1282,7 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
 
             {/* Template Content */}
             <div className="mb-3">
-              <label className="block text-sm font-medium text-gray-600 mb-1">Template Content</label>
+              <label className="block text-sm font-medium text-gray-600">Template Content</label>
               <textarea
                 value={newTemplate}
                 onChange={(e) => setNewTemplate(e.target.value)}
@@ -1234,7 +1297,7 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
 
             {/* Template Description */}
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-600 mb-1">When to Use</label>
+              <label className="block text-sm font-medium text-gray-600">When to Use</label>
               <textarea
                 value={newDescription}
                 onChange={(e) => setNewDescription(e.target.value)}
@@ -1403,7 +1466,9 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
               />
               <span className="text-sm text-gray-500">msgs/day</span>
             </div>
-            <p className="mt-1 text-xs text-gray-500">Alert if daily messages exceed this limit</p>
+            <p className="mt-1 text-xs text-gray-500">
+              Alert if daily messages exceed this limit
+            </p>
           </div>
         </div>
       </div>
@@ -1488,7 +1553,9 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                   />
                 </div>
-                <p className="mt-1 text-xs text-gray-500">Channel name without the # symbol</p>
+                <p className="mt-1 text-xs text-gray-500">
+                  Channel name without the # symbol
+                </p>
               </div>
 
               <div>
@@ -1512,7 +1579,9 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                   />
                 </div>
-                <p className="mt-1 text-xs text-gray-500">Username to @mention for critical alerts (high error rates)</p>
+                <p className="mt-1 text-xs text-gray-500">
+                  Username to @mention for critical alerts (high error rates)
+                </p>
               </div>
             </div>
           )}
@@ -1671,7 +1740,9 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
               />
               <span className="text-sm text-gray-500">days</span>
             </div>
-            <p className="mt-1 text-xs text-gray-500">How long to keep system logs</p>
+            <p className="mt-1 text-xs text-gray-500">
+              How long to keep system logs
+            </p>
           </div>
 
           <div>
@@ -1696,7 +1767,9 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
               />
               <span className="text-sm text-gray-500">days</span>
             </div>
-            <p className="mt-1 text-xs text-gray-500">How long to keep message history</p>
+            <p className="mt-1 text-xs text-gray-500">
+              How long to keep message history
+            </p>
           </div>
         </div>
       </div>
@@ -1719,17 +1792,8 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
             <input
               type="checkbox"
               checked={config.systemIntegration.zendesk.enabled}
-              onChange={(e) => setConfig(prev => ({
-                ...prev,
-                systemIntegration: {
-                  ...prev.systemIntegration,
-                  zendesk: {
-                    ...prev.systemIntegration.zendesk,
-                    enabled: e.target.checked
-                  }
-                }
-              }))}
-              className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              onChange={(e) => handleZendeskChange({ enabled: e.target.checked })}
+              className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
             />
           </div>
           <div className="ml-3">
@@ -1745,16 +1809,7 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
               <input
                 type="email"
                 value={config.systemIntegration.zendesk.email}
-                onChange={(e) => setConfig(prev => ({
-                  ...prev,
-                  systemIntegration: {
-                    ...prev.systemIntegration,
-                    zendesk: {
-                      ...prev.systemIntegration.zendesk,
-                      email: e.target.value
-                    }
-                  }
-                }))}
+                onChange={(e) => handleZendeskChange({ email: e.target.value })}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               />
             </div>
@@ -1764,16 +1819,7 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
               <input
                 type="password"
                 value={config.systemIntegration.zendesk.apiToken}
-                onChange={(e) => setConfig(prev => ({
-                  ...prev,
-                  systemIntegration: {
-                    ...prev.systemIntegration,
-                    zendesk: {
-                      ...prev.systemIntegration.zendesk,
-                      apiToken: e.target.value
-                    }
-                  }
-                }))}
+                onChange={(e) => handleZendeskChange({ apiToken: e.target.value })}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               />
             </div>
@@ -1787,18 +1833,9 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
                 <input
                   type="text"
                   value={config.systemIntegration.zendesk.subdomain}
-                  onChange={(e) => setConfig(prev => ({
-                    ...prev,
-                    systemIntegration: {
-                      ...prev.systemIntegration,
-                      zendesk: {
-                        ...prev.systemIntegration.zendesk,
-                        subdomain: e.target.value
-                      }
-                    }
-                  }))}
+                  onChange={(e) => handleZendeskChange({ subdomain: e.target.value })}
                   placeholder="your-domain.zendesk.com"
-                  className="block w-full flex-1 rounded-none rounded-r-md border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  className="block flex-1 rounded-none rounded-r-md border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                 />
               </div>
             </div>
@@ -1808,17 +1845,8 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
                 <input
                   type="checkbox"
                   checked={config.systemIntegration.zendesk.createTickets}
-                  onChange={(e) => setConfig(prev => ({
-                    ...prev,
-                    systemIntegration: {
-                      ...prev.systemIntegration,
-                      zendesk: {
-                        ...prev.systemIntegration.zendesk,
-                        createTickets: e.target.checked
-                      }
-                    }
-                  }))}
-                  className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  onChange={(e) => handleZendeskChange({ createTickets: e.target.checked })}
+                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                 />
                 <label className="ml-2 text-sm text-gray-600">Create tickets for new conversations</label>
               </div>
@@ -1827,20 +1855,130 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
                 <input
                   type="checkbox"
                   checked={config.systemIntegration.zendesk.updateExisting}
-                  onChange={(e) => setConfig(prev => ({
-                    ...prev,
-                    systemIntegration: {
-                      ...prev.systemIntegration,
-                      zendesk: {
-                        ...prev.systemIntegration.zendesk,
-                        updateExisting: e.target.checked
-                      }
-                    }
-                  }))}
-                  className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  onChange={(e) => handleZendeskChange({ updateExisting: e.target.checked })}
+                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                 />
                 <label className="ml-2 text-sm text-gray-600">Update existing tickets</label>
               </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Calendly Integration */}
+      <div className="space-y-4">
+        <div className="flex items-start">
+          <div className="flex h-5 items-center">
+            <input
+              type="checkbox"
+              checked={config.systemIntegration.calendly.enabled}
+              onChange={(e) => handleCalendlyChange({ enabled: e.target.checked })}
+              className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+            />
+          </div>
+          <div className="ml-3">
+            <label className="text-sm font-medium text-gray-700">Calendly Integration</label>
+            <p className="text-sm text-gray-500">Create and update Calendly events from SMS conversations</p>
+          </div>
+        </div>
+
+        {config.systemIntegration.calendly.enabled && (
+          <div className="ml-7 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-600">Access Token</label>
+              <input
+                type="password"
+                value={config.systemIntegration.calendly.access_token}
+                onChange={(e) => handleCalendlyChange({ access_token: e.target.value })}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-600">User URI</label>
+              <input
+                type="text"
+                value={config.systemIntegration.calendly.user_uri}
+                onChange={(e) => handleCalendlyChange({ user_uri: e.target.value })}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-600">Webhook URI</label>
+              <input
+                type="url"
+                value={config.systemIntegration.calendly.webhook_uri}
+                onChange={(e) => handleCalendlyChange({ webhook_uri: e.target.value })}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-600">Default Event Type</label>
+              <input
+                type="text"
+                value={config.systemIntegration.calendly.default_event_type}
+                onChange={(e) => handleCalendlyChange({ default_event_type: e.target.value })}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-600">Booking Window Days</label>
+              <input
+                type="number"
+                min="1"
+                max="365"
+                value={config.systemIntegration.calendly.booking_window_days}
+                onChange={(e) => handleCalendlyChange({ booking_window_days: parseInt(e.target.value) || 14 })}
+                className="mt-1 block w-24 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-600">Minimum Notice Hours</label>
+              <input
+                type="number"
+                min="1"
+                max="24"
+                value={config.systemIntegration.calendly.min_notice_hours}
+                onChange={(e) => handleCalendlyChange({ min_notice_hours: parseInt(e.target.value) || 4 })}
+                className="mt-1 block w-24 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-600">Reminder Hours</label>
+              <input
+                type="text"
+                value={config.systemIntegration.calendly.reminder_hours.join(',')}
+                onChange={(e) => {
+                  const reminderHours = e.target.value.split(',').map(Number);
+                  handleCalendlyChange({ reminder_hours: reminderHours });
+                }}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              />
+            </div>
+
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                checked={config.systemIntegration.calendly.allow_cancellation}
+                onChange={(e) => handleCalendlyChange({ allow_cancellation: e.target.checked })}
+                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+              />
+              <label className="ml-2 text-sm text-gray-600">Allow Cancellation</label>
+            </div>
+
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                checked={config.systemIntegration.calendly.allow_rescheduling}
+                onChange={(e) => handleCalendlyChange({ allow_rescheduling: e.target.checked })}
+                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+              />
+              <label className="ml-2 text-sm text-gray-600">Allow Rescheduling</label>
             </div>
           </div>
         )}
@@ -1853,17 +1991,8 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
             <input
               type="checkbox"
               checked={config.systemIntegration.webhook.enabled}
-              onChange={(e) => setConfig(prev => ({
-                ...prev,
-                systemIntegration: {
-                  ...prev.systemIntegration,
-                  webhook: {
-                    ...prev.systemIntegration.webhook,
-                    enabled: e.target.checked
-                  }
-                }
-              }))}
-              className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              onChange={(e) => handleWebhookChange({ enabled: e.target.checked })}
+              className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
             />
           </div>
           <div className="ml-3">
@@ -1879,16 +2008,7 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
               <input
                 type="url"
                 value={config.systemIntegration.webhook.url}
-                onChange={(e) => setConfig(prev => ({
-                  ...prev,
-                  systemIntegration: {
-                    ...prev.systemIntegration,
-                    webhook: {
-                      ...prev.systemIntegration.webhook,
-                      url: e.target.value
-                    }
-                  }
-                }))}
+                onChange={(e) => handleWebhookChange({ url: e.target.value })}
                 placeholder="https://your-domain.com/webhook"
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               />
@@ -1907,18 +2027,9 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
                           ? [...config.systemIntegration.webhook.events, event]
                           : config.systemIntegration.webhook.events.filter(e => e !== event);
                         
-                        setConfig(prev => ({
-                          ...prev,
-                          systemIntegration: {
-                            ...prev.systemIntegration,
-                            webhook: {
-                              ...prev.systemIntegration.webhook,
-                              events
-                            }
-                          }
-                        }));
+                        handleWebhookChange({ events });
                       }}
-                      className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                     />
                     <label className="ml-2 text-sm text-gray-600">{event}</label>
                   </div>
@@ -1998,13 +2109,7 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
           <input
             type="tel"
             value={config.twilio.phoneNumber}
-            onChange={(e) => setConfig(prev => ({
-              ...prev,
-              twilio: {
-                ...prev.twilio,
-                phoneNumber: e.target.value
-              }
-            }))}
+            onChange={(e) => handlePhoneNumberChange(e.target.value)}
             placeholder="+1234567890"
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
           />
@@ -2133,6 +2238,27 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
     </div>
   );
 
+  const renderStep = () => {
+    switch (step) {
+      case 1:
+        return renderTwilioConfigStep();
+      case 2:
+        return renderBrandToneStep();
+      case 3:
+        return renderAITrainingStep();
+      case 4:
+        return renderContextStep();
+      case 5:
+        return renderResponseStep();
+      case 6:
+        return renderMonitoringStep();
+      case 7:
+        return renderSystemIntegrationStep();
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className="max-w-3xl mx-auto p-6 bg-white rounded-lg shadow">
       {/* Progress bar */}
@@ -2160,13 +2286,7 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
       </div>
 
       {/* Step content */}
-      {step === 1 && renderTwilioConfigStep()}
-      {step === 2 && renderBrandToneStep()}
-      {step === 3 && renderAITrainingStep()}
-      {step === 4 && renderContextStep()}
-      {step === 5 && renderResponseStep()}
-      {step === 6 && renderMonitoringStep()}
-      {step === 7 && renderSystemIntegrationStep()}
+      {renderStep()}
 
       {/* Navigation */}
       <div className="mt-8 flex justify-between">
