@@ -1,3 +1,5 @@
+import React, { useState } from 'react';
+import axios from 'axios';
 import {
   Box,
   Typography,
@@ -8,93 +10,136 @@ import {
   Switch,
   Card,
   CardContent,
+  Alert,
 } from '@mui/material';
-import { useWizard } from '../../../contexts/WizardContext';
 
-export function PhoneSetup() {
-  const { state, dispatch } = useWizard();
+interface Props {
+  onComplete: (data: any) => void;
+  setupData: any;
+}
 
-  const handleAddPhoneNumber = () => {
-    dispatch({
-      type: 'UPDATE_PHONE',
-      phone: {
-        phoneNumbers: [
-          ...state.phone.phoneNumbers,
-          { number: '', greeting: '', voicemail: true },
-        ],
-      },
-    });
+export const PhoneSetup: React.FC<Props> = ({ onComplete, setupData }) => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [formData, setFormData] = useState({
+    businessName: setupData.businessName || '',
+    phoneNumber: setupData.phoneNumber || '',
+    greeting: '',
+    voicemail: true
+  });
+
+  const handleChange = (field: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: event.target.type === 'checkbox' ? event.target.checked : event.target.value
+    }));
   };
 
-  const handlePhoneNumberChange = (index: number, field: string, value: string | boolean) => {
-    const updatedNumbers = [...state.phone.phoneNumbers];
-    updatedNumbers[index] = {
-      ...updatedNumbers[index],
-      [field]: value,
-    };
+  const handleSubmit = async () => {
+    try {
+      setLoading(true);
+      setError('');
 
-    dispatch({
-      type: 'UPDATE_PHONE',
-      phone: {
-        phoneNumbers: updatedNumbers,
-      },
-    });
+      // Create business record
+      const { data } = await axios.post('/api/businesses', {
+        name: formData.businessName,
+        phoneNumber: formData.phoneNumber,
+        greeting: formData.greeting,
+        voicemail: formData.voicemail
+      });
+
+      // Move to next step with business data
+      onComplete({
+        businessName: formData.businessName,
+        businessId: data.id,
+        phoneNumber: formData.phoneNumber
+      });
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to create business');
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const gridItemProps = {
+    item: true,
+    xs: 12
+  } as const;
 
   return (
     <Box>
       <Typography variant="h5" gutterBottom>
-        Phone Number Configuration
+        Business Setup
       </Typography>
       <Typography variant="body1" color="text.secondary" paragraph>
-        Add and configure the phone numbers you want to use with your voice automation system.
+        Configure your business information and phone number for the SMS automation system.
       </Typography>
 
-      {state.phone.phoneNumbers.map((phone, index) => (
-        <Card key={index} sx={{ mb: 2 }}>
-          <CardContent>
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Phone Number"
-                  value={phone.number}
-                  onChange={(e) => handlePhoneNumberChange(index, 'number', e.target.value)}
-                  placeholder="+1234567890"
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Greeting Message"
-                  value={phone.greeting}
-                  onChange={(e) => handlePhoneNumberChange(index, 'greeting', e.target.value)}
-                  placeholder="Welcome to our service..."
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={phone.voicemail}
-                      onChange={(e) => handlePhoneNumberChange(index, 'voicemail', e.target.checked)}
-                    />
-                  }
-                  label="Enable Voicemail"
-                />
-              </Grid>
-            </Grid>
-          </CardContent>
-        </Card>
-      ))}
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+      )}
 
-      <Button
-        variant="outlined"
-        onClick={handleAddPhoneNumber}
-        sx={{ mt: 2 }}
-      >
-        Add Phone Number
-      </Button>
+      <Card sx={{ mb: 4 }}>
+        <CardContent>
+          <Grid container spacing={3}>
+            <Grid {...gridItemProps}>
+              <TextField
+                required
+                fullWidth
+                label="Business Name"
+                value={formData.businessName}
+                onChange={handleChange('businessName')}
+                placeholder="Your Business Name"
+              />
+            </Grid>
+            <Grid {...gridItemProps}>
+              <TextField
+                required
+                fullWidth
+                label="Phone Number"
+                value={formData.phoneNumber}
+                onChange={handleChange('phoneNumber')}
+                placeholder="+1234567890"
+                helperText="This is the number that will be used for SMS communications"
+              />
+            </Grid>
+            <Grid {...gridItemProps}>
+              <TextField
+                fullWidth
+                label="Default Greeting"
+                value={formData.greeting}
+                onChange={handleChange('greeting')}
+                placeholder="Welcome! How can we help you today?"
+                multiline
+                rows={2}
+              />
+            </Grid>
+            <Grid {...gridItemProps}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={formData.voicemail}
+                    onChange={handleChange('voicemail')}
+                  />
+                }
+                label="Enable Automated Responses"
+              />
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
+
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <Button
+          variant="contained"
+          onClick={handleSubmit}
+          disabled={!formData.businessName || !formData.phoneNumber || loading}
+        >
+          {loading ? 'Creating...' : 'Continue'}
+        </Button>
+      </Box>
     </Box>
   );
-}
+};
