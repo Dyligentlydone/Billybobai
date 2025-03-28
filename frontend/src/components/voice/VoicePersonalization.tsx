@@ -11,6 +11,7 @@ import {
   Grid,
   Slider,
   Divider,
+  Alert,
 } from '@mui/material';
 import { 
   VoicePersonalizationSettings,
@@ -25,11 +26,16 @@ import { VoicePreview } from './VoicePreview';
 interface VoicePersonalizationProps {
   settings: VoicePersonalizationSettings;
   onSettingsChange: (settings: VoicePersonalizationSettings) => void;
+  twilioConfig?: {
+    accountSid: string;
+    authToken: string;
+  };
 }
 
 export const VoicePersonalization: React.FC<VoicePersonalizationProps> = ({
   settings,
   onSettingsChange,
+  twilioConfig,
 }) => {
   const availableVoices = useMemo(() => {
     const voices = getVoicesByType(settings.voice.type);
@@ -128,6 +134,12 @@ export const VoicePersonalization: React.FC<VoicePersonalizationProps> = ({
       <Typography variant="h6" gutterBottom>
         Voice Settings
       </Typography>
+
+      {!twilioConfig && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          Please configure Twilio credentials to enable voice preview
+        </Alert>
+      )}
 
       <Grid container spacing={2}>
         <Grid item xs={12} md={4}>
@@ -296,7 +308,9 @@ export const VoicePersonalization: React.FC<VoicePersonalizationProps> = ({
         </Grid>
       </Grid>
 
-      <VoicePreview settings={settings} />
+      {twilioConfig ? (
+        <VoicePreview settings={settings} twilioConfig={twilioConfig} />
+      ) : null}
     </Box>
   );
 };

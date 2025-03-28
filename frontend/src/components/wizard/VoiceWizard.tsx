@@ -16,45 +16,26 @@ import { WorkflowSetup } from './steps/WorkflowSetup';
 import { TestingSetup } from './steps/TestingSetup';
 import { DeploySetup } from './steps/DeploySetup';
 import { VoicePersonalization } from '../voice/VoicePersonalization';
+import { useWizard } from '../../contexts/WizardContext';
 
 const defaultVoiceSettings: VoicePersonalizationSettings = {
   voice: {
     type: 'neural',
     gender: 'female',
     accent: 'American',
-    name: 'Sarah'
+    name: 'Sarah',
+    provider: 'twilio'
   },
-  speech: {
-    rate: 1.0,
-    pitch: 0,
-    emphasis: 'normal'
-  },
-  brand: {
-    tone: 'professional',
-    personality: ['helpful', 'friendly', 'efficient'],
-    customPhrases: {
-      greeting: ['Hello, thank you for calling'],
-      confirmation: ['I understand', 'Let me help you with that'],
-      farewell: ['Thank you for your time', 'Have a great day']
-    },
-    prosody: {
-      wordEmphasis: true,
-      naturalPauses: true,
-      intonation: 'natural'
-    }
-  },
-  timing: {
-    responseDelay: 500,
-    wordSpacing: 1.0,
-    pauseDuration: {
-      comma: 200,
-      period: 500,
-      question: 300
-    }
+  ssml: {
+    rate: 'medium',
+    pitch: 'medium',
+    volume: 'medium',
+    emphasis: 'none',
+    breakTime: 500
   }
 };
 
-const steps: { id: WizardStep; label: string; description: string }[] = [
+const steps: Array<{ id: WizardStep; label: string; description: string }> = [
   {
     id: 'intro',
     label: 'Welcome',
@@ -98,7 +79,9 @@ interface VoiceWizardProps {
 }
 
 export function VoiceWizard({ onComplete, onCancel }: VoiceWizardProps) {
-  const { currentStep, goToStep, updateState, state } = useWizardStep();
+  const { currentStep, goToStep } = useWizardStep();
+  const { state, dispatch } = useWizard();
+
   const activeStep = steps.findIndex(step => step.id === currentStep);
 
   const handleNext = () => {
@@ -120,33 +103,22 @@ export function VoiceWizard({ onComplete, onCancel }: VoiceWizardProps) {
   };
 
   const handleVoiceSettingsChange = (settings: VoicePersonalizationSettings) => {
-    updateState({
-      ...state,
-      voiceSettings: settings
-    });
+    dispatch({ type: 'UPDATE_VOICE', voiceSettings: settings });
   };
 
   const renderStepContent = () => {
     switch (currentStep) {
       case 'intro':
         return (
-          <Box textAlign="center" py={4}>
-            <Typography variant="h4" gutterBottom>
-              Welcome to Voice Automation Setup
+          <Box>
+            <Typography variant="h5" gutterBottom>
+              Welcome to the Voice Automation Wizard
             </Typography>
-            <Typography variant="body1" color="text.secondary" paragraph>
-              This wizard will guide you through setting up your automated voice response system.
-              We'll help you connect your services, configure phone numbers, design your workflow,
-              and test everything before going live.
+            <Typography paragraph>
+              This wizard will help you set up a voice automation workflow.
+              We'll guide you through configuring your accounts, phone numbers,
+              voice settings, and workflow rules.
             </Typography>
-            <Button
-              variant="contained"
-              color="primary"
-              size="large"
-              onClick={handleNext}
-            >
-              Begin Setup
-            </Button>
           </Box>
         );
       case 'account':
@@ -158,6 +130,10 @@ export function VoiceWizard({ onComplete, onCancel }: VoiceWizardProps) {
           <VoicePersonalization
             settings={state.voiceSettings || defaultVoiceSettings}
             onSettingsChange={handleVoiceSettingsChange}
+            twilioConfig={state.services.twilio.isValid ? {
+              accountSid: state.services.twilio.accountSid,
+              authToken: state.services.twilio.authToken
+            } : undefined}
           />
         );
       case 'workflow':

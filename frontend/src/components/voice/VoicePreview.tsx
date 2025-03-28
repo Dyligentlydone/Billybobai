@@ -11,9 +11,13 @@ import { VoicePersonalizationSettings } from '../../types/wizard';
 
 interface VoicePreviewProps {
   settings: VoicePersonalizationSettings;
+  twilioConfig: {
+    accountSid: string;
+    authToken: string;
+  };
 }
 
-export const VoicePreview: React.FC<VoicePreviewProps> = ({ settings }) => {
+export const VoicePreview: React.FC<VoicePreviewProps> = ({ settings, twilioConfig }) => {
   const [previewText, setPreviewText] = useState('Hello! How can I help you today?');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +54,7 @@ export const VoicePreview: React.FC<VoicePreviewProps> = ({ settings }) => {
           text: generateSSML(),
           voice: settings.voice.name,
           useSSML: true,
+          ...twilioConfig,
         }),
       });
 
@@ -87,7 +92,7 @@ export const VoicePreview: React.FC<VoicePreviewProps> = ({ settings }) => {
         <Button
           variant="contained"
           onClick={handlePreview}
-          disabled={isLoading || !previewText.trim()}
+          disabled={isLoading || !previewText.trim() || !twilioConfig.accountSid || !twilioConfig.authToken}
           startIcon={isLoading ? <CircularProgress size={20} /> : null}
         >
           {isLoading ? 'Generating...' : 'Preview Voice'}
