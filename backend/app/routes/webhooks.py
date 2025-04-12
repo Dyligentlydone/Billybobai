@@ -10,11 +10,11 @@ from ..services.twilio_service import TwilioService
 from ..services.sendgrid_service import SendGridService
 from ..services.zendesk_service import ZendeskService
 from ..services.ai_service import AIService
-from ..utils.decorators import verify_sendgrid_webhook
+from functools import wraps
 
 webhooks = Blueprint('webhooks', __name__)
 
-# Initialize services
+# Initialize services - they'll be None if credentials aren't available
 twilio_service = None
 sendgrid_service = None
 zendesk_service = None
@@ -30,7 +30,8 @@ except Exception as e:
 
 def verify_twilio_signature(f):
     """Decorator to verify Twilio webhook signatures."""
-    def decorated_function(*args, **kwargs):
+    @wraps(f)
+    async def decorated_function(*args, **kwargs):
         twilio_signature = request.headers.get('X-Twilio-Signature', '')
         url = request.url
         params = request.form.to_dict()
@@ -38,12 +39,38 @@ def verify_twilio_signature(f):
         # Validate request is from Twilio
         if not twilio_service.validate_webhook({"signature": twilio_signature, "url": url, "params": params}):
             return jsonify({"error": "Invalid signature"}), 403
-        return f(*args, **kwargs)
+        return await f(*args, **kwargs)
+    return decorated_function
+
+def verify_sendgrid_signature(f):
+    """Decorator to verify SendGrid webhook signatures."""
+    @wraps(f)
+    async def decorated_function(*args, **kwargs):
+        signature = request.headers.get('X-Twilio-Email-Event-Webhook-Signature', '')
+        timestamp = request.headers.get('X-Twilio-Email-Event-Webhook-Timestamp', '')
+        
+        if not signature or not timestamp:
+            return jsonify({"error": "Missing signature headers"}), 401
+            
+        # Verify signature
+        payload = timestamp + request.get_data().decode('utf-8')
+        hmac_obj = hmac.new(
+            key=os.getenv('SENDGRID_WEBHOOK_VERIFY_KEY').encode(),
+            msg=payload.encode(),
+            digestmod=hashlib.sha256
+        )
+        calculated_sig = hmac_obj.hexdigest()
+
+        if not hmac.compare_digest(calculated_sig, signature):
+            return jsonify({"error": "Invalid signature"}), 401
+
+        return await f(*args, **kwargs)
     return decorated_function
 
 def verify_zendesk_signature(f):
     """Decorator to verify Zendesk webhook signatures."""
-    def decorated_function(*args, **kwargs):
+    @wraps(f)
+    async def decorated_function(*args, **kwargs):
         signature = request.headers.get('X-Zendesk-Webhook-Signature', '')
         if not signature:
             return jsonify({"error": "Missing signature header"}), 401
@@ -51,7 +78,7 @@ def verify_zendesk_signature(f):
         # Validate request is from Zendesk
         if not zendesk_service.validate_webhook({"signature": signature}):
             return jsonify({"error": "Invalid signature"}), 403
-        return f(*args, **kwargs)
+        return await f(*args, **kwargs)
     return decorated_function
 
 @webhooks.route('/twilio/webhook', methods=['POST'])
@@ -102,7 +129,7 @@ async def twilio_webhook():
         return jsonify({"error": str(e)}), 500
 
 @webhooks.route('/sendgrid/webhook', methods=['POST'])
-@verify_sendgrid_webhook
+@verify_sendgrid_signature
 async def sendgrid_webhook():
     """Handle SendGrid email events (delivered, opened, clicked, etc.)."""
     try:
