@@ -19,10 +19,8 @@ ENV FLASK_APP=app.py
 ENV FLASK_ENV=production
 ENV PYTHONPATH=/app
 
-# Initialize migrations and create initial migration
-RUN flask db init || true && \
-    flask db migrate -m "Initial migration" && \
-    flask db upgrade
+# Run database migrations
+RUN flask db upgrade
 
 # Command to run the application
 CMD gunicorn app:app --workers 4 --bind 0.0.0.0:$PORT
