@@ -14,15 +14,27 @@ class MessageRequest(BaseModel):
 
 class TwilioService:
     def __init__(self):
-        self.client = Client(
-            os.getenv('TWILIO_ACCOUNT_SID'),
-            os.getenv('TWILIO_AUTH_TOKEN')
-        )
-        self.phone_number = os.getenv('TWILIO_PHONE_NUMBER')
-        self.flex_flow_sid = os.getenv('TWILIO_FLEX_FLOW_SID')
+        account_sid = os.getenv('TWILIO_ACCOUNT_SID')
+        auth_token = os.getenv('TWILIO_AUTH_TOKEN')
+        
+        if account_sid and auth_token:
+            self.client = Client(account_sid, auth_token)
+            self.phone_number = os.getenv('TWILIO_PHONE_NUMBER')
+            self.flex_flow_sid = os.getenv('TWILIO_FLEX_FLOW_SID')
+        else:
+            self.client = None
+            self.phone_number = None
+            self.flex_flow_sid = None
 
     async def send_message(self, request: MessageRequest) -> Dict:
         """Send message via Twilio based on type (SMS, WhatsApp, Voice, or Flex)."""
+        if not self.client:
+            raise TwilioRestException(
+                msg="Twilio credentials not configured",
+                status=400,
+                code=20001
+            )
+            
         try:
             if request.type == "sms":
                 return await self._send_sms(request)
