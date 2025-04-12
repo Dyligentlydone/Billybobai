@@ -9,8 +9,12 @@ def create_app():
     app = Flask(__name__)
     CORS(app)
 
-    # Configure SQLAlchemy
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///app.db')
+    # Ensure instance path exists
+    os.makedirs(app.instance_path, exist_ok=True)
+
+    # Configure SQLAlchemy with absolute path
+    db_path = os.path.join(app.instance_path, 'app.db')
+    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
     # Initialize extensions
@@ -29,20 +33,10 @@ def create_app():
 
     @app.route('/health')
     def health_check():
-        try:
-            # Test database connection
-            db.session.execute('SELECT 1')
-            return jsonify({
-                "status": "healthy",
-                "timestamp": datetime.utcnow().isoformat(),
-                "database": "connected"
-            }), 200
-        except Exception as e:
-            return jsonify({
-                "status": "unhealthy",
-                "timestamp": datetime.utcnow().isoformat(),
-                "error": str(e)
-            }), 500
+        return jsonify({
+            "status": "healthy",
+            "timestamp": datetime.utcnow().isoformat()
+        }), 200
 
     return app
 

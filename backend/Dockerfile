@@ -19,8 +19,14 @@ ENV FLASK_APP=app.py
 ENV FLASK_ENV=production
 ENV PYTHONPATH=/app
 
+# Create instance directory and set permissions
+RUN mkdir -p instance && chown -R nobody:nogroup instance
+
 # Run database migrations
 RUN flask db upgrade
 
+# Switch to non-root user
+USER nobody
+
 # Command to run the application
-CMD gunicorn --bind 0.0.0.0:$PORT --workers 4 --threads 2 --timeout 120 --access-logfile - --error-logfile - "app:app"
+CMD gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 8 --timeout 0 --log-level debug "app:app"
