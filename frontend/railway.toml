@@ -1,9 +1,8 @@
 [build]
-builder = "nixpacks"
-buildCommand = "npm install && npm run build"
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "node -e \"const { exec } = require('child_process'); exec('npm run preview', { stdio: 'inherit' });\""
 healthcheckPath = "/"
 healthcheckTimeout = 60
 restartPolicyType = "on_failure"

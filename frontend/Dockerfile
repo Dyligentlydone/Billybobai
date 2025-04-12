@@ -7,27 +7,24 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 
-# Set TypeScript environment
-ENV NODE_ENV=production \
-    VITE_API_URL=https://billybobai-production.up.railway.app
-
-# Copy source code
+# Copy source code and build
 COPY . .
-
-# Build the app with explicit TypeScript path
-RUN npm run build || (echo "Build failed" && cat /app/tsconfig.json && exit 1)
+RUN npm run build
 
 # Production stage
-FROM nginx:alpine
+FROM node:18-slim
 
-# Copy built assets from builder stage
-COPY --from=builder /app/dist /usr/share/nginx/html/
+WORKDIR /app
 
-# Copy nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy package files and install only production dependencies
+COPY package*.json ./
+RUN npm ci --only=production
+
+# Copy built files from builder
+COPY --from=builder /app/dist ./dist
 
 # Expose port
 EXPOSE 80
 
-# Start nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Start the app
+CMD ["npm", "run", "preview", "--", "--host", "0.0.0.0", "--port", "80"]
