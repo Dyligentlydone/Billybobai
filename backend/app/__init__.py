@@ -1,7 +1,8 @@
-from flask import Flask
+from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_migrate import Migrate
 from dotenv import load_dotenv
+from datetime import datetime
 import os
 
 from .routes.api import api
@@ -16,16 +17,22 @@ def create_app():
     CORS(app)
 
     # Configure SQLAlchemy
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///app.db')
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///instance/app.db')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
     # Initialize extensions
     db.init_app(app)
-    migrate = Migrate(app, db)
 
     # Register blueprints
     app.register_blueprint(api, url_prefix='/api')
     app.register_blueprint(webhooks, url_prefix='/webhooks')
+
+    @app.route('/health')
+    def health_check():
+        return jsonify({
+            "status": "healthy",
+            "timestamp": datetime.utcnow().isoformat()
+        }), 200
 
     # Basic error handlers
     @app.errorhandler(404)
@@ -37,3 +44,6 @@ def create_app():
         return {"error": "Internal server error"}, 500
 
     return app
+
+# Create the Flask application instance
+app = create_app()
