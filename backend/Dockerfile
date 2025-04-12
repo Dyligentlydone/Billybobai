@@ -15,9 +15,12 @@ RUN pip install -r requirements.txt
 COPY . .
 
 # Set Flask environment variables
-ENV FLASK_APP=app.py
+ENV FLASK_APP=app.app
 ENV FLASK_ENV=production
 ENV PYTHONPATH=/app
 
+# Run database migrations
+RUN flask db upgrade
+
 # Command to run the application
-CMD gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 4 --log-level debug "app:app"
+CMD gunicorn --bind 0.0.0.0:$PORT --workers 4 --threads 2 --timeout 120 --access-logfile - --error-logfile - "app.app:app"
