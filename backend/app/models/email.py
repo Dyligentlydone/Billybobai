@@ -31,7 +31,7 @@ class EmailThread(db.Model):
     customer_email = Column(String(255))
     last_updated = Column(DateTime, default=datetime.utcnow)
     messages = Column(JSON)
-    metadata = Column(JSON, default={})
+    thread_metadata = Column(JSON, default={})  
 
 class EmailThreadModel(BaseModel):
     thread_id: str
@@ -40,7 +40,7 @@ class EmailThreadModel(BaseModel):
     customer_email: EmailStr
     last_updated: datetime
     messages: List[dict]
-    metadata: dict = {}
+    metadata: dict = {}  
 
 class InboundEmail(db.Model):
     __tablename__ = 'inbound_emails'

@@ -24,7 +24,7 @@ class EmailThreadService:
                 customer_email=email.from_email,
                 last_updated=datetime.utcnow(),
                 messages=[],
-                metadata={}
+                thread_metadata={}
             )
             db.session.add(thread)
             db.session.commit()
@@ -52,7 +52,7 @@ class EmailThreadService:
             customer_email=thread.customer_email,
             last_updated=thread.last_updated,
             messages=thread.messages,
-            metadata=thread.metadata or {}
+            metadata=thread.thread_metadata or {}
         )
 
     def _extract_thread_id(self, email: InboundEmailModel) -> str:
