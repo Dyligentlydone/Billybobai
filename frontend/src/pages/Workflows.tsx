@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from 'react-query';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import WorkflowBuilder from '../components/workflows/WorkflowBuilder';
 import SMSConfigWizard from '../components/workflows/SMSConfigWizard';
 import EmailConfigWizard from '../components/workflows/EmailConfigWizard';
@@ -16,6 +16,8 @@ interface Workflow {
   updatedAt: string;
 }
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 const Workflows: React.FC = () => {
   const [selectedWorkflow, setSelectedWorkflow] = useState<string | null>(null);
   const [showSMSWizard, setShowSMSWizard] = useState(false);
@@ -24,11 +26,20 @@ const Workflows: React.FC = () => {
   const [smsConfig, setSMSConfig] = useState<any>(null);
   const [isCreating, setIsCreating] = useState(false);
 
-  const { data: workflows, isLoading } = useQuery<Workflow[]>(
+  const { data: workflows, isLoading, error } = useQuery<Workflow[], AxiosError>(
     'workflows',
     async () => {
-      const { data } = await axios.get('/api/workflows');
-      return data;
+      try {
+        const { data } = await axios.get(`${API_URL}/api/workflows`);
+        return data;
+      } catch (err) {
+        console.error('Error fetching workflows:', err);
+        throw err;
+      }
+    },
+    {
+      retry: 3,
+      retryDelay: 1000,
     }
   );
 
@@ -271,6 +282,10 @@ const Workflows: React.FC = () => {
                   {isLoading ? (
                     <div className="p-4 text-center text-sm text-gray-700">
                       Loading workflows...
+                    </div>
+                  ) : error ? (
+                    <div className="p-4 text-center text-sm text-red-700">
+                      Error loading workflows: {error.message}
                     </div>
                   ) : !workflows?.length ? (
                     <div className="p-4 text-center text-sm text-gray-700">
