@@ -17,12 +17,12 @@ COPY . .
 # Set Flask environment variables
 ENV FLASK_APP=app.py
 ENV FLASK_ENV=production
+ENV PYTHONPATH=/app
 
 # Initialize migrations and create initial migration
-RUN export PYTHONPATH=/app && \
-    flask db init || true && \
+RUN flask db init || true && \
     flask db migrate -m "Initial migration" && \
     flask db upgrade
 
 # Command to run the application
-CMD gunicorn app:app --workers 4 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
+CMD gunicorn app:app --workers 4 --bind 0.0.0.0:$PORT
