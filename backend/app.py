@@ -9,27 +9,22 @@ def create_app():
     app = Flask(__name__)
     CORS(app)
 
-    # Ensure instance path exists
-    os.makedirs(app.instance_path, exist_ok=True)
-
-    # Configure SQLAlchemy with absolute path
-    db_path = os.path.join(app.instance_path, 'app.db')
-    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
+    # Use in-memory SQLite for now
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
     # Initialize extensions
     db.init_app(app)
-    migrate = Migrate(app, db)
 
+    # Create all tables immediately since we're using in-memory database
     with app.app_context():
-        # Initialize database
         db.create_all()
 
-        # Register blueprints
-        from app.routes.api import api
-        from app.routes.webhooks import webhooks
-        app.register_blueprint(api, url_prefix='/api')
-        app.register_blueprint(webhooks, url_prefix='/webhooks')
+    # Register blueprints
+    from app.routes.api import api
+    from app.routes.webhooks import webhooks
+    app.register_blueprint(api, url_prefix='/api')
+    app.register_blueprint(webhooks, url_prefix='/webhooks')
 
     @app.route('/health')
     def health_check():
