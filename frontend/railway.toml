@@ -1,0 +1,15 @@
+[build]
+builder = "nixpacks"
+buildCommand = ""
+
+[deploy]
+startCommand = ""
+healthcheckPath = "/"
+healthcheckTimeout = 60
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 10
+
+[deploy.env]
+PORT = "80"
+VITE_API_URL = "https://billybobai-production.up.railway.app"
+NODE_ENV = "production"
