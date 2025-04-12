@@ -1,54 +1,38 @@
-import React from 'react';
-import { WizardStep } from '../../../types/wizard';
-import IntroStep from './IntroStep';
-import ServicesStep from './ServicesStep';
-import PhoneStep from './PhoneStep';
-import VoiceStep from './VoiceStep';
-import WorkflowStep from './WorkflowStep';
+import { FC } from 'react';
 import CalendlySetup from './CalendlySetup';
-import TestingStep from './TestingStep';
-import DeploymentStep from './DeploymentStep';
+import { DeploySetup } from './DeploySetup';
+import { TestingSetup } from './TestingSetup';
+import { WorkflowSetup } from './WorkflowSetup';
 
-export const wizardSteps: Record<WizardStep, {
+export type WizardStep = 'calendly' | 'workflow' | 'testing' | 'deploy';
+
+interface StepConfig {
   title: string;
   description: string;
-  component: React.FC;
+  component: FC<{}>;
   optional?: boolean;
-}> = {
-  intro: {
-    title: 'Welcome',
-    description: 'Set up your SMS automation workflow',
-    component: IntroStep,
-  },
-  services: {
-    title: 'Service Configuration',
-    description: 'Configure your Twilio and OpenAI credentials',
-    component: ServicesStep,
-  },
-  phone: {
-    title: 'Phone Numbers',
-    description: 'Set up your business phone numbers',
-    component: PhoneStep,
-  },
+}
+
+export const steps: Record<WizardStep, StepConfig> = {
   calendly: {
-    title: 'Appointment Booking',
-    description: 'Configure Calendly integration for automated appointment scheduling (Optional)',
+    title: 'Calendly Integration',
+    description: 'Configure your Calendly integration settings',
     component: CalendlySetup,
     optional: true,
   },
   workflow: {
     title: 'Workflow Configuration',
-    description: 'Set up your automation workflow and responses',
-    component: WorkflowStep,
+    description: 'Set up your workflow rules and responses',
+    component: WorkflowSetup,
   },
   testing: {
-    title: 'Testing',
-    description: 'Test your SMS automation setup',
-    component: TestingStep,
+    title: 'Testing Scenarios',
+    description: 'Create test scenarios for your workflow',
+    component: TestingSetup,
   },
-  deployment: {
-    title: 'Deployment',
-    description: 'Deploy your SMS automation workflow',
-    component: DeploymentStep,
-  }
+  deploy: {
+    title: 'Deploy',
+    description: 'Review and deploy your configuration',
+    component: DeploySetup,
+  },
 };

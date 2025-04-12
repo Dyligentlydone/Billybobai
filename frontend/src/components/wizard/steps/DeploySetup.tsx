@@ -3,7 +3,6 @@ import {
   Typography,
   Card,
   CardContent,
-  Grid,
   List,
   ListItem,
   ListItemText,
@@ -11,129 +10,134 @@ import {
 } from '@mui/material';
 import { useWizard } from '../../../contexts/WizardContext';
 
+interface ServiceStatus {
+  accountSid?: string;
+  apiKey?: string;
+  authToken?: string;
+  apiToken?: string;
+  isValid?: boolean;
+}
+
+interface WizardState {
+  services: {
+    twilio: ServiceStatus;
+    openai: ServiceStatus;
+    zendesk?: ServiceStatus;
+  };
+  testing: {
+    scenarios: Array<{
+      name: string;
+      input: string;
+      expectedResponse: string;
+    }>;
+  };
+}
+
 export function DeploySetup() {
   const { state } = useWizard();
+
+  const services = {
+    twilio: state.services?.twilio || {},
+    openai: state.services?.openai || {},
+    zendesk: state.services?.zendesk,
+  } as WizardState['services'];
 
   return (
     <Box>
       <Typography variant="h5" gutterBottom>
-        Review and Deploy
+        Deployment Review
       </Typography>
-      <Typography variant="body1" color="text.secondary" paragraph>
+      <Typography variant="body1" gutterBottom>
         Review your configuration before deploying your voice automation system.
       </Typography>
 
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+        <Box sx={{ flex: '0 0 calc(50% - 12px)' }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                Service Connections
+                Twilio Configuration
               </Typography>
               <List>
                 <ListItem>
                   <ListItemText
-                    primary="Twilio"
-                    secondary={state.services.twilio.accountSid ? 'Connected' : 'Not configured'}
+                    primary="Account SID"
+                    secondary={services?.twilio?.accountSid || 'Not configured'}
                   />
                   <Chip
-                    label={state.services.twilio.isValid ? 'Valid' : 'Invalid'}
-                    color={state.services.twilio.isValid ? 'success' : 'error'}
-                    size="small"
+                    label={services?.twilio?.isValid ? 'Valid' : 'Invalid'}
+                    color={services?.twilio?.isValid ? 'success' : 'error'}
                   />
                 </ListItem>
+              </List>
+            </CardContent>
+          </Card>
+        </Box>
+
+        <Box sx={{ flex: '0 0 calc(50% - 12px)' }}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                OpenAI Configuration
+              </Typography>
+              <List>
                 <ListItem>
                   <ListItemText
-                    primary="OpenAI"
-                    secondary={state.services.openai.apiKey ? 'Connected' : 'Not configured'}
+                    primary="API Key"
+                    secondary={services?.openai?.apiKey ? '********' : 'Not configured'}
                   />
                   <Chip
-                    label={state.services.openai.isValid ? 'Valid' : 'Invalid'}
-                    color={state.services.openai.isValid ? 'success' : 'error'}
-                    size="small"
+                    label={services?.openai?.isValid ? 'Valid' : 'Invalid'}
+                    color={services?.openai?.isValid ? 'success' : 'error'}
                   />
                 </ListItem>
-                {state.services.zendesk?.enabled && (
+              </List>
+            </CardContent>
+          </Card>
+        </Box>
+
+        {services?.zendesk && (
+          <Box sx={{ flex: '1 1 100%' }}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Zendesk Integration
+                </Typography>
+                <List>
                   <ListItem>
                     <ListItemText
-                      primary="Zendesk"
-                      secondary={state.services.zendesk.apiToken ? 'Connected' : 'Not configured'}
+                      primary="API Token"
+                      secondary={services?.zendesk?.apiToken ? '********' : 'Not configured'}
                     />
                     <Chip
-                      label={state.services.zendesk.isValid ? 'Valid' : 'Invalid'}
-                      color={state.services.zendesk.isValid ? 'success' : 'error'}
-                      size="small"
+                      label={services?.zendesk?.isValid ? 'Valid' : 'Invalid'}
+                      color={services?.zendesk?.isValid ? 'success' : 'error'}
                     />
                   </ListItem>
-                )}
-              </List>
-            </CardContent>
-          </Card>
-        </Grid>
+                </List>
+              </CardContent>
+            </Card>
+          </Box>
+        )}
 
-        <Grid item xs={12} md={6}>
+        <Box sx={{ flex: '1 1 100%' }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                Phone Numbers
+                Testing Configuration
               </Typography>
               <List>
-                {state.phone.phoneNumbers.map((phone, index) => (
-                  <ListItem key={index}>
-                    <ListItemText
-                      primary={phone.number}
-                      secondary={`Voicemail ${phone.voicemail ? 'Enabled' : 'Disabled'}`}
-                    />
-                  </ListItem>
-                ))}
+                <ListItem>
+                  <ListItemText
+                    primary="Test Scenarios"
+                    secondary={`${state.testing?.scenarios?.length || 0} scenarios configured`}
+                  />
+                </ListItem>
               </List>
             </CardContent>
           </Card>
-        </Grid>
-
-        <Grid item xs={12}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Workflow Configuration
-              </Typography>
-              <Typography variant="subtitle2" gutterBottom>
-                Response Rules:
-              </Typography>
-              <List>
-                {state.workflow.responseRules.map((rule, index) => (
-                  <ListItem key={index}>
-                    <ListItemText
-                      primary={`Rule ${index + 1}: ${rule.condition}`}
-                      secondary={`Action: ${rule.action}`}
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Test Scenarios
-              </Typography>
-              <List>
-                {state.testing.scenarios.map((scenario, index) => (
-                  <ListItem key={index}>
-                    <ListItemText
-                      primary={scenario.name}
-                      secondary={`Input: ${scenario.input}`}
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
     </Box>
   );
 }
