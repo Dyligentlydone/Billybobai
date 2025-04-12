@@ -7,6 +7,13 @@ startCommand = "gunicorn 'app.app:app' --workers 4 --threads 2 --timeout 120 --a
 healthcheckPath = "/health"
 healthcheckTimeout = 60
 restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 10
+
+[deploy.env]
+FLASK_APP = "app.app"
+FLASK_ENV = "production"
+PYTHONPATH = "/app"
+DATABASE_URL = "sqlite:///instance/app.db"
 
 [deploy.railway]
 name = "billybobai"
