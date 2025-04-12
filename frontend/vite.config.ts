@@ -18,8 +18,10 @@ export default defineConfig({
       }
     }
   ],
+  base: '/',
   server: {
-    port: 5175,
+    port: 3000,
+    host: true,
     proxy: {
       '/api': {
         target: 'http://localhost:5000',
@@ -28,18 +30,18 @@ export default defineConfig({
     },
   },
   build: {
+    outDir: 'dist',
+    assetsDir: 'assets',
+    sourcemap: true,
     rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'index.html')
+      },
       output: {
-        manualChunks(id: string) {
-          if (id.includes('@mui/icons-material')) {
-            return 'mui-icons';
-          }
-          if (id.includes('@mui/material')) {
-            return 'mui-core';
-          }
-          if (['react', 'react-dom', 'react-router-dom'].some(dep => id.includes(dep))) {
-            return 'vendor';
-          }
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          'mui-core': ['@mui/material'],
+          'mui-icons': ['@mui/icons-material']
         }
       }
     }
