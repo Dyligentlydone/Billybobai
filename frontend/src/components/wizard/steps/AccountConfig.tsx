@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   Box,
   Typography,
   TextField,
   FormControlLabel,
   Switch,
-  Grid,
   Paper,
   Alert,
   IconButton,
@@ -88,8 +87,6 @@ export function AccountConfig() {
   };
 
   const validateZendesk = async () => {
-    if (!state.services.zendesk?.enabled) return;
-    
     setValidating(v => ({ ...v, zendesk: true }));
     try {
       // TODO: Add actual Zendesk validation
@@ -119,231 +116,225 @@ export function AccountConfig() {
     }
   };
 
-  const handleTwilioChange = (field: keyof typeof state.services.twilio) => (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    dispatch({
-      type: 'UPDATE_SERVICES',
-      services: {
-        twilio: {
-          ...state.services.twilio,
-          [field]: e.target.value,
-          isValid: false,
-        },
-      },
-    });
-  };
-
-  const handleOpenAIChange = (field: keyof typeof state.services.openai) => (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    dispatch({
-      type: 'UPDATE_SERVICES',
-      services: {
-        openai: {
-          ...state.services.openai,
-          [field]: e.target.value,
-          isValid: false,
-        },
-      },
-    });
-  };
-
-  const handleZendeskToggle = () => {
-    dispatch({
-      type: 'UPDATE_SERVICES',
-      services: {
-        zendesk: {
-          ...state.services.zendesk,
-          enabled: !state.services.zendesk?.enabled,
-          isValid: false,
-        },
-      },
-    });
-  };
-
   return (
     <Box>
       <Typography variant="h5" gutterBottom>
-        Connect Your Services
+        Account Configuration
       </Typography>
-      <Typography variant="body1" color="text.secondary" paragraph>
-        Provide API credentials to connect Twilio, OpenAI, and optionally Zendesk.
-        We'll validate them for you.
+      <Typography variant="body1" gutterBottom>
+        Configure your service accounts for the automation workflow.
       </Typography>
 
-      <Grid container spacing={3}>
-        {/* Twilio Configuration */}
-        <Grid item xs={12}>
-          <Paper sx={{ p: 3 }}>
-            <Box display="flex" alignItems="center" mb={2}>
-              <Typography variant="h6">Twilio Credentials</Typography>
-              <Tooltip title="Find these in your Twilio Console">
-                <IconButton size="small" sx={{ ml: 1 }}>
-                  <HelpIcon />
-                </IconButton>
-              </Tooltip>
-            </Box>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <Paper sx={{ p: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+            <Typography variant="h6">Twilio Configuration</Typography>
+            <Tooltip title="Your Twilio credentials can be found in your Twilio Console">
+              <IconButton size="small">
+                <HelpIcon />
+              </IconButton>
+            </Tooltip>
+          </Box>
 
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Account SID"
-                  value={state.services.twilio.accountSid}
-                  onChange={handleTwilioChange('accountSid')}
-                  error={state.services.twilio.error !== undefined}
-                  helperText={state.services.twilio.error}
-                  InputProps={{
-                    endAdornment: validating.twilio && <CircularProgress size={20} />,
-                  }}
-                  onBlur={validateTwilio}
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Auth Token"
-                  type="password"
-                  value={state.services.twilio.authToken}
-                  onChange={handleTwilioChange('authToken')}
-                  error={state.services.twilio.error !== undefined}
-                  InputProps={{
-                    endAdornment: validating.twilio && <CircularProgress size={20} />,
-                  }}
-                  onBlur={validateTwilio}
-                />
-              </Grid>
-            </Grid>
-
-            {state.services.twilio.isValid && (
-              <Alert severity="success" sx={{ mt: 2 }}>
-                Twilio credentials validated successfully
-              </Alert>
-            )}
-          </Paper>
-        </Grid>
-
-        {/* OpenAI Configuration */}
-        <Grid item xs={12}>
-          <Paper sx={{ p: 3 }}>
-            <Box display="flex" alignItems="center" mb={2}>
-              <Typography variant="h6">OpenAI Configuration</Typography>
-              <Tooltip title="Find this in your OpenAI dashboard">
-                <IconButton size="small" sx={{ ml: 1 }}>
-                  <HelpIcon />
-                </IconButton>
-              </Tooltip>
-            </Box>
-
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="API Key"
-                  type="password"
-                  value={state.services.openai.apiKey}
-                  onChange={handleOpenAIChange('apiKey')}
-                  error={state.services.openai.error !== undefined}
-                  helperText={state.services.openai.error}
-                  InputProps={{
-                    endAdornment: validating.openai && <CircularProgress size={20} />,
-                  }}
-                  onBlur={validateOpenAI}
-                />
-              </Grid>
-            </Grid>
-
-            {state.services.openai.isValid && (
-              <Alert severity="success" sx={{ mt: 2 }}>
-                OpenAI credentials validated successfully
-              </Alert>
-            )}
-          </Paper>
-        </Grid>
-
-        {/* Zendesk Configuration */}
-        <Grid item xs={12}>
-          <Paper sx={{ p: 3 }}>
-            <Box display="flex" alignItems="center" mb={2}>
-              <Typography variant="h6">Zendesk Integration</Typography>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={state.services.zendesk?.enabled}
-                    onChange={handleZendeskToggle}
-                  />
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+            <Box sx={{ flex: '1 1 300px' }}>
+              <TextField
+                fullWidth
+                label="Account SID"
+                value={state.services.twilio?.accountSid || ''}
+                onChange={e =>
+                  dispatch({
+                    type: 'UPDATE_SERVICES',
+                    services: {
+                      twilio: {
+                        ...state.services.twilio,
+                        accountSid: e.target.value,
+                        isValid: false,
+                      },
+                    },
+                  })
                 }
-                label="Enable Zendesk"
-                sx={{ ml: 2 }}
+                error={state.services.twilio?.error !== undefined}
+                helperText={state.services.twilio?.error}
+                InputProps={{
+                  endAdornment: validating.twilio && <CircularProgress size={20} />,
+                }}
+                onBlur={validateTwilio}
               />
             </Box>
 
-            {state.services.zendesk?.enabled && (
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="API Token"
-                    type="password"
-                    value={state.services.zendesk?.apiToken}
-                    onChange={e =>
-                      dispatch({
-                        type: 'UPDATE_SERVICES',
-                        services: {
-                          zendesk: {
-                            ...state.services.zendesk,
-                            enabled: true,
-                            apiToken: e.target.value,
-                            isValid: false,
-                          },
-                        },
-                      })
-                    }
-                    error={state.services.zendesk?.error !== undefined}
-                    helperText={state.services.zendesk?.error}
-                    InputProps={{
-                      endAdornment: validating.zendesk && <CircularProgress size={20} />,
-                    }}
-                    onBlur={validateZendesk}
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Subdomain"
-                    value={state.services.zendesk?.subdomain}
-                    onChange={e =>
-                      dispatch({
-                        type: 'UPDATE_SERVICES',
-                        services: {
-                          zendesk: {
-                            ...state.services.zendesk,
-                            enabled: true,
-                            subdomain: e.target.value,
-                            isValid: false,
-                          },
-                        },
-                      })
-                    }
-                    placeholder="your-subdomain"
-                    InputProps={{
-                      endAdornment: validating.zendesk && <CircularProgress size={20} />,
-                    }}
-                    onBlur={validateZendesk}
-                  />
-                </Grid>
-              </Grid>
-            )}
+            <Box sx={{ flex: '1 1 300px' }}>
+              <TextField
+                fullWidth
+                label="Auth Token"
+                type="password"
+                value={state.services.twilio?.authToken || ''}
+                onChange={e =>
+                  dispatch({
+                    type: 'UPDATE_SERVICES',
+                    services: {
+                      twilio: {
+                        ...state.services.twilio,
+                        authToken: e.target.value,
+                        isValid: false,
+                      },
+                    },
+                  })
+                }
+                error={state.services.twilio?.error !== undefined}
+                helperText={state.services.twilio?.error}
+                InputProps={{
+                  endAdornment: validating.twilio && <CircularProgress size={20} />,
+                }}
+                onBlur={validateTwilio}
+              />
+            </Box>
+          </Box>
 
-            {state.services.zendesk?.enabled && state.services.zendesk?.isValid && (
-              <Alert severity="success" sx={{ mt: 2 }}>
-                Zendesk credentials validated successfully
-              </Alert>
-            )}
-          </Paper>
-        </Grid>
-      </Grid>
+          {state.services.twilio?.isValid && (
+            <Alert severity="success" sx={{ mt: 2 }}>
+              Twilio credentials validated successfully
+            </Alert>
+          )}
+        </Paper>
+
+        <Paper sx={{ p: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+            <Typography variant="h6">OpenAI Configuration</Typography>
+            <Tooltip title="Your OpenAI API key can be found in your OpenAI dashboard">
+              <IconButton size="small">
+                <HelpIcon />
+              </IconButton>
+            </Tooltip>
+          </Box>
+
+          <Box sx={{ flex: '1 1 300px' }}>
+            <TextField
+              fullWidth
+              label="API Key"
+              type="password"
+              value={state.services.openai?.apiKey || ''}
+              onChange={e =>
+                dispatch({
+                  type: 'UPDATE_SERVICES',
+                  services: {
+                    openai: {
+                      ...state.services.openai,
+                      apiKey: e.target.value,
+                      isValid: false,
+                    },
+                  },
+                })
+              }
+              error={state.services.openai?.error !== undefined}
+              helperText={state.services.openai?.error}
+              InputProps={{
+                endAdornment: validating.openai && <CircularProgress size={20} />,
+              }}
+              onBlur={validateOpenAI}
+            />
+          </Box>
+
+          {state.services.openai?.isValid && (
+            <Alert severity="success" sx={{ mt: 2 }}>
+              OpenAI credentials validated successfully
+            </Alert>
+          )}
+        </Paper>
+
+        <Paper sx={{ p: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+            <Typography variant="h6">Zendesk Integration</Typography>
+            <Tooltip title="Optional: Configure Zendesk for ticket creation">
+              <IconButton size="small">
+                <HelpIcon />
+              </IconButton>
+            </Tooltip>
+          </Box>
+
+          <FormControlLabel
+            control={
+              <Switch
+                checked={state.services.zendesk?.enabled || false}
+                onChange={e =>
+                  dispatch({
+                    type: 'UPDATE_SERVICES',
+                    services: {
+                      zendesk: {
+                        ...state.services.zendesk,
+                        enabled: e.target.checked,
+                      },
+                    },
+                  })
+                }
+              />
+            }
+            label="Enable Zendesk Integration"
+          />
+
+          {state.services.zendesk?.enabled && (
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mt: 2 }}>
+              <Box sx={{ flex: '1 1 300px' }}>
+                <TextField
+                  fullWidth
+                  label="API Token"
+                  type="password"
+                  value={state.services.zendesk?.apiToken || ''}
+                  onChange={e =>
+                    dispatch({
+                      type: 'UPDATE_SERVICES',
+                      services: {
+                        zendesk: {
+                          ...state.services.zendesk,
+                          apiToken: e.target.value,
+                          isValid: false,
+                        },
+                      },
+                    })
+                  }
+                  error={state.services.zendesk?.error !== undefined}
+                  helperText={state.services.zendesk?.error}
+                  InputProps={{
+                    endAdornment: validating.zendesk && <CircularProgress size={20} />,
+                  }}
+                  onBlur={validateZendesk}
+                />
+              </Box>
+
+              <Box sx={{ flex: '1 1 300px' }}>
+                <TextField
+                  fullWidth
+                  label="Subdomain"
+                  value={state.services.zendesk?.subdomain || ''}
+                  onChange={e =>
+                    dispatch({
+                      type: 'UPDATE_SERVICES',
+                      services: {
+                        zendesk: {
+                          ...state.services.zendesk,
+                          subdomain: e.target.value,
+                          isValid: false,
+                        },
+                      },
+                    })
+                  }
+                  placeholder="your-subdomain"
+                  InputProps={{
+                    endAdornment: validating.zendesk && <CircularProgress size={20} />,
+                  }}
+                  onBlur={validateZendesk}
+                />
+              </Box>
+            </Box>
+          )}
+
+          {state.services.zendesk?.enabled && state.services.zendesk?.isValid && (
+            <Alert severity="success" sx={{ mt: 2 }}>
+              Zendesk credentials validated successfully
+            </Alert>
+          )}
+        </Paper>
+      </Box>
     </Box>
   );
 }

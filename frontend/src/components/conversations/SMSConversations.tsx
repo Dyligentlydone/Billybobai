@@ -5,15 +5,16 @@ import { Message } from '../../types/conversations';
 
 interface Props {
   businessId: string;
+  clientId: string;
 }
 
-export const SMSConversations: React.FC<Props> = ({ businessId }) => {
+export const SMSConversations: React.FC<Props> = ({ businessId, clientId }) => {
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
 
   // Fetch conversations
   const { data: conversationsData } = useQuery(
-    ['conversations', businessId],
+    ['conversations', businessId, clientId],
     () => getMockConversations(),
     {
       refetchInterval: 5000 // Refresh every 5 seconds
@@ -22,7 +23,7 @@ export const SMSConversations: React.FC<Props> = ({ businessId }) => {
 
   // Fetch messages for selected conversation
   const { data: messagesData } = useQuery(
-    ['messages', selectedConversation],
+    ['messages', selectedConversation, clientId],
     () => selectedConversation ? getMockMessages(selectedConversation) : [],
     {
       enabled: !!selectedConversation,

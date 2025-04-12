@@ -13,18 +13,23 @@ export interface CalendlyConfig {
   min_notice_hours: number;
 }
 
+interface ServiceConfig {
+  accountSid?: string;
+  authToken?: string;
+  apiKey?: string;
+  apiToken?: string;
+  subdomain?: string;
+  enabled?: boolean;
+  isValid?: boolean;
+  error?: string;
+}
+
 export interface WizardState {
   currentStep: string;
   services: {
-    twilio: {
-      accountSid: string;
-      authToken: string;
-      isValid: boolean;
-    };
-    openai: {
-      apiKey: string;
-      isValid: boolean;
-    };
+    twilio: ServiceConfig;
+    openai: ServiceConfig;
+    zendesk?: ServiceConfig;
   };
   phone: {
     phoneNumbers: any[];
@@ -66,17 +71,7 @@ type WizardAction = {
   step: string;
 } | {
   type: 'UPDATE_SERVICES';
-  services: {
-    twilio?: {
-      accountSid: string;
-      authToken: string;
-      isValid: boolean;
-    };
-    openai?: {
-      apiKey: string;
-      isValid: boolean;
-    };
-  };
+  services: Partial<WizardState['services']>;
 } | {
   type: 'UPDATE_PHONE';
   phone: {

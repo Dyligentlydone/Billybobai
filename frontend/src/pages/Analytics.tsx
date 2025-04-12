@@ -49,35 +49,32 @@ const MOCK_DATA = {
     ],
     dailyCosts: Array.from({ length: 7 }, (_, i) => ({
       date: new Date(Date.now() - (6 - i) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      ai: 2 + Math.random() * 2,
+      ai: 2 + Math.random() * 1.5,
       service: 4 + Math.random() * 2,
-      total: 6 + Math.random() * 4
+      total: 6 + Math.random() * 3.5
     }))
   },
   voice: {
     totalCount: 320,
-    responseTime: 1.8,
+    responseTime: 8.5,
     aiCost: 35.75,
-    serviceCost: 85.25,
-    callDuration: 145,
-    completionRate: 88.5,
-    transferRate: 15.2,
-    voicemailRate: 8.5,
+    serviceCost: 85.20,
+    callDuration: 245,
+    transferRate: 15.3,
     qualityMetrics: Array.from({ length: 7 }, (_, i) => ({
       date: new Date(Date.now() - (6 - i) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      sentiment: 88 + Math.random() * 10,
-      quality: 92 + Math.random() * 6
+      sentiment: 80 + Math.random() * 12,
+      quality: 85 + Math.random() * 10
     })),
     responseTypes: [
-      { type: 'Completed', count: 283 },
-      { type: 'Transferred', count: 49 },
-      { type: 'Voicemail', count: 27 }
+      { type: 'Handled', count: 272 },
+      { type: 'Transferred', count: 48 }
     ],
     dailyCosts: Array.from({ length: 7 }, (_, i) => ({
       date: new Date(Date.now() - (6 - i) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       ai: 5 + Math.random() * 3,
-      service: 12 + Math.random() * 4,
-      total: 17 + Math.random() * 7
+      service: 12 + Math.random() * 5,
+      total: 17 + Math.random() * 8
     }))
   },
   overview: {
@@ -93,27 +90,14 @@ const MOCK_DATA = {
 };
 
 export default function Analytics() {
-  const [selectedBusinessId, setSelectedBusinessId] = useState<string>('');
+  const [selectedBusiness, setSelectedBusiness] = useState<string>('');
 
   return (
-    <div className="space-y-6">
-      <div className="sm:flex sm:items-center sm:justify-between">
-        <div className="sm:flex-auto">
-          <h1 className="text-2xl font-semibold text-gray-900">Analytics</h1>
-          <p className="mt-2 text-sm text-gray-700">
-            View metrics and performance for your automation workflows.
-          </p>
-        </div>
-        <div className="mt-4 sm:mt-0">
-          <BusinessSelector onBusinessChange={setSelectedBusinessId} />
-        </div>
+    <div className="container mx-auto px-4 py-8">
+      <div className="mb-8">
+        <BusinessSelector onBusinessChange={setSelectedBusiness} />
       </div>
-      
-      {/* Always show dashboard with either real or mock data */}
-      <AnalyticsDashboard 
-        clientId={selectedBusinessId} 
-        mockData={selectedBusinessId ? undefined : MOCK_DATA}
-      />
+      <AnalyticsDashboard businessId={selectedBusiness} clientId="demo" mockData={MOCK_DATA} />
     </div>
   );
 }

@@ -12,19 +12,21 @@ function classNames(...classes: string[]) {
 
 interface Props {
   businessId?: string;
+  clientId: string;
+  mockData?: AnalyticsData;
 }
 
-const AnalyticsDashboard: React.FC<Props> = ({ businessId }) => {
+const AnalyticsDashboard: React.FC<Props> = ({ businessId, clientId, mockData = mockAnalyticsData }) => {
   const { data, isLoading } = useQuery<AnalyticsData>(
-    ['analytics', businessId],
+    ['analytics', businessId, clientId],
     async () => {
-      if (!businessId) return mockAnalyticsData;
-      const { data } = await axios.get(`/api/analytics/${businessId}`);
+      if (!businessId || !clientId) return mockData;
+      const { data } = await axios.get(`/api/analytics/${clientId}/${businessId}`);
       return data;
     },
     {
       refetchInterval: 300000, // Refresh every 5 minutes
-      initialData: mockAnalyticsData,
+      initialData: mockData,
       keepPreviousData: true
     }
   );
@@ -97,7 +99,7 @@ const AnalyticsDashboard: React.FC<Props> = ({ businessId }) => {
               'ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2'
             )}
           >
-            <SMSAnalytics metrics={data?.sms || mockAnalyticsData.sms} businessId={businessId || ''} />
+            <SMSAnalytics metrics={data?.sms || mockAnalyticsData.sms} businessId={businessId || ''} clientId={clientId} />
           </Tab.Panel>
           <Tab.Panel
             className={classNames(
