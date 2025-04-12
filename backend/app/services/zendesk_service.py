@@ -1,6 +1,7 @@
 import os
 from typing import Dict, Optional
 from zenpy import Zenpy
+from zenpy.lib.exception import ZenpyException
 from pydantic import BaseModel
 
 class TicketRequest(BaseModel):
@@ -15,14 +16,24 @@ class TicketRequest(BaseModel):
 
 class ZendeskService:
     def __init__(self):
-        self.client = Zenpy(
-            subdomain=os.getenv('ZENDESK_SUBDOMAIN'),
-            email=os.getenv('ZENDESK_EMAIL'),
-            token=os.getenv('ZENDESK_API_TOKEN')
-        )
+        subdomain = os.getenv('ZENDESK_SUBDOMAIN')
+        email = os.getenv('ZENDESK_EMAIL')
+        token = os.getenv('ZENDESK_API_TOKEN')
+        
+        if subdomain and email and token:
+            self.client = Zenpy(
+                subdomain=subdomain,
+                email=email,
+                token=token
+            )
+        else:
+            self.client = None
 
     async def create_ticket(self, request: TicketRequest) -> Dict:
         """Create a new ticket in Zendesk."""
+        if not self.client:
+            raise ZenpyException("Zendesk credentials not configured")
+            
         try:
             ticket_data = {
                 "subject": request.subject,
@@ -38,25 +49,26 @@ class ZendeskService:
                 ticket_data["custom_fields"] = request.custom_fields
 
             if request.assignee_email:
-                assignee = await self._find_user(request.assignee_email)
-                if assignee:
-                    ticket_data["assignee_id"] = assignee.id
+                user = self.client.users.search(email=request.assignee_email)
+                if user:
+                    ticket_data["assignee_id"] = next(user).id
 
             if request.requester_email:
-                requester = await self._find_or_create_user(request.requester_email)
-                ticket_data["requester_id"] = requester.id
+                user = self.client.users.search(email=request.requester_email)
+                if user:
+                    ticket_data["requester_id"] = next(user).id
 
-            ticket = self.client.tickets.create(**ticket_data)
-            return {
-                "id": ticket.id,
-                "status": ticket.status,
-                "url": f"https://{os.getenv('ZENDESK_SUBDOMAIN')}.zendesk.com/agent/tickets/{ticket.id}"
-            }
-        except Exception as e:
-            raise Exception(f"Failed to create Zendesk ticket: {str(e)}")
+            ticket = self.client.tickets.create(ticket_data)
+            return {"id": ticket.id, "status": "created"}
+
+        except ZenpyException as e:
+            raise e
 
     async def get_ticket(self, ticket_id: int) -> Dict:
         """Get ticket details."""
+        if not self.client:
+            raise ZenpyException("Zendesk credentials not configured")
+            
         try:
             ticket = self.client.tickets(id=ticket_id)
             return {
@@ -72,6 +84,9 @@ class ZendeskService:
 
     async def update_ticket(self, ticket_id: int, updates: Dict) -> Dict:
         """Update an existing ticket."""
+        if not self.client:
+            raise ZenpyException("Zendesk credentials not configured")
+            
         try:
             ticket = self.client.tickets(id=ticket_id)
             for key, value in updates.items():
@@ -87,6 +102,9 @@ class ZendeskService:
 
     async def add_comment(self, ticket_id: int, comment: str, public: bool = True) -> Dict:
         """Add a comment to an existing ticket."""
+        if not self.client:
+            raise ZenpyException("Zendesk credentials not configured")
+            
         try:
             response = self.client.tickets.update(
                 ticket_id,
@@ -107,6 +125,9 @@ class ZendeskService:
 
     async def _find_user(self, email: str) -> Optional[Dict]:
         """Find a user by email."""
+        if not self.client:
+            raise ZenpyException("Zendesk credentials not configured")
+            
         try:
             users = self.client.users(email=email)
             return users[0] if users else None
@@ -115,6 +136,9 @@ class ZendeskService:
 
     async def _find_or_create_user(self, email: str) -> Dict:
         """Find a user by email or create if not exists."""
+        if not self.client:
+            raise ZenpyException("Zendesk credentials not configured")
+            
         user = await self._find_user(email)
         if user:
             return user
