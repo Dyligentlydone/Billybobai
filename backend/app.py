@@ -244,8 +244,13 @@ def create_app():
             return 100
         return ((current - previous) / previous) * 100
 
+    @app.route('/health')
+    def health_check():
+        return jsonify({"status": "healthy", "timestamp": datetime.utcnow().isoformat()})
+
     return app
 
+app = create_app()
+
 if __name__ == '__main__':
-    app = create_app()
     app.run(debug=True, port=3000)
