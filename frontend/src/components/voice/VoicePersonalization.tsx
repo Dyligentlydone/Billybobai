@@ -8,11 +8,26 @@ import {
   SelectChangeEvent,
   Typography,
   FormHelperText,
-  Grid,
   Slider,
   Divider,
   Alert,
 } from '@mui/material';
+import Grid from '@mui/material/Grid';
+import { GridProps } from '@mui/material/Grid';
+
+interface CustomGridProps extends Omit<GridProps, 'item' | 'container'> {
+  item?: boolean;
+  container?: boolean;
+  xs?: number | boolean;
+  md?: number | boolean;
+}
+
+const CustomGrid = React.forwardRef<HTMLDivElement, CustomGridProps>((props, ref) => {
+  return <Grid {...props} ref={ref} />;
+});
+
+CustomGrid.displayName = 'CustomGrid';
+
 import { 
   VoicePersonalizationSettings,
   SSMLRate,
@@ -130,60 +145,53 @@ export const VoicePersonalization: React.FC<VoicePersonalizationProps> = ({
   };
 
   return (
-    <Box sx={{ p: 2 }}>
-      <Typography variant="h6" gutterBottom>
-        Voice Settings
-      </Typography>
+    <Box sx={{ width: '100%', p: 2 }}>
+      <CustomGrid container spacing={3}>
+        <CustomGrid item xs={12}>
+          <Typography variant="h6" gutterBottom>
+            Voice Settings
+          </Typography>
+          <Divider sx={{ mb: 2 }} />
+        </CustomGrid>
 
-      {!twilioConfig && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          Please configure Twilio credentials to enable voice preview
-        </Alert>
-      )}
-
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={4}>
+        <CustomGrid item xs={12} md={6}>
           <FormControl fullWidth>
             <InputLabel>Voice Type</InputLabel>
             <Select
               value={settings.voice.type}
-              label="Voice Type"
               onChange={handleVoiceTypeChange}
+              label="Voice Type"
             >
               <MenuItem value="basic">Basic (Fastest Response)</MenuItem>
               <MenuItem value="neural">Neural (High Quality)</MenuItem>
               <MenuItem value="standard">Standard</MenuItem>
             </Select>
-            {settings.voice.type === 'basic' && (
-              <FormHelperText>
-                Basic voices provide instant response with minimal latency
-              </FormHelperText>
-            )}
+            <FormHelperText>Select the type of voice synthesis</FormHelperText>
           </FormControl>
-        </Grid>
+        </CustomGrid>
 
-        <Grid item xs={12} md={4}>
+        <CustomGrid item xs={12} md={6}>
           <FormControl fullWidth>
             <InputLabel>Gender</InputLabel>
             <Select
               value={settings.voice.gender}
-              label="Gender"
               onChange={handleGenderChange}
+              label="Gender"
             >
               <MenuItem value="male">Male</MenuItem>
               <MenuItem value="female">Female</MenuItem>
             </Select>
           </FormControl>
-        </Grid>
+        </CustomGrid>
 
         {settings.voice.type !== 'basic' && (
-          <Grid item xs={12} md={4}>
+          <CustomGrid item xs={12}>
             <FormControl fullWidth>
               <InputLabel>Voice</InputLabel>
               <Select
                 value={settings.voice.name}
-                label="Voice"
                 onChange={handleVoiceChange}
+                label="Voice"
               >
                 {availableVoices.map((voice) => (
                   <MenuItem key={voice.name} value={voice.name}>
@@ -191,38 +199,25 @@ export const VoicePersonalization: React.FC<VoicePersonalizationProps> = ({
                   </MenuItem>
                 ))}
               </Select>
+              <FormHelperText>Select a specific voice</FormHelperText>
             </FormControl>
-          </Grid>
+          </CustomGrid>
         )}
-      </Grid>
 
-      {settings.voice.type === 'basic' && (
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-          Using Twilio's basic {settings.voice.gender === 'male' ? 'man' : 'woman'} voice
-          for optimal performance.
-        </Typography>
-      )}
+        <CustomGrid item xs={12}>
+          <Typography variant="h6" gutterBottom>
+            Voice Customization
+          </Typography>
+          <Divider sx={{ mb: 2 }} />
+        </CustomGrid>
 
-      {settings.voice.type !== 'basic' && (
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-          Using {settings.voice.provider} {settings.voice.accent} voice for enhanced quality.
-        </Typography>
-      )}
-
-      <Divider sx={{ my: 3 }} />
-
-      <Typography variant="h6" gutterBottom>
-        Voice Customization
-      </Typography>
-
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
+        <CustomGrid item xs={12} md={6}>
+          <Typography gutterBottom>Speaking Rate</Typography>
           <FormControl fullWidth>
-            <InputLabel>Speaking Rate</InputLabel>
             <Select
               value={settings.ssml.rate}
-              label="Speaking Rate"
               onChange={(e) => handleSSMLStringChange('rate', e.target.value)}
+              label="Speaking Rate"
             >
               <MenuItem value="x-slow">Extra Slow</MenuItem>
               <MenuItem value="slow">Slow</MenuItem>
@@ -230,16 +225,17 @@ export const VoicePersonalization: React.FC<VoicePersonalizationProps> = ({
               <MenuItem value="fast">Fast</MenuItem>
               <MenuItem value="x-fast">Extra Fast</MenuItem>
             </Select>
+            <FormHelperText>Speaking rate</FormHelperText>
           </FormControl>
-        </Grid>
+        </CustomGrid>
 
-        <Grid item xs={12} md={6}>
+        <CustomGrid item xs={12} md={6}>
+          <Typography gutterBottom>Pitch</Typography>
           <FormControl fullWidth>
-            <InputLabel>Pitch</InputLabel>
             <Select
               value={settings.ssml.pitch}
-              label="Pitch"
               onChange={(e) => handleSSMLStringChange('pitch', e.target.value)}
+              label="Pitch"
             >
               <MenuItem value="x-low">Extra Low</MenuItem>
               <MenuItem value="low">Low</MenuItem>
@@ -247,16 +243,17 @@ export const VoicePersonalization: React.FC<VoicePersonalizationProps> = ({
               <MenuItem value="high">High</MenuItem>
               <MenuItem value="x-high">Extra High</MenuItem>
             </Select>
+            <FormHelperText>Voice pitch</FormHelperText>
           </FormControl>
-        </Grid>
+        </CustomGrid>
 
-        <Grid item xs={12} md={6}>
+        <CustomGrid item xs={12} md={6}>
+          <Typography gutterBottom>Volume</Typography>
           <FormControl fullWidth>
-            <InputLabel>Volume</InputLabel>
             <Select
               value={settings.ssml.volume}
-              label="Volume"
               onChange={(e) => handleSSMLStringChange('volume', e.target.value)}
+              label="Volume"
             >
               <MenuItem value="silent">Silent</MenuItem>
               <MenuItem value="x-soft">Extra Soft</MenuItem>
@@ -265,52 +262,60 @@ export const VoicePersonalization: React.FC<VoicePersonalizationProps> = ({
               <MenuItem value="loud">Loud</MenuItem>
               <MenuItem value="x-loud">Extra Loud</MenuItem>
             </Select>
+            <FormHelperText>Voice volume</FormHelperText>
           </FormControl>
-        </Grid>
+        </CustomGrid>
 
-        <Grid item xs={12} md={6}>
+        <CustomGrid item xs={12} md={6}>
+          <Typography gutterBottom>Emphasis</Typography>
           <FormControl fullWidth>
-            <InputLabel>Emphasis</InputLabel>
             <Select
               value={settings.ssml.emphasis}
-              label="Emphasis"
               onChange={(e) => handleSSMLStringChange('emphasis', e.target.value)}
+              label="Emphasis"
             >
               <MenuItem value="reduced">Reduced</MenuItem>
               <MenuItem value="none">None</MenuItem>
               <MenuItem value="moderate">Moderate</MenuItem>
               <MenuItem value="strong">Strong</MenuItem>
             </Select>
+            <FormHelperText>Voice emphasis</FormHelperText>
           </FormControl>
-        </Grid>
+        </CustomGrid>
 
-        <Grid item xs={12}>
-          <Typography gutterBottom>
-            Break Time (ms)
-          </Typography>
+        <CustomGrid item xs={12}>
+          <Typography gutterBottom>Break Time (ms)</Typography>
           <Slider
             value={settings.ssml.breakTime}
             onChange={handleBreakTimeChange}
             min={0}
             max={2000}
             step={100}
+            valueLabelDisplay="auto"
             marks={[
               { value: 0, label: '0' },
               { value: 500, label: '500' },
               { value: 1000, label: '1000' },
               { value: 2000, label: '2000' }
             ]}
-            valueLabelDisplay="auto"
           />
-          <FormHelperText>
-            Add a pause after speaking (0-2000ms)
-          </FormHelperText>
-        </Grid>
-      </Grid>
+          <FormHelperText>Add a pause after speaking (0-2000ms)</FormHelperText>
+        </CustomGrid>
 
-      {twilioConfig ? (
-        <VoicePreview settings={settings} twilioConfig={twilioConfig} />
-      ) : null}
+        {!twilioConfig && (
+          <CustomGrid item xs={12}>
+            <Alert severity="warning">
+              Twilio credentials not configured. Voice preview will not be available.
+            </Alert>
+          </CustomGrid>
+        )}
+
+        <CustomGrid item xs={12}>
+          {twilioConfig ? (
+            <VoicePreview settings={settings} twilioConfig={twilioConfig} />
+          ) : null}
+        </CustomGrid>
+      </CustomGrid>
     </Box>
   );
 };
