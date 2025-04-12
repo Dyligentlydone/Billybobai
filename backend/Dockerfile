@@ -14,8 +14,13 @@ RUN pip install -r requirements.txt
 # Copy the rest of the application
 COPY . .
 
+# Set Flask environment variables
+ENV FLASK_APP=app.py
+ENV FLASK_ENV=production
+
 # Initialize migrations and create initial migration
-RUN flask db init || true && \
+RUN export PYTHONPATH=/app && \
+    flask db init || true && \
     flask db migrate -m "Initial migration" && \
     flask db upgrade
 
