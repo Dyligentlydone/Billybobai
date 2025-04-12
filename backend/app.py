@@ -9,8 +9,9 @@ def create_app():
     app = Flask(__name__)
     CORS(app)
 
-    # Use in-memory SQLite for now
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+    # Get database URL from environment or use SQLite as fallback
+    database_url = os.getenv('DATABASE_URL', 'sqlite:///instance/app.db')
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
     # Initialize extensions
