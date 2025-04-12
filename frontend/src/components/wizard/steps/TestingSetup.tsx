@@ -3,7 +3,6 @@ import {
   Typography,
   TextField,
   Button,
-  Grid,
   Card,
   CardContent,
   IconButton,
@@ -20,7 +19,7 @@ export function TestingSetup() {
       testing: {
         scenarios: [
           ...state.testing.scenarios,
-          { name: '', input: '', expectedOutput: '' },
+          { name: '', input: '', expectedResponse: '' },
         ],
       },
     });
@@ -63,8 +62,8 @@ export function TestingSetup() {
       {state.testing.scenarios.map((scenario, index) => (
         <Card key={index} sx={{ mb: 2 }}>
           <CardContent>
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={3}>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+              <Box sx={{ flex: '0 0 calc(25% - 12px)' }}>
                 <TextField
                   fullWidth
                   label="Scenario Name"
@@ -72,38 +71,39 @@ export function TestingSetup() {
                   onChange={(e) => handleScenarioChange(index, 'name', e.target.value)}
                   placeholder="e.g., Urgent Support Request"
                 />
-              </Grid>
-              <Grid item xs={12} md={4}>
+              </Box>
+              <Box sx={{ flex: '0 0 calc(33% - 12px)' }}>
                 <TextField
                   fullWidth
                   multiline
-                  rows={2}
-                  label="Test Input"
+                  rows={3}
+                  label="Sample Input"
                   value={scenario.input}
                   onChange={(e) => handleScenarioChange(index, 'input', e.target.value)}
                   placeholder="Sample voicemail content..."
                 />
-              </Grid>
-              <Grid item xs={12} md={4}>
+              </Box>
+              <Box sx={{ flex: '0 0 calc(33% - 12px)' }}>
                 <TextField
                   fullWidth
                   multiline
-                  rows={2}
-                  label="Expected Output"
-                  value={scenario.expectedOutput}
-                  onChange={(e) => handleScenarioChange(index, 'expectedOutput', e.target.value)}
+                  rows={3}
+                  label="Expected Response"
+                  value={scenario.expectedResponse}
+                  onChange={(e) => handleScenarioChange(index, 'expectedResponse', e.target.value)}
                   placeholder="Expected system response..."
                 />
-              </Grid>
-              <Grid item xs={12} md={1}>
+              </Box>
+              <Box sx={{ flex: '0 0 calc(9% - 12px)' }}>
                 <IconButton
                   onClick={() => handleDeleteScenario(index)}
                   color="error"
+                  aria-label="Delete scenario"
                 >
                   <DeleteIcon />
                 </IconButton>
-              </Grid>
-            </Grid>
+              </Box>
+            </Box>
           </CardContent>
         </Card>
       ))}

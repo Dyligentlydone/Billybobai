@@ -3,7 +3,6 @@ import {
   Typography,
   TextField,
   Button,
-  Grid,
   Card,
   CardContent,
   FormControl,
@@ -13,6 +12,19 @@ import {
 } from '@mui/material';
 import { useWizard } from '../../../contexts/WizardContext';
 
+interface ResponseRule {
+  condition: string;
+  response: string;
+  action: string;
+}
+
+interface WorkflowData {
+  intentAnalysis: {
+    prompt: string;
+  };
+  responseRules: ResponseRule[];
+}
+
 export function WorkflowSetup() {
   const { state, dispatch } = useWizard();
 
@@ -20,27 +32,45 @@ export function WorkflowSetup() {
     dispatch({
       type: 'UPDATE_WORKFLOW',
       workflow: {
+        ...state.workflow,
+        intentAnalysis: state.workflow.intentAnalysis || { prompt: '' },
         responseRules: [
-          ...state.workflow.responseRules,
+          ...(state.workflow.responseRules || []),
           { condition: '', response: '', action: 'respond' },
         ],
       },
     });
   };
 
-  const handleRuleChange = (index: number, field: string, value: string) => {
-    const updatedRules = [...state.workflow.responseRules];
-    updatedRules[index] = {
-      ...updatedRules[index],
-      [field]: value,
-    };
+  const handleRuleChange = (index: number, field: keyof ResponseRule, value: string) => {
+    const newRules = [...(state.workflow.responseRules || [])];
+    if (!newRules[index]) {
+      newRules[index] = { condition: '', response: '', action: '' };
+    }
+    newRules[index] = { ...newRules[index], [field]: value };
 
     dispatch({
       type: 'UPDATE_WORKFLOW',
       workflow: {
-        responseRules: updatedRules,
+        ...state.workflow,
+        responseRules: newRules,
       },
     });
+  };
+
+  const handleChange = (field: keyof WorkflowData, value: any) => {
+    dispatch({
+      type: 'UPDATE_WORKFLOW',
+      workflow: {
+        ...state.workflow,
+        [field]: value,
+      },
+    });
+  };
+
+  const data: WorkflowData = {
+    intentAnalysis: state.workflow.intentAnalysis || { prompt: '' },
+    responseRules: state.workflow.responseRules || []
   };
 
   return (
@@ -57,24 +87,19 @@ export function WorkflowSetup() {
           <Typography variant="h6" gutterBottom>
             Intent Analysis
           </Typography>
-          <TextField
-            fullWidth
-            multiline
-            rows={4}
-            label="AI Prompt Template"
-            value={state.workflow.intentAnalysis.prompt}
-            onChange={(e) =>
-              dispatch({
-                type: 'UPDATE_WORKFLOW',
-                workflow: {
-                  intentAnalysis: {
-                    prompt: e.target.value,
-                  },
-                },
-              })
-            }
-            placeholder="You are an AI assistant analyzing customer voicemails..."
-          />
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+            <Box sx={{ flex: '0 0 calc(33% - 12px)' }}>
+              <TextField
+                fullWidth
+                label="Intent Analysis Prompt"
+                multiline
+                rows={4}
+                value={data.intentAnalysis.prompt}
+                onChange={(e) => handleChange('intentAnalysis', { prompt: e.target.value })}
+                placeholder="Enter prompt for intent analysis..."
+              />
+            </Box>
+          </Box>
         </CardContent>
       </Card>
 
@@ -82,11 +107,11 @@ export function WorkflowSetup() {
         Response Rules
       </Typography>
 
-      {state.workflow.responseRules.map((rule, index) => (
+      {data.responseRules.map((rule, index) => (
         <Card key={index} sx={{ mb: 2 }}>
           <CardContent>
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={4}>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+              <Box sx={{ flex: '0 0 calc(33% - 12px)' }}>
                 <TextField
                   fullWidth
                   label="Condition"
@@ -94,8 +119,8 @@ export function WorkflowSetup() {
                   onChange={(e) => handleRuleChange(index, 'condition', e.target.value)}
                   placeholder="e.g., contains 'urgent'"
                 />
-              </Grid>
-              <Grid item xs={12} md={4}>
+              </Box>
+              <Box sx={{ flex: '0 0 calc(33% - 12px)' }}>
                 <TextField
                   fullWidth
                   label="Response"
@@ -103,8 +128,8 @@ export function WorkflowSetup() {
                   onChange={(e) => handleRuleChange(index, 'response', e.target.value)}
                   placeholder="Custom response message..."
                 />
-              </Grid>
-              <Grid item xs={12} md={4}>
+              </Box>
+              <Box sx={{ flex: '0 0 calc(33% - 12px)' }}>
                 <FormControl fullWidth>
                   <InputLabel>Action</InputLabel>
                   <Select
@@ -116,8 +141,8 @@ export function WorkflowSetup() {
                     <MenuItem value="voicemail">Take Voicemail</MenuItem>
                   </Select>
                 </FormControl>
-              </Grid>
-            </Grid>
+              </Box>
+            </Box>
           </CardContent>
         </Card>
       ))}
