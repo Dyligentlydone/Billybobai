@@ -17,23 +17,36 @@ def create_app():
     db.init_app(app)
     migrate = Migrate(app, db)
 
-    # Register blueprints
-    from app.routes.api import api
-    from app.routes.webhooks import webhooks
-    app.register_blueprint(api, url_prefix='/api')
-    app.register_blueprint(webhooks, url_prefix='/webhooks')
+    with app.app_context():
+        # Initialize database
+        db.create_all()
+
+        # Register blueprints
+        from app.routes.api import api
+        from app.routes.webhooks import webhooks
+        app.register_blueprint(api, url_prefix='/api')
+        app.register_blueprint(webhooks, url_prefix='/webhooks')
 
     @app.route('/health')
     def health_check():
-        return jsonify({"status": "healthy", "timestamp": datetime.utcnow().isoformat()})
-
-    @app.before_first_request
-    def init_database():
-        with app.app_context():
-            db.create_all()
+        try:
+            # Test database connection
+            db.session.execute('SELECT 1')
+            return jsonify({
+                "status": "healthy",
+                "timestamp": datetime.utcnow().isoformat(),
+                "database": "connected"
+            }), 200
+        except Exception as e:
+            return jsonify({
+                "status": "unhealthy",
+                "timestamp": datetime.utcnow().isoformat(),
+                "error": str(e)
+            }), 500
 
     return app
 
+# Create the Flask application instance
 app = create_app()
 
 if __name__ == '__main__':
