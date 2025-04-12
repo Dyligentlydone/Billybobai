@@ -35,6 +35,7 @@ except Exception as e:
     print(f"Warning: Some services failed to initialize: {str(e)}")
 
 @api.route('/ai/analyze', methods=['POST'])
+@jwt_required()
 async def analyze_requirements():
     """Analyze requirements and generate workflow configuration."""
     try:
@@ -52,6 +53,7 @@ async def analyze_requirements():
         return jsonify({"error": str(e)}), 500
 
 @api.route('/twilio/send', methods=['POST'])
+@jwt_required()
 async def send_twilio_message():
     """Send message via Twilio (SMS, WhatsApp, Voice, or Flex)."""
     try:
@@ -65,6 +67,7 @@ async def send_twilio_message():
         return jsonify({"error": str(e)}), 500
 
 @api.route('/sendgrid/send', methods=['POST'])
+@jwt_required()
 async def send_email():
     """Send email via SendGrid."""
     try:
@@ -78,6 +81,7 @@ async def send_email():
         return jsonify({"error": str(e)}), 500
 
 @api.route('/sendgrid/templates', methods=['GET'])
+@jwt_required()
 async def get_templates():
     """Fetch all available SendGrid templates."""
     try:
@@ -89,6 +93,7 @@ async def get_templates():
         return jsonify({"error": str(e)}), 500
 
 @api.route('/sendgrid/templates/preview', methods=['POST'])
+@jwt_required()
 async def preview_template():
     """Generate a preview of a template with test data."""
     try:
@@ -102,6 +107,7 @@ async def preview_template():
         return jsonify({"error": str(e)}), 500
 
 @api.route('/zendesk/ticket', methods=['POST'])
+@jwt_required()
 async def create_ticket():
     """Create a new Zendesk ticket."""
     try:
@@ -115,6 +121,7 @@ async def create_ticket():
         return jsonify({"error": str(e)}), 500
 
 @api.route('/zendesk/ticket/<int:ticket_id>', methods=['PUT'])
+@jwt_required()
 async def update_ticket(ticket_id):
     """Update an existing Zendesk ticket."""
     try:
@@ -127,6 +134,7 @@ async def update_ticket(ticket_id):
         return jsonify({"error": str(e)}), 500
 
 @api.route('/zendesk/ticket/<int:ticket_id>/comment', methods=['POST'])
+@jwt_required()
 async def add_ticket_comment(ticket_id):
     """Add a comment to a Zendesk ticket."""
     try:
@@ -145,6 +153,7 @@ async def add_ticket_comment(ticket_id):
         return jsonify({"error": str(e)}), 500
 
 @api.route('/config/email', methods=['POST'])
+@jwt_required()
 async def configure_email_automation():
     """Configure email automation with API keys and settings."""
     try:
@@ -171,8 +180,8 @@ async def configure_email_automation():
         return jsonify({"error": str(e)}), 500
 
 @api.route('/workflows/<workflow_id>/execute', methods=['POST'])
-@jwt_required
-def execute_workflow(workflow_id):
+@jwt_required()
+async def execute_workflow(workflow_id):
     """Execute a workflow with the given input data."""
     try:
         # Get workflow
@@ -185,14 +194,14 @@ def execute_workflow(workflow_id):
         engine = WorkflowEngine()
         
         # Execute workflow
-        execution = asyncio.run(engine.execute_workflow(
+        execution = await engine.execute_workflow(
             workflow_id=workflow_id,
             workflow_data={
                 "nodes": workflow.nodes,
                 "edges": workflow.edges
             },
             input_data=input_data
-        ))
+        )
         
         # Save execution result
         workflow.executions[str(datetime.utcnow())] = execution.dict()
@@ -204,8 +213,8 @@ def execute_workflow(workflow_id):
         return jsonify({"error": str(e)}), 500
 
 @api.route('/workflows/<workflow_id>/executions', methods=['GET'])
-@jwt_required
-def get_workflow_executions(workflow_id):
+@jwt_required()
+async def get_workflow_executions(workflow_id):
     """Get all executions for a workflow."""
     try:
         workflow = Workflow.query.get_or_404(workflow_id)
@@ -214,8 +223,8 @@ def get_workflow_executions(workflow_id):
         return jsonify({"error": str(e)}), 500
 
 @api.route('/workflows/<workflow_id>/executions/<execution_id>', methods=['GET'])
-@jwt_required
-def get_workflow_execution(workflow_id, execution_id):
+@jwt_required()
+async def get_workflow_execution(workflow_id, execution_id):
     """Get a specific execution for a workflow."""
     try:
         workflow = Workflow.query.get_or_404(workflow_id)
