@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Copy package files and install dependencies
 COPY package*.json ./
-RUN npm ci --production
+RUN npm ci
 
 # Set environment to production
 ENV NODE_ENV=production
