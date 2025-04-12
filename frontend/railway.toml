@@ -1,10 +1,10 @@
 [build]
 builder = "nixpacks"
-buildCommand = "npm ci && npm run build"
+buildCommand = "NODE_ENV=production npm install --no-cache && npm run build"
 
 [deploy]
-startCommand = "cd dist && python3 -m http.server ${PORT:-80}"
-healthcheckPath = "/index.html"
+startCommand = "npx serve -s dist -l ${PORT:-80}"
+healthcheckPath = "/"
 healthcheckTimeout = 100
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 10
