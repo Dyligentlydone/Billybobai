@@ -1,14 +1,14 @@
 from datetime import datetime
 from typing import Optional, List
 import hashlib
-from ..models.email import EmailThread, InboundEmail
+from ..models.email import EmailThread, InboundEmail, EmailThreadModel, InboundEmailModel
 from ..database import db
 
 class EmailThreadService:
     def __init__(self):
         pass  # No initialization needed, using SQLAlchemy models directly
 
-    async def get_or_create_thread(self, email: InboundEmail) -> EmailThread:
+    async def get_or_create_thread(self, email: InboundEmailModel) -> EmailThreadModel:
         """Get existing thread or create new one based on email headers."""
         thread_id = self._extract_thread_id(email)
         
@@ -34,17 +34,28 @@ class EmailThreadService:
             db.session.commit()
 
         # Add message to thread
-        thread.messages.append({
+        messages = thread.messages or []
+        messages.append({
             "from": email.from_email,
             "content": email.text or email.html,
-            "timestamp": email.timestamp,
+            "timestamp": email.timestamp.isoformat() if email.timestamp else datetime.utcnow().isoformat(),
             "direction": "inbound"
         })
+        thread.messages = messages
         db.session.commit()
 
-        return thread
+        # Convert to Pydantic model for API response
+        return EmailThreadModel(
+            thread_id=thread.thread_id,
+            business_id=thread.business_id,
+            subject=thread.subject,
+            customer_email=thread.customer_email,
+            last_updated=thread.last_updated,
+            messages=thread.messages,
+            metadata=thread.metadata or {}
+        )
 
-    def _extract_thread_id(self, email: InboundEmail) -> str:
+    def _extract_thread_id(self, email: InboundEmailModel) -> str:
         """Extract or generate thread ID from email headers."""
         # Try to get thread ID from headers
         headers = email.headers or {}
@@ -75,10 +86,13 @@ class EmailThreadService:
         """Add AI response to thread history."""
         thread = EmailThread.query.filter_by(thread_id=thread_id).first()
         if thread:
-            thread.messages.append({
+            messages = thread.messages or []
+            messages.append({
                 "from": "ai_assistant",
                 "content": response_content,
-                "timestamp": datetime.utcnow(),
+                "timestamp": datetime.utcnow().isoformat(),
                 "direction": "outbound"
             })
+            thread.messages = messages
+            thread.last_updated = datetime.utcnow()
             db.session.commit()

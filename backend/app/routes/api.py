@@ -15,39 +15,53 @@ import hmac
 import hashlib
 from ..services.email_thread_service import EmailThreadService
 from ..services.business_service import BusinessService
-from ..models.email import InboundEmail
+from ..models.email import InboundEmail, InboundEmailModel
 
 api = Blueprint('api', __name__)
-twilio_service = TwilioService()
-sendgrid_service = SendGridService()
-zendesk_service = ZendeskService()
-ai_service = AIService()
-email_thread_service = EmailThreadService()
-business_service = BusinessService()
+
+# Initialize services - they'll be None if credentials aren't available
+twilio_service = None
+sendgrid_service = None
+zendesk_service = None
+ai_service = None
+email_thread_service = None
+business_service = None
+
+try:
+    twilio_service = TwilioService()
+    sendgrid_service = SendGridService()
+    zendesk_service = ZendeskService()
+    ai_service = AIService()
+    email_thread_service = EmailThreadService()
+    business_service = BusinessService()
+except Exception as e:
+    print(f"Warning: Some services failed to initialize: {str(e)}")
 
 def verify_sendgrid_webhook(f):
     """Verify that the request came from SendGrid."""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        signature = request.headers.get('X-Twilio-Email-Event-Webhook-Signature')
-        timestamp = request.headers.get('X-Twilio-Email-Event-Webhook-Timestamp')
+        if not os.getenv('SENDGRID_WEBHOOK_VERIFY_KEY'):
+            return jsonify({"error": "Webhook verification key not configured"}), 500
+
+        signature = request.headers.get('X-Twilio-Email-Event-Webhook-Signature', '')
+        timestamp = request.headers.get('X-Twilio-Email-Event-Webhook-Timestamp', '')
         
         if not signature or not timestamp:
             return jsonify({"error": "Missing signature headers"}), 401
 
         # Verify signature
-        payload = timestamp + request.get_data(as_text=True)
-        signing_key = os.environ.get('SENDGRID_SIGNING_KEY')
-        
+        payload = timestamp + request.get_data().decode('utf-8')
         hmac_obj = hmac.new(
-            key=signing_key.encode(),
+            key=os.getenv('SENDGRID_WEBHOOK_VERIFY_KEY').encode(),
             msg=payload.encode(),
             digestmod=hashlib.sha256
         )
-        
-        if not hmac.compare_digest(signature, hmac_obj.hexdigest()):
+        calculated_sig = hmac_obj.hexdigest()
+
+        if not hmac.compare_digest(calculated_sig, signature):
             return jsonify({"error": "Invalid signature"}), 401
-            
+
         return f(*args, **kwargs)
     return decorated_function
 
@@ -60,6 +74,9 @@ async def analyze_requirements():
         if not description:
             return jsonify({"error": "Description is required"}), 400
 
+        if ai_service is None:
+            return jsonify({"error": "AI service is not available"}), 500
+
         workflow = await ai_service.analyze_requirements(description)
         return jsonify(workflow.dict()), 200
     except Exception as e:
@@ -71,6 +88,8 @@ async def send_twilio_message():
     try:
         data = request.get_json()
         message_request = MessageRequest(**data)
+        if twilio_service is None:
+            return jsonify({"error": "Twilio service is not available"}), 500
         result = await twilio_service.send_message(message_request)
         return jsonify(result), 200
     except Exception as e:
@@ -82,6 +101,8 @@ async def send_email():
     try:
         data = request.get_json()
         email_request = EmailRequest(**data)
+        if sendgrid_service is None:
+            return jsonify({"error": "SendGrid service is not available"}), 500
         result = await sendgrid_service.send_email(email_request)
         return jsonify(result), 200
     except Exception as e:
@@ -91,6 +112,8 @@ async def send_email():
 async def get_templates():
     """Fetch all available SendGrid templates."""
     try:
+        if sendgrid_service is None:
+            return jsonify({"error": "SendGrid service is not available"}), 500
         templates = await sendgrid_service.get_templates()
         return jsonify(templates), 200
     except Exception as e:
@@ -102,6 +125,8 @@ async def preview_template():
     try:
         data = request.get_json()
         preview_request = TemplatePreviewRequest(**data)
+        if sendgrid_service is None:
+            return jsonify({"error": "SendGrid service is not available"}), 500
         result = await sendgrid_service.preview_template(preview_request)
         return jsonify(result), 200
     except Exception as e:
@@ -113,6 +138,8 @@ async def create_ticket():
     try:
         data = request.get_json()
         ticket_request = TicketRequest(**data)
+        if zendesk_service is None:
+            return jsonify({"error": "Zendesk service is not available"}), 500
         result = await zendesk_service.create_ticket(ticket_request)
         return jsonify(result), 200
     except Exception as e:
@@ -123,6 +150,8 @@ async def update_ticket(ticket_id):
     """Update an existing Zendesk ticket."""
     try:
         data = request.get_json()
+        if zendesk_service is None:
+            return jsonify({"error": "Zendesk service is not available"}), 500
         result = await zendesk_service.update_ticket(ticket_id, data)
         return jsonify(result), 200
     except Exception as e:
@@ -139,6 +168,8 @@ async def add_ticket_comment(ticket_id):
         if not comment:
             return jsonify({"error": "Comment is required"}), 400
 
+        if zendesk_service is None:
+            return jsonify({"error": "Zendesk service is not available"}), 500
         result = await zendesk_service.add_comment(ticket_id, comment, public)
         return jsonify(result), 200
     except Exception as e:
@@ -159,6 +190,8 @@ async def handle_inbound_email():
             return jsonify({"error": "Invalid recipient email"}), 400
             
         # Get business configuration
+        if business_service is None:
+            return jsonify({"error": "Business service is not available"}), 500
         business = await business_service.get_business_by_domain(business_domain)
         if not business:
             return jsonify({"error": "Business not found"}), 404
@@ -183,6 +216,8 @@ async def handle_inbound_email():
         )
 
         # Get or create email thread with business context
+        if email_thread_service is None:
+            return jsonify({"error": "Email thread service is not available"}), 500
         thread = await email_thread_service.get_or_create_thread(email)
         
         # Get conversation history
@@ -192,6 +227,8 @@ async def handle_inbound_email():
         brand_voice = business.config.brand_voice
         
         # Generate AI response using business context
+        if ai_service is None:
+            return jsonify({"error": "AI service is not available"}), 500
         response = await ai_service.generate_email_response(
             customer_email=email.text or email.html,
             brand_voice=brand_voice,
@@ -203,6 +240,8 @@ async def handle_inbound_email():
         )
         
         # Send response using business's SendGrid configuration
+        if sendgrid_service is None:
+            return jsonify({"error": "SendGrid service is not available"}), 500
         if response['type'] == 'template':
             await sendgrid_service.send_email(EmailRequest(
                 to=email.from_email,
@@ -250,8 +289,9 @@ async def configure_email_automation():
         os.environ['SENDGRID_FROM_EMAIL'] = data['integration']['fromEmail']
         
         # Reinitialize services with new keys
-        sendgrid_service.__init__()
-        ai_service.__init__()
+        global sendgrid_service, ai_service
+        sendgrid_service = SendGridService()
+        ai_service = AIService()
         
         return jsonify({"status": "success", "message": "Email automation configured successfully"}), 200
     except Exception as e:
