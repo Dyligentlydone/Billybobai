@@ -43,13 +43,15 @@ export type SSMLPitch = 'x-low' | 'low' | 'medium' | 'high' | 'x-high';
 export type SSMLVolume = 'silent' | 'x-soft' | 'soft' | 'medium' | 'loud' | 'x-loud';
 export type SSMLEmphasis = 'reduced' | 'none' | 'moderate' | 'strong';
 
+export type VoiceProvider = 'twilio' | 'amazon-polly' | 'google-text-to-speech';
+
 export interface VoicePersonalizationSettings {
   voice: {
     type: 'basic' | 'neural' | 'standard';
     gender: 'male' | 'female';
     accent: string;
     name: string;
-    provider: 'twilio' | 'polly' | 'google';
+    provider: VoiceProvider;
   };
   ssml: {
     rate: SSMLRate;

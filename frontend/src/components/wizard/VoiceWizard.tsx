@@ -20,20 +20,20 @@ import { useWizard } from '../../contexts/WizardContext';
 
 const defaultVoiceSettings: VoicePersonalizationSettings = {
   voice: {
-    type: 'neural',
-    gender: 'female',
+    type: 'basic',
+    gender: 'male',
     accent: 'American',
-    name: 'Sarah',
+    name: 'Matthew',
     provider: 'twilio'
   },
   ssml: {
     rate: 'medium',
     pitch: 'medium',
     volume: 'medium',
-    emphasis: 'none',
-    breakTime: 500
+    emphasis: 'moderate',
+    breakTime: 0
   }
-};
+} as const;
 
 const steps: Array<{ id: WizardStep; label: string; description: string }> = [
   {
@@ -126,14 +126,17 @@ export function VoiceWizard({ onComplete, onCancel }: VoiceWizardProps) {
       case 'phone':
         return <PhoneSetup />;
       case 'voice':
+        const accountSid = state.services.twilio.accountSid;
+        const authToken = state.services.twilio.authToken;
+        const twilioConfig = accountSid && authToken ? {
+          accountSid,
+          authToken
+        } : undefined;
         return (
           <VoicePersonalization
             settings={state.voiceSettings || defaultVoiceSettings}
             onSettingsChange={handleVoiceSettingsChange}
-            twilioConfig={state.services.twilio.isValid ? {
-              accountSid: state.services.twilio.accountSid,
-              authToken: state.services.twilio.authToken
-            } : undefined}
+            twilioConfig={twilioConfig}
           />
         );
       case 'workflow':
