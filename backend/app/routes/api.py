@@ -13,7 +13,6 @@ import os
 from ..services.email_thread_service import EmailThreadService
 from ..services.business_service import BusinessService
 from ..models.email import InboundEmail, InboundEmailModel
-from ..utils.decorators import verify_sendgrid_webhook
 
 api = Blueprint('api', __name__)
 
