@@ -19,9 +19,9 @@ ENV FLASK_APP=app.app
 ENV FLASK_ENV=production
 ENV PYTHONPATH=/app
 
-# Initialize database
-RUN mkdir -p instance && \
-    python -c "from app.app import app; from app import db; app.app_context().push(); db.create_all()"
+# Create instance directory
+RUN mkdir -p instance
 
 # Command to run the application
-CMD gunicorn --bind 0.0.0.0:$PORT --workers 4 --threads 2 --timeout 120 --access-logfile - --error-logfile - "app.app:app"
+CMD python -c "from app.app import app; from app import db; app.app_context().push(); db.create_all()" && \
+    gunicorn --bind 0.0.0.0:$PORT --workers 4 --threads 2 --timeout 120 --access-logfile - --error-logfile - "app.app:app"
