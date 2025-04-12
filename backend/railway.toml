@@ -3,7 +3,7 @@ builder = "nixpacks"
 buildCommand = ""
 
 [deploy]
-startCommand = "gunicorn 'app.app:app' --workers 4 --threads 2 --timeout 120 --access-logfile - --error-logfile - --bind 0.0.0.0:8000"
+startCommand = "gunicorn 'app:app' --workers 4 --threads 2 --timeout 120 --access-logfile - --error-logfile - --bind 0.0.0.0:8000"
 healthcheckPath = "/health"
 healthcheckTimeout = 60
 restartPolicyType = "on_failure"
@@ -11,7 +11,7 @@ restartPolicyMaxRetries = 10
 
 [deploy.env]
 # Flask Configuration
-FLASK_APP = "app.app"
+FLASK_APP = "app.py"
 FLASK_ENV = "production"
 PYTHONPATH = "/app"
 DATABASE_URL = "sqlite:///instance/app.db"
