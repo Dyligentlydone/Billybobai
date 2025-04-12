@@ -104,7 +104,10 @@ export interface VoiceNodeData {
 }
 
 export interface VoiceSettings {
-  voice: string;  // 'man' | 'woman'
+  voice?: string;
+  language?: string;
+  gender?: string;
+  speed?: string;
 }
 
 export interface MenuOption {

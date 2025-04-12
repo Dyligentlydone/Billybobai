@@ -31,7 +31,10 @@ import {
   InputLabel,
   FormControlLabel,
   Switch,
+  styled,
 } from '@mui/material';
+import { GridProps, Theme } from '@mui/material';
+import { SxProps } from '@mui/system';
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { VoiceConfig, VoiceNodeData } from '../../types/voice';
 import {
@@ -260,7 +263,7 @@ export const VoiceConfigWizard: React.FC<VoiceConfigWizardProps> = ({
       business: {
         name: '',
         phone: '',
-        timezone: 'America/New_York',
+        timezone: 'America/Los_Angeles',
       },
       integration: {
         twilio: {
@@ -276,15 +279,50 @@ export const VoiceConfigWizard: React.FC<VoiceConfigWizardProps> = ({
         greeting: {
           enabled: true,
           message: 'Thank you for calling. We are excited to assist you today.',
-          voice: {
+          voiceSettings: {
             language: 'en-US',
             gender: 'female',
-            speed: 1,
+            speed: 'normal',
+            voice: 'woman',
           },
         },
         mainMenu: {
           prompt: 'Please select from the following options:',
           options: [],
+          voiceSettings: {
+            language: 'en-US',
+            gender: 'female',
+            speed: 'normal',
+            voice: 'woman',
+          },
+        },
+        fallback: {
+          message: 'I apologize, but I did not understand your response. Please try again.',
+          action: 'transfer',
+          voiceSettings: {
+            language: 'en-US',
+            gender: 'female',
+            speed: 'normal',
+            voice: 'woman',
+          },
+        },
+        businessHours: {
+          enabled: false,
+          timezone: 'America/Los_Angeles',
+          hours: {},
+          outOfHoursMessage: 'We are currently closed. Please call back during business hours.',
+          voiceSettings: {
+            language: 'en-US',
+            gender: 'female',
+            speed: 'normal',
+            voice: 'woman',
+          },
+        },
+        defaultVoiceSettings: {
+          language: 'en-US',
+          gender: 'female',
+          speed: 'normal',
+          voice: 'woman',
         },
       },
     },
@@ -365,6 +403,17 @@ export const VoiceConfigWizard: React.FC<VoiceConfigWizardProps> = ({
       console.error('Error saving voice configuration:', error);
     }
   };
+
+  // Create properly typed Grid components
+  interface ExtendedGridProps extends GridProps {
+    item?: boolean;
+    container?: boolean;
+    xs?: number;
+    spacing?: number;
+    sx?: SxProps<Theme>;
+  }
+
+  const StyledGrid = styled(Grid)<ExtendedGridProps>({});
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
@@ -471,10 +520,10 @@ export const VoiceConfigWizard: React.FC<VoiceConfigWizardProps> = ({
                 Voice Settings
               </Typography>
 
-              <Grid container spacing={2}>
-                <Grid item xs={6}>
+              <StyledGrid container spacing={2}>
+                <StyledGrid item xs={6}>
                   <Controller
-                    name="callFlow.greeting.voice.language"
+                    name="callFlow.greeting.voiceSettings.language"
                     control={control}
                     render={({ field }) => (
                       <FormControl fullWidth disabled={!control._formValues.callFlow.greeting.enabled}>
@@ -489,39 +538,39 @@ export const VoiceConfigWizard: React.FC<VoiceConfigWizardProps> = ({
                       </FormControl>
                     )}
                   />
-                </Grid>
-                <Grid item xs={3}>
+                </StyledGrid>
+                <StyledGrid item xs={3}>
                   <Controller
-                    name="callFlow.greeting.voice.gender"
+                    name="callFlow.greeting.voiceSettings.gender"
                     control={control}
                     render={({ field }) => (
                       <FormControl fullWidth disabled={!control._formValues.callFlow.greeting.enabled}>
-                        <InputLabel>Voice</InputLabel>
-                        <Select {...field} label="Voice">
-                          <MenuItem value="female">Female</MenuItem>
+                        <InputLabel>Voice Gender</InputLabel>
+                        <Select {...field} label="Voice Gender">
                           <MenuItem value="male">Male</MenuItem>
+                          <MenuItem value="female">Female</MenuItem>
                         </Select>
                       </FormControl>
                     )}
                   />
-                </Grid>
-                <Grid item xs={3}>
+                </StyledGrid>
+                <StyledGrid item xs={3}>
                   <Controller
-                    name="callFlow.greeting.voice.speed"
+                    name="callFlow.greeting.voiceSettings.speed"
                     control={control}
                     render={({ field }) => (
                       <FormControl fullWidth disabled={!control._formValues.callFlow.greeting.enabled}>
-                        <InputLabel>Speed</InputLabel>
-                        <Select {...field} label="Speed">
-                          <MenuItem value={0.8}>Slow</MenuItem>
-                          <MenuItem value={1}>Normal</MenuItem>
-                          <MenuItem value={1.2}>Fast</MenuItem>
+                        <InputLabel>Voice Speed</InputLabel>
+                        <Select {...field} label="Voice Speed">
+                          <MenuItem value="slow">Slow</MenuItem>
+                          <MenuItem value="normal">Normal</MenuItem>
+                          <MenuItem value="fast">Fast</MenuItem>
                         </Select>
                       </FormControl>
                     )}
                   />
-                </Grid>
-              </Grid>
+                </StyledGrid>
+              </StyledGrid>
             </Box>
           </CardContent>
         </Card>
@@ -611,8 +660,8 @@ export const VoiceConfigWizard: React.FC<VoiceConfigWizardProps> = ({
               Menu Options
             </Typography>
             {fields.map((field, index) => (
-              <Grid container spacing={2} key={field.id}>
-                <Grid item xs={1}>
+              <StyledGrid container spacing={2} key={field.id}>
+                <StyledGrid item xs={1}>
                   <Controller
                     name={`callFlow.mainMenu.options.${index}.digit`}
                     control={control}
@@ -626,8 +675,8 @@ export const VoiceConfigWizard: React.FC<VoiceConfigWizardProps> = ({
                       />
                     )}
                   />
-                </Grid>
-                <Grid item xs={6}>
+                </StyledGrid>
+                <StyledGrid item xs={6}>
                   <Controller
                     name={`callFlow.mainMenu.options.${index}.description`}
                     control={control}
@@ -643,8 +692,8 @@ export const VoiceConfigWizard: React.FC<VoiceConfigWizardProps> = ({
                       />
                     )}
                   />
-                </Grid>
-                <Grid item xs={4}>
+                </StyledGrid>
+                <StyledGrid item xs={4}>
                   <Controller
                     name={`callFlow.mainMenu.options.${index}.action`}
                     control={control}
@@ -657,8 +706,8 @@ export const VoiceConfigWizard: React.FC<VoiceConfigWizardProps> = ({
                       </Select>
                     )}
                   />
-                </Grid>
-                <Grid item xs={1}>
+                </StyledGrid>
+                <StyledGrid item xs={1}>
                   <IconButton 
                     onClick={() => remove(index)}
                     color="error"
@@ -666,8 +715,8 @@ export const VoiceConfigWizard: React.FC<VoiceConfigWizardProps> = ({
                   >
                     <DeleteIcon />
                   </IconButton>
-                </Grid>
-              </Grid>
+                </StyledGrid>
+              </StyledGrid>
             ))}
             <Button
               startIcon={<AddIcon />}
