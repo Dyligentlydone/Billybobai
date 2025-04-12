@@ -144,23 +144,29 @@ async def add_ticket_comment(ticket_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@api.route('/api/config/email', methods=['POST'])
+@api.route('/config/email', methods=['POST'])
 async def configure_email_automation():
     """Configure email automation with API keys and settings."""
     try:
         data = request.get_json()
         
-        # Update environment variables
-        os.environ['SENDGRID_API_KEY'] = data['integration']['sendgridApiKey']
-        os.environ['OPENAI_API_KEY'] = data['integration']['openaiApiKey']
-        os.environ['SENDGRID_FROM_EMAIL'] = data['integration']['fromEmail']
+        # Validate required fields
+        required_fields = ['sendgrid_api_key', 'sendgrid_from_email']
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({"error": f"Missing required field: {field}"}), 400
+                
+        # Update SendGrid configuration
+        os.environ['SENDGRID_API_KEY'] = data['sendgrid_api_key']
+        os.environ['SENDGRID_FROM_EMAIL'] = data['sendgrid_from_email']
         
-        # Reinitialize services with new keys
-        global sendgrid_service, ai_service
-        sendgrid_service = SendGridService()
-        ai_service = AIService()
-        
-        return jsonify({"status": "success", "message": "Email automation configured successfully"}), 200
+        # Optionally update Zendesk configuration
+        if all(key in data for key in ['zendesk_subdomain', 'zendesk_email', 'zendesk_api_token']):
+            os.environ['ZENDESK_SUBDOMAIN'] = data['zendesk_subdomain']
+            os.environ['ZENDESK_EMAIL'] = data['zendesk_email']
+            os.environ['ZENDESK_API_TOKEN'] = data['zendesk_api_token']
+            
+        return jsonify({"status": "success"}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
