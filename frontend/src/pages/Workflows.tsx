@@ -222,158 +222,198 @@ export default function Workflows() {
           </div>
         </div>
         <WorkflowBuilder
-          clientId="1"
           workflowId={selectedWorkflow || undefined}
           smsConfig={smsConfig}
-          emailConfig={emailConfig}
-          voiceConfig={voiceConfig}
         />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="sm:flex sm:items-center sm:justify-between">
-        <div className="sm:flex-auto">
-          <h1 className="text-2xl font-semibold text-gray-900">Workflows</h1>
-          <p className="mt-2 text-sm text-gray-700">
-            Create and manage your communication workflows.
-          </p>
-        </div>
-        <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
-          <button
-            type="button"
-            onClick={() => setIsCreating(true)}
-            className="inline-flex items-center justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto"
-          >
-            Create Custom Workflow
-          </button>
-        </div>
-      </div>
-
-      {/* Template Cards */}
-      <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-8">
-        {/* SMS Automation Card */}
-        <div className="relative rounded-lg border border-gray-300 bg-white px-6 py-5 shadow-sm flex items-center space-x-3 hover:border-gray-400 focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500">
-          <div className="flex-1 min-w-0">
-            <button
-              onClick={() => setShowSMSWizard(true)}
-              className="focus:outline-none w-full text-left"
-            >
-              <span className="absolute inset-0" aria-hidden="true" />
-              <p className="text-sm font-medium text-gray-900">SMS Automation</p>
-              <p className="text-sm text-gray-500 truncate">
-                Configure automated SMS responses
+    <div className="px-4 sm:px-6 lg:px-8">
+      {selectedWorkflow ? (
+        <WorkflowBuilder
+          workflowId={selectedWorkflow}
+          smsConfig={smsConfig}
+        />
+      ) : (
+        <>
+          <div className="sm:flex sm:items-center">
+            <div className="sm:flex-auto">
+              <h1 className="text-xl font-semibold text-gray-900">Workflows</h1>
+              <p className="mt-2 text-sm text-gray-700">
+                Create and manage automated workflows for your business communications.
               </p>
-            </button>
-          </div>
-        </div>
-
-        {/* Email Automation Card */}
-        <div className="relative rounded-lg border border-gray-300 bg-white px-6 py-5 shadow-sm flex items-center space-x-3 hover:border-gray-400 focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500">
-          <div className="flex-1 min-w-0">
-            <button
-              onClick={() => setShowEmailWizard(true)}
-              className="focus:outline-none w-full text-left"
-            >
-              <span className="absolute inset-0" aria-hidden="true" />
-              <p className="text-sm font-medium text-gray-900">Email Automation</p>
-              <p className="text-sm text-gray-500 truncate">
-                Configure automated email responses
-              </p>
-            </button>
-          </div>
-        </div>
-
-        {/* Voice Call Automation Card */}
-        <div className="relative rounded-lg border border-gray-300 bg-white px-6 py-5 shadow-sm flex items-center space-x-3 hover:border-gray-400 focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500">
-          <div className="flex-1 min-w-0">
-            <button
-              onClick={() => setShowVoiceWizard(true)}
-              className="focus:outline-none w-full text-left"
-            >
-              <span className="absolute inset-0" aria-hidden="true" />
-              <p className="text-sm font-medium text-gray-900">Voice Call Automation</p>
-              <p className="text-sm text-gray-500 truncate">
-                Configure automated voice responses
-              </p>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-8 flex flex-col">
-        <div className="-my-2 -mx-4 overflow-x-auto sm:-mx-6 lg:-mx-8">
-          <div className="inline-block min-w-full py-2 align-middle md:px-6 lg:px-8">
-            <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
-              {isLoading ? (
-                <div className="p-4 text-center text-sm text-gray-700">
-                  Loading workflows...
-                </div>
-              ) : !workflows?.length ? (
-                <div className="p-4 text-center text-sm text-gray-700">
-                  No custom workflows yet. Create your first one or use a template above!
-                </div>
-              ) : (
-                <table className="min-w-full divide-y divide-gray-300">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th
-                        scope="col"
-                        className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6"
-                      >
-                        Name
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
-                      >
-                        Status
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
-                      >
-                        Created
-                      </th>
-                      <th
-                        scope="col"
-                        className="relative py-3.5 pl-3 pr-4 sm:pr-6"
-                      >
-                        <span className="sr-only">Edit</span>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200 bg-white">
-                    {workflows.map((workflow) => (
-                      <tr key={workflow._id}>
-                        <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
-                          {workflow.name}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                          {workflow.status}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                          {new Date(workflow.createdAt).toLocaleDateString()}
-                        </td>
-                        <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                          <button
-                            onClick={() => setSelectedWorkflow(workflow._id)}
-                            className="text-indigo-600 hover:text-indigo-900"
-                          >
-                            Edit
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
+            </div>
+            <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
+              <button
+                type="button"
+                onClick={() => setIsCreating(true)}
+                className="inline-flex items-center justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto"
+              >
+                Create Custom Workflow
+              </button>
             </div>
           </div>
-        </div>
-      </div>
+
+          {/* Template Cards */}
+          <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-8">
+            {/* SMS Automation Card */}
+            <div className="relative rounded-lg border border-gray-300 bg-white px-6 py-5 shadow-sm flex items-center space-x-3 hover:border-gray-400 focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500">
+              <div className="flex-1 min-w-0">
+                <button
+                  onClick={() => setShowSMSWizard(true)}
+                  className="focus:outline-none w-full text-left"
+                >
+                  <span className="absolute inset-0" aria-hidden="true" />
+                  <p className="text-sm font-medium text-gray-900">SMS Automation</p>
+                  <p className="text-sm text-gray-500 truncate">
+                    Configure automated SMS responses
+                  </p>
+                </button>
+              </div>
+            </div>
+
+            {/* Email Automation Card */}
+            <div className="relative rounded-lg border border-gray-300 bg-white px-6 py-5 shadow-sm flex items-center space-x-3 hover:border-gray-400 focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500">
+              <div className="flex-1 min-w-0">
+                <button
+                  onClick={() => setShowEmailWizard(true)}
+                  className="focus:outline-none w-full text-left"
+                >
+                  <span className="absolute inset-0" aria-hidden="true" />
+                  <p className="text-sm font-medium text-gray-900">Email Automation</p>
+                  <p className="text-sm text-gray-500 truncate">
+                    Configure automated email responses
+                  </p>
+                </button>
+              </div>
+            </div>
+
+            {/* Voice Call Automation Card */}
+            <div className="relative rounded-lg border border-gray-300 bg-white px-6 py-5 shadow-sm flex items-center space-x-3 hover:border-gray-400 focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500">
+              <div className="flex-1 min-w-0">
+                <button
+                  onClick={() => setShowVoiceWizard(true)}
+                  className="focus:outline-none w-full text-left"
+                >
+                  <span className="absolute inset-0" aria-hidden="true" />
+                  <p className="text-sm font-medium text-gray-900">Voice Call Automation</p>
+                  <p className="text-sm text-gray-500 truncate">
+                    Configure automated voice responses
+                  </p>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 flex flex-col">
+            <div className="-my-2 -mx-4 overflow-x-auto sm:-mx-6 lg:-mx-8">
+              <div className="inline-block min-w-full py-2 align-middle md:px-6 lg:px-8">
+                <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+                  {isLoading ? (
+                    <div className="p-4 text-center text-sm text-gray-700">
+                      Loading workflows...
+                    </div>
+                  ) : !workflows?.length ? (
+                    <div className="p-4 text-center text-sm text-gray-700">
+                      No custom workflows yet. Create your first one or use a template above!
+                    </div>
+                  ) : (
+                    <table className="min-w-full divide-y divide-gray-300">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th
+                            scope="col"
+                            className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6"
+                          >
+                            Name
+                          </th>
+                          <th
+                            scope="col"
+                            className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
+                          >
+                            Status
+                          </th>
+                          <th
+                            scope="col"
+                            className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
+                          >
+                            Created
+                          </th>
+                          <th
+                            scope="col"
+                            className="relative py-3.5 pl-3 pr-4 sm:pr-6"
+                          >
+                            <span className="sr-only">Edit</span>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200 bg-white">
+                        {workflows.map((workflow) => (
+                          <tr key={workflow._id}>
+                            <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
+                              {workflow.name}
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                              {workflow.status}
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                              {new Date(workflow.createdAt).toLocaleDateString()}
+                            </td>
+                            <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                              <button
+                                onClick={() => setSelectedWorkflow(workflow._id)}
+                                className="text-indigo-600 hover:text-indigo-900"
+                              >
+                                Edit
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Wizards */}
+      <Dialog open={showSMSWizard} onClose={() => setShowSMSWizard(false)} maxWidth="md" fullWidth>
+        <DialogContent>
+          <WizardProvider>
+            <SMSConfigWizard
+              onComplete={handleSMSConfigComplete}
+              onCancel={() => setShowSMSWizard(false)}
+            />
+          </WizardProvider>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showEmailWizard} onClose={() => setShowEmailWizard(false)} maxWidth="md" fullWidth>
+        <DialogContent>
+          <WizardProvider>
+            <EmailConfigWizard
+              onComplete={handleEmailConfigComplete}
+              onCancel={() => setShowEmailWizard(false)}
+            />
+          </WizardProvider>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showVoiceWizard} onClose={() => setShowVoiceWizard(false)} maxWidth="md" fullWidth>
+        <DialogContent>
+          <WizardProvider>
+            <VoiceWizard
+              onComplete={handleVoiceConfigComplete}
+              onCancel={() => setShowVoiceWizard(false)}
+            />
+          </WizardProvider>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
