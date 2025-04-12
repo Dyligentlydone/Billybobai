@@ -10,7 +10,7 @@ from ..services.twilio_service import TwilioService
 from ..services.sendgrid_service import SendGridService
 from ..services.zendesk_service import ZendeskService
 from ..services.ai_service import AIService
-from ..utils.decorators import verify_webhook
+from ..utils.decorators import verify_sendgrid_webhook
 
 webhooks = Blueprint('webhooks', __name__)
 
@@ -28,21 +28,34 @@ try:
 except Exception as e:
     print(f"Warning: Some services failed to initialize: {str(e)}")
 
-def verify_webhook(f, service, signature_header, signature_param=None):
-    """Decorator to verify webhook signatures."""
+def verify_twilio_signature(f):
+    """Decorator to verify Twilio webhook signatures."""
     def decorated_function(*args, **kwargs):
-        signature = request.headers.get(signature_header, '')
+        twilio_signature = request.headers.get('X-Twilio-Signature', '')
+        url = request.url
+        params = request.form.to_dict()
+        
+        # Validate request is from Twilio
+        if not twilio_service.validate_webhook({"signature": twilio_signature, "url": url, "params": params}):
+            return jsonify({"error": "Invalid signature"}), 403
+        return f(*args, **kwargs)
+    return decorated_function
+
+def verify_zendesk_signature(f):
+    """Decorator to verify Zendesk webhook signatures."""
+    def decorated_function(*args, **kwargs):
+        signature = request.headers.get('X-Zendesk-Webhook-Signature', '')
         if not signature:
             return jsonify({"error": "Missing signature header"}), 401
             
-        # Validate request is from service
-        if not service.validate_webhook({"signature": signature, "payload": request.get_data()}):
+        # Validate request is from Zendesk
+        if not zendesk_service.validate_webhook({"signature": signature}):
             return jsonify({"error": "Invalid signature"}), 403
         return f(*args, **kwargs)
     return decorated_function
 
 @webhooks.route('/twilio/webhook', methods=['POST'])
-@verify_webhook(twilio_service, 'X-Twilio-Signature')
+@verify_twilio_signature
 async def twilio_webhook():
     """Handle incoming Twilio webhooks (SMS, Voice, WhatsApp)."""
     try:
@@ -89,7 +102,7 @@ async def twilio_webhook():
         return jsonify({"error": str(e)}), 500
 
 @webhooks.route('/sendgrid/webhook', methods=['POST'])
-@verify_webhook(sendgrid_service, 'X-Twilio-Email-Event-Webhook-Signature')
+@verify_sendgrid_webhook
 async def sendgrid_webhook():
     """Handle SendGrid email events (delivered, opened, clicked, etc.)."""
     try:
@@ -124,7 +137,7 @@ async def sendgrid_webhook():
         return jsonify({"error": str(e)}), 500
 
 @webhooks.route('/zendesk/webhook', methods=['POST'])
-@verify_webhook(zendesk_service, 'X-Zendesk-Webhook-Signature')
+@verify_zendesk_signature
 async def zendesk_webhook():
     """Handle Zendesk ticket events (created, updated, solved, etc.)."""
     try:
