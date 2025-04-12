@@ -33,7 +33,8 @@ import {
   SSMLRate,
   SSMLPitch,
   SSMLVolume,
-  SSMLEmphasis 
+  SSMLEmphasis,
+  VoiceProvider 
 } from '../../types/wizard';
 import { getVoicesByType, getVoicesByGender, getVoiceByName } from '../../utils/voiceOptions';
 import { VoicePreview } from './VoicePreview';
@@ -56,6 +57,8 @@ export const VoicePersonalization: React.FC<VoicePersonalizationProps> = ({
     const voices = getVoicesByType(settings.voice.type);
     return getVoicesByGender(voices, settings.voice.gender);
   }, [settings.voice.type, settings.voice.gender]);
+
+  const voiceProviders: VoiceProvider[] = ['twilio', 'amazon-polly', 'google-text-to-speech'];
 
   const handleVoiceTypeChange = (event: SelectChangeEvent) => {
     const type = event.target.value as 'basic' | 'neural' | 'standard';
@@ -102,6 +105,17 @@ export const VoicePersonalization: React.FC<VoicePersonalizationProps> = ({
     }
     
     onSettingsChange(newSettings);
+  };
+
+  const handleProviderChange = (event: SelectChangeEvent<VoiceProvider>) => {
+    const provider = event.target.value as VoiceProvider;
+    onSettingsChange({
+      ...settings,
+      voice: {
+        ...settings.voice,
+        provider
+      }
+    });
   };
 
   const handleVoiceChange = (event: SelectChangeEvent) => {
@@ -167,6 +181,24 @@ export const VoicePersonalization: React.FC<VoicePersonalizationProps> = ({
               <MenuItem value="standard">Standard</MenuItem>
             </Select>
             <FormHelperText>Select the type of voice synthesis</FormHelperText>
+          </FormControl>
+        </CustomGrid>
+
+        <CustomGrid item xs={12} md={6}>
+          <FormControl fullWidth>
+            <InputLabel>Provider</InputLabel>
+            <Select
+              value={settings.voice.provider}
+              onChange={handleProviderChange}
+              label="Provider"
+            >
+              {voiceProviders.map((provider) => (
+                <MenuItem key={provider} value={provider}>
+                  {provider}
+                </MenuItem>
+              ))}
+            </Select>
+            <FormHelperText>Select a voice provider</FormHelperText>
           </FormControl>
         </CustomGrid>
 

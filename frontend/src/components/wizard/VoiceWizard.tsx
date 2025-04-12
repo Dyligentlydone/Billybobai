@@ -9,7 +9,10 @@ import {
   Container,
 } from '@mui/material';
 import { useWizardStep } from '../../contexts/WizardContext';
-import { WizardStep, VoicePersonalizationSettings } from '../../types/wizard';
+import { 
+  WizardStep, 
+  VoicePersonalizationSettings
+} from '../../types/wizard';
 import { AccountConfig } from './steps/AccountConfig';
 import { PhoneSetup } from './steps/PhoneSetup';
 import { WorkflowSetup } from './steps/WorkflowSetup';
@@ -18,7 +21,7 @@ import { DeploySetup } from './steps/DeploySetup';
 import { VoicePersonalization } from '../voice/VoicePersonalization';
 import { useWizard } from '../../contexts/WizardContext';
 
-const defaultVoiceSettings: VoicePersonalizationSettings = {
+const defaultVoiceSettings = {
   voice: {
     type: 'basic',
     gender: 'male',
@@ -27,50 +30,50 @@ const defaultVoiceSettings: VoicePersonalizationSettings = {
     provider: 'twilio'
   },
   ssml: {
-    rate: 'medium',
+    rate: 'x-slow',
     pitch: 'medium',
     volume: 'medium',
     emphasis: 'moderate',
     breakTime: 0
   }
-} as const;
+} as VoicePersonalizationSettings;
 
 const steps: Array<{ id: WizardStep; label: string; description: string }> = [
   {
     id: 'intro',
-    label: 'Welcome',
-    description: 'Set up your automated voice response system',
+    label: 'Introduction',
+    description: 'Welcome to the voice automation setup wizard'
   },
   {
-    id: 'account',
-    label: 'Connect Services',
-    description: 'Configure your Twilio, OpenAI, and Zendesk integrations',
+    id: 'services',
+    label: 'Services',
+    description: 'Configure your Twilio and OpenAI credentials'
   },
   {
     id: 'phone',
     label: 'Phone Setup',
-    description: 'Set up your phone numbers and call handling',
+    description: 'Set up your phone numbers and voicemail'
   },
   {
     id: 'voice',
     label: 'Voice Settings',
-    description: 'Personalize your voice response system',
+    description: 'Customize the voice and speech settings'
   },
   {
     id: 'workflow',
     label: 'Workflow',
-    description: 'Design your voicemail workflow',
+    description: 'Configure your call handling workflow'
   },
   {
     id: 'testing',
     label: 'Testing',
-    description: 'Test your configuration',
+    description: 'Test your voice automation setup'
   },
   {
-    id: 'deploy',
+    id: 'deployment',
     label: 'Deploy',
-    description: 'Review and launch your system',
-  },
+    description: 'Deploy your voice automation'
+  }
 ];
 
 interface VoiceWizardProps {
@@ -121,7 +124,7 @@ export function VoiceWizard({ onComplete, onCancel }: VoiceWizardProps) {
             </Typography>
           </Box>
         );
-      case 'account':
+      case 'services':
         return <AccountConfig />;
       case 'phone':
         return <PhoneSetup />;
@@ -132,9 +135,10 @@ export function VoiceWizard({ onComplete, onCancel }: VoiceWizardProps) {
           accountSid,
           authToken
         } : undefined;
+        const voiceSettings = (state.voiceSettings || defaultVoiceSettings) as VoicePersonalizationSettings;
         return (
           <VoicePersonalization
-            settings={state.voiceSettings || defaultVoiceSettings}
+            settings={voiceSettings}
             onSettingsChange={handleVoiceSettingsChange}
             twilioConfig={twilioConfig}
           />
@@ -143,7 +147,7 @@ export function VoiceWizard({ onComplete, onCancel }: VoiceWizardProps) {
         return <WorkflowSetup />;
       case 'testing':
         return <TestingSetup />;
-      case 'deploy':
+      case 'deployment':
         return <DeploySetup />;
       default:
         return null;

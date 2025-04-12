@@ -16,15 +16,13 @@ interface Workflow {
   updatedAt: string;
 }
 
-export default function Workflows() {
+const Workflows: React.FC = () => {
   const [selectedWorkflow, setSelectedWorkflow] = useState<string | null>(null);
-  const [isCreating, setIsCreating] = useState(false);
   const [showSMSWizard, setShowSMSWizard] = useState(false);
   const [showEmailWizard, setShowEmailWizard] = useState(false);
   const [showVoiceWizard, setShowVoiceWizard] = useState(false);
   const [smsConfig, setSMSConfig] = useState<any>(null);
-  const [emailConfig, setEmailConfig] = useState<any>(null);
-  const [voiceConfig, setVoiceConfig] = useState<any>(null);
+  const [isCreating, setIsCreating] = useState(false);
 
   const { data: workflows, isLoading } = useQuery<Workflow[]>(
     'workflows',
@@ -60,53 +58,12 @@ export default function Workflows() {
     setIsCreating(true);
   };
 
-  const handleEmailConfigComplete = (config: any) => {
-    setEmailConfig({
-      sendgrid: {
-        type: 'email',
-        aiEnabled: 'true',
-        fromEmail: config.integration.fromEmail,
-        fromName: config.integration.fromName,
-        prompt: `You are an AI assistant for ${config.brandTone.voiceType} communication via email. Guidelines:
-          - Voice: ${config.brandTone.voiceType}
-          - Greetings: ${config.brandTone.greetings.join(', ')}
-          - Avoid: ${config.brandTone.wordsToAvoid.join(', ')}
-          - Response time target: 30 seconds
-          - Keep responses professional and concise
-          - Use fallback message if unable to respond
-          - Respect business hours: ${JSON.stringify(config.templates.businessHours)}`,
-      },
-      instructions: [
-        'Configure SendGrid webhook URL',
-        'Set up monitoring alerts',
-        'Test with sample emails',
-        'Enable production mode when ready'
-      ]
-    });
+  const handleEmailConfigComplete = () => {
     setShowEmailWizard(false);
     setIsCreating(true);
   };
 
-  const handleVoiceConfigComplete = (config: any) => {
-    setVoiceConfig({
-      twilio: {
-        type: 'voice',
-        aiEnabled: 'true',
-        phoneNumber: config.integration.twilio.phoneNumber,
-        prompt: `You are an AI voice assistant for ${config.business.name}. Guidelines:
-          - Voice: ${config.callFlow.voicePreferences.gender}, ${config.callFlow.voicePreferences.language}
-          - Greeting: ${config.callFlow.greeting}
-          - Keep responses clear and concise
-          - Use fallback message if unable to respond
-          - Respect business hours: ${JSON.stringify(config.callFlow.businessHours)}`,
-      },
-      instructions: [
-        'Configure Twilio webhook URL for voice',
-        'Set up call monitoring alerts',
-        'Test with sample calls',
-        'Enable production mode when ready'
-      ]
-    });
+  const handleVoiceConfigComplete = () => {
     setShowVoiceWizard(false);
     setIsCreating(true);
   };
@@ -416,4 +373,6 @@ export default function Workflows() {
       </Dialog>
     </div>
   );
-}
+};
+
+export default Workflows;

@@ -10,7 +10,7 @@ function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(' ');
 }
 
-interface SetupData {
+export interface SetupData {
   businessName: string;
   businessId: string;
   phoneNumber: string;
@@ -18,6 +18,16 @@ interface SetupData {
   twilioAuthToken: string;
   openaiApiKey: string;
   promptTemplate: string;
+}
+
+interface SetupStepProps {
+  onComplete: (stepData: Partial<SetupData>) => void;
+  setupData: SetupData;
+}
+
+interface SetupStep {
+  name: string;
+  component: React.ComponentType<SetupStepProps>;
 }
 
 export default function Setup() {
@@ -33,7 +43,7 @@ export default function Setup() {
     promptTemplate: ''
   });
 
-  const steps = [
+  const steps: SetupStep[] = [
     { name: 'Phone Setup', component: PhoneSetup },
     { name: 'Workflow', component: WorkflowSetup },
     { name: 'Testing', component: TestingSetup },

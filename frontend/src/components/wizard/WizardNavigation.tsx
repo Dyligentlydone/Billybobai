@@ -6,13 +6,23 @@ import {
   StepLabel,
   StepButton,
   Button,
-  Typography,
 } from '@mui/material';
-import { useWizardContext } from '../../contexts/WizardContext';
-import { wizardSteps } from './steps';
+import { useWizard } from '../../contexts/WizardContext';
 import { WizardStep } from '../../types/wizard';
 
-const stepOrder: WizardStep[] = [
+const stepLabels: Record<WizardStep, string> = {
+  intro: 'Introduction',
+  services: 'Services',
+  phone: 'Phone Setup',
+  voice: 'Voice Setup',
+  workflow: 'Workflow',
+  calendly: 'Calendly',
+  testing: 'Testing',
+  deployment: 'Deployment',
+  account: 'Account'
+};
+
+const stepOrder: readonly WizardStep[] = [
   'intro',
   'services',
   'phone',
@@ -21,11 +31,11 @@ const stepOrder: WizardStep[] = [
   'calendly',
   'testing',
   'deployment',
-];
+] as const;
 
 const WizardNavigation: React.FC = () => {
-  const { state, dispatch } = useWizardContext();
-  const currentStepIndex = stepOrder.indexOf(state.currentStep);
+  const { state, dispatch } = useWizard();
+  const currentStepIndex = stepOrder.indexOf(state.currentStep as WizardStep);
 
   const handleNext = () => {
     if (currentStepIndex < stepOrder.length - 1) {
@@ -49,11 +59,7 @@ const WizardNavigation: React.FC = () => {
         {stepOrder.map((step) => (
           <Step key={step}>
             <StepButton onClick={() => handleStepClick(step)}>
-              <StepLabel>
-                <Typography variant="caption">
-                  {wizardSteps[step].title}
-                </Typography>
-              </StepLabel>
+              <StepLabel>{stepLabels[step]}</StepLabel>
             </StepButton>
           </Step>
         ))}

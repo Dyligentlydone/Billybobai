@@ -1312,7 +1312,7 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
               <div className="mb-4 p-3 bg-gray-50 rounded border border-gray-200">
                 <label className="block text-sm font-medium text-gray-600 mb-2">Preview</label>
                 <div className="text-sm text-gray-800">
-                  {newTemplate.replace(/{(\w+)}/g, (match, variable) => 
+                  {newTemplate.replace(/{(\w+)}/g, (_match, variable) =>
                     `<span class="text-purple-600">[${variable}]</span>`
                   )}
                 </div>

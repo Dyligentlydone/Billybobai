@@ -26,12 +26,6 @@ interface NodeProps {
   selected: boolean;
 }
 
-interface MenuOption {
-  digit: string;
-  description: string;
-  nextNodeId: string;
-}
-
 interface BusinessHours {
   day: string;
   start: string;

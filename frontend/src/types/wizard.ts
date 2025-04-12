@@ -1,4 +1,4 @@
-export type WizardStep = 'intro' | 'account' | 'phone' | 'voice' | 'workflow' | 'testing' | 'deploy';
+export type WizardStep = 'intro' | 'account' | 'services' | 'phone' | 'voice' | 'workflow' | 'calendly' | 'testing' | 'deployment';
 
 interface ServiceConfig {
   isValid: boolean;
