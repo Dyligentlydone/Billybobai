@@ -1,9 +1,11 @@
+import { VoiceProvider } from '../types/wizard';
+
 interface VoiceOption {
   name: string;
   displayName: string;
   gender: 'male' | 'female';
   accent: string;
-  provider: 'twilio' | 'polly' | 'google';
+  provider: VoiceProvider;
   type: 'basic' | 'neural' | 'standard';
 }
 
@@ -32,7 +34,7 @@ export const voiceOptions: VoiceOption[] = [
     displayName: 'Joanna',
     gender: 'female',
     accent: 'American',
-    provider: 'polly',
+    provider: 'amazon-polly',
     type: 'neural'
   },
   {
@@ -40,7 +42,7 @@ export const voiceOptions: VoiceOption[] = [
     displayName: 'Matthew',
     gender: 'male',
     accent: 'American',
-    provider: 'polly',
+    provider: 'amazon-polly',
     type: 'neural'
   },
   {
@@ -48,7 +50,7 @@ export const voiceOptions: VoiceOption[] = [
     displayName: 'Ivy',
     gender: 'female',
     accent: 'American (Child)',
-    provider: 'polly',
+    provider: 'amazon-polly',
     type: 'neural'
   },
   {
@@ -56,7 +58,7 @@ export const voiceOptions: VoiceOption[] = [
     displayName: 'Kendra',
     gender: 'female',
     accent: 'American',
-    provider: 'polly',
+    provider: 'amazon-polly',
     type: 'neural'
   },
   {
@@ -64,7 +66,7 @@ export const voiceOptions: VoiceOption[] = [
     displayName: 'Kevin',
     gender: 'male',
     accent: 'American (Child)',
-    provider: 'polly',
+    provider: 'amazon-polly',
     type: 'neural'
   },
   {
@@ -72,7 +74,7 @@ export const voiceOptions: VoiceOption[] = [
     displayName: 'Salli',
     gender: 'female',
     accent: 'American',
-    provider: 'polly',
+    provider: 'amazon-polly',
     type: 'neural'
   },
   {
@@ -80,7 +82,7 @@ export const voiceOptions: VoiceOption[] = [
     displayName: 'Stephen',
     gender: 'male',
     accent: 'American',
-    provider: 'polly',
+    provider: 'amazon-polly',
     type: 'neural'
   },
   {
@@ -88,7 +90,7 @@ export const voiceOptions: VoiceOption[] = [
     displayName: 'Emma',
     gender: 'female',
     accent: 'British',
-    provider: 'polly',
+    provider: 'amazon-polly',
     type: 'neural'
   },
   {
@@ -96,7 +98,7 @@ export const voiceOptions: VoiceOption[] = [
     displayName: 'Brian',
     gender: 'male',
     accent: 'British',
-    provider: 'polly',
+    provider: 'amazon-polly',
     type: 'neural'
   },
   {
@@ -104,7 +106,7 @@ export const voiceOptions: VoiceOption[] = [
     displayName: 'Amy',
     gender: 'female',
     accent: 'British',
-    provider: 'polly',
+    provider: 'amazon-polly',
     type: 'neural'
   },
   {
@@ -112,7 +114,7 @@ export const voiceOptions: VoiceOption[] = [
     displayName: 'Arthur',
     gender: 'male',
     accent: 'British',
-    provider: 'polly',
+    provider: 'amazon-polly',
     type: 'neural'
   },
   {
@@ -120,7 +122,7 @@ export const voiceOptions: VoiceOption[] = [
     displayName: 'Olivia',
     gender: 'female',
     accent: 'Australian',
-    provider: 'polly',
+    provider: 'amazon-polly',
     type: 'neural'
   },
   {
@@ -128,7 +130,7 @@ export const voiceOptions: VoiceOption[] = [
     displayName: 'Liam',
     gender: 'male',
     accent: 'Australian',
-    provider: 'polly',
+    provider: 'amazon-polly',
     type: 'neural'
   },
   {
@@ -136,7 +138,7 @@ export const voiceOptions: VoiceOption[] = [
     displayName: 'Aria',
     gender: 'female',
     accent: 'New Zealand',
-    provider: 'polly',
+    provider: 'amazon-polly',
     type: 'neural'
   },
   {
@@ -144,7 +146,7 @@ export const voiceOptions: VoiceOption[] = [
     displayName: 'Gabrielle',
     gender: 'female',
     accent: 'French',
-    provider: 'polly',
+    provider: 'amazon-polly',
     type: 'neural'
   },
   {
@@ -152,7 +154,7 @@ export const voiceOptions: VoiceOption[] = [
     displayName: 'Lea',
     gender: 'female',
     accent: 'French',
-    provider: 'polly',
+    provider: 'amazon-polly',
     type: 'neural'
   },
   {
@@ -160,7 +162,7 @@ export const voiceOptions: VoiceOption[] = [
     displayName: 'Vicki',
     gender: 'female',
     accent: 'German',
-    provider: 'polly',
+    provider: 'amazon-polly',
     type: 'neural'
   },
   {
@@ -168,7 +170,7 @@ export const voiceOptions: VoiceOption[] = [
     displayName: 'Daniel',
     gender: 'male',
     accent: 'German',
-    provider: 'polly',
+    provider: 'amazon-polly',
     type: 'neural'
   },
   {
@@ -176,7 +178,7 @@ export const voiceOptions: VoiceOption[] = [
     displayName: 'Hannah',
     gender: 'female',
     accent: 'German',
-    provider: 'polly',
+    provider: 'amazon-polly',
     type: 'neural'
   },
   {
@@ -184,7 +186,7 @@ export const voiceOptions: VoiceOption[] = [
     displayName: 'Bianca',
     gender: 'female',
     accent: 'Italian',
-    provider: 'polly',
+    provider: 'amazon-polly',
     type: 'neural'
   },
   {
@@ -192,7 +194,7 @@ export const voiceOptions: VoiceOption[] = [
     displayName: 'Adriano',
     gender: 'male',
     accent: 'Italian',
-    provider: 'polly',
+    provider: 'amazon-polly',
     type: 'neural'
   },
   {
@@ -200,7 +202,7 @@ export const voiceOptions: VoiceOption[] = [
     displayName: 'Pedro',
     gender: 'male',
     accent: 'Portuguese',
-    provider: 'polly',
+    provider: 'amazon-polly',
     type: 'neural'
   },
   {
@@ -208,7 +210,7 @@ export const voiceOptions: VoiceOption[] = [
     displayName: 'Camila',
     gender: 'female',
     accent: 'Portuguese',
-    provider: 'polly',
+    provider: 'amazon-polly',
     type: 'neural'
   },
   {
@@ -216,7 +218,7 @@ export const voiceOptions: VoiceOption[] = [
     displayName: 'Lucia',
     gender: 'female',
     accent: 'Spanish (Castilian)',
-    provider: 'polly',
+    provider: 'amazon-polly',
     type: 'neural'
   },
   {
@@ -224,58 +226,58 @@ export const voiceOptions: VoiceOption[] = [
     displayName: 'Sergio',
     gender: 'male',
     accent: 'Spanish (Castilian)',
-    provider: 'polly',
+    provider: 'amazon-polly',
     type: 'neural'
   },
 
-  // Standard Google voices
+  // Google Cloud voices
   {
-    name: 'Google.en-US-Standard-A',
-    displayName: 'Alex',
-    gender: 'male',
-    accent: 'American',
-    provider: 'google',
-    type: 'standard'
-  },
-  {
-    name: 'Google.en-US-Standard-B',
-    displayName: 'Beth',
+    name: 'en-US-Neural2-A',
+    displayName: 'Neural A',
     gender: 'female',
     accent: 'American',
-    provider: 'google',
-    type: 'standard'
+    provider: 'google-text-to-speech',
+    type: 'neural'
   },
   {
-    name: 'Google.en-GB-Standard-A',
-    displayName: 'Charles',
-    gender: 'male',
-    accent: 'British',
-    provider: 'google',
-    type: 'standard'
-  },
-  {
-    name: 'Google.en-GB-Standard-B',
-    displayName: 'Diana',
+    name: 'en-US-Neural2-C',
+    displayName: 'Neural C',
     gender: 'female',
-    accent: 'British',
-    provider: 'google',
-    type: 'standard'
+    accent: 'American',
+    provider: 'google-text-to-speech',
+    type: 'neural'
   },
   {
-    name: 'Google.en-AU-Standard-A',
-    displayName: 'James',
+    name: 'en-US-Neural2-D',
+    displayName: 'Neural D',
     gender: 'male',
-    accent: 'Australian',
-    provider: 'google',
-    type: 'standard'
+    accent: 'American',
+    provider: 'google-text-to-speech',
+    type: 'neural'
   },
   {
-    name: 'Google.en-AU-Standard-B',
-    displayName: 'Karen',
+    name: 'en-US-Neural2-F',
+    displayName: 'Neural F',
     gender: 'female',
-    accent: 'Australian',
-    provider: 'google',
-    type: 'standard'
+    accent: 'American',
+    provider: 'google-text-to-speech',
+    type: 'neural'
+  },
+  {
+    name: 'en-US-Neural2-H',
+    displayName: 'Neural H',
+    gender: 'female',
+    accent: 'American',
+    provider: 'google-text-to-speech',
+    type: 'neural'
+  },
+  {
+    name: 'en-US-Neural2-I',
+    displayName: 'Neural I',
+    gender: 'male',
+    accent: 'American',
+    provider: 'google-text-to-speech',
+    type: 'neural'
   }
 ];
 
