@@ -10,10 +10,38 @@ restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 10
 
 [deploy.env]
+# Flask Configuration
 FLASK_APP = "app.app"
 FLASK_ENV = "production"
 PYTHONPATH = "/app"
 DATABASE_URL = "sqlite:///instance/app.db"
+ENVIRONMENT = "production"
+
+# JWT Configuration
+JWT_SECRET_KEY = "k6L_Go3pBKlcgCWrqyst0EN9MeQUSk-q_UZjPeS1w5Q"
+
+# Twilio Configuration
+TWILIO_ACCOUNT_SID = ""
+TWILIO_AUTH_TOKEN = ""
+TWILIO_PHONE_NUMBER = ""
+TWILIO_MESSAGING_SERVICE_SID = ""
+TWILIO_WORKSPACE_SID = ""
+TWILIO_WORKFLOW_SID = ""
+TWILIO_FLEX_FLOW_SID = ""
+
+# OpenAI Configuration
+OPENAI_API_KEY = ""
+
+# Zendesk Configuration
+ZENDESK_SUBDOMAIN = ""
+ZENDESK_EMAIL = ""
+ZENDESK_API_TOKEN = ""
+
+# SendGrid Configuration
+SENDGRID_API_KEY = ""
+SENDGRID_FROM_EMAIL = ""
+SENDGRID_WEBHOOK_VERIFY_KEY = ""
+SENDGRID_THANK_YOU_TEMPLATE_ID = ""
 
 [deploy.railway]
 name = "billybobai"
