@@ -11,24 +11,6 @@ class BaseModel(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
-class Business(BaseModel):
-    """Business model for storing client information"""
-    __tablename__ = 'businesses'
-
-    name = Column(String(255), nullable=False)
-    status = Column(String(50), default='active')  # active, inactive, suspended
-    settings = Column(JSON, nullable=True)
-
-class Workflow(BaseModel):
-    """Workflow model for storing automation configurations"""
-    __tablename__ = 'workflows'
-
-    business_id = Column(String(36), nullable=False)
-    name = Column(String(255), nullable=False)
-    type = Column(String(50), nullable=False)  # sms, email, voice
-    config = Column(JSON, nullable=False)
-    status = Column(String(50), default='draft')  # draft, active, archived
-
 class MessageMetric(BaseModel):
     """Message metrics for tracking automation performance"""
     __tablename__ = 'message_metrics'

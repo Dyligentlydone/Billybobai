@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from app.models.workflow import Workflow
+from models.workflow import Workflow
 from app.database import db
 from datetime import datetime
 

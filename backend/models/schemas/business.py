@@ -1,8 +1,12 @@
+"""
+Pydantic schemas for business-related models.
+"""
 from datetime import datetime
 from typing import Dict, List, Optional
 from pydantic import BaseModel, EmailStr
 
-class BusinessConfig(BaseModel):
+class BusinessConfigSchema(BaseModel):
+    """Schema for business configuration."""
     name: str
     domain: str
     email_config: Dict = {
@@ -29,14 +33,18 @@ class BusinessConfig(BaseModel):
     created_at: datetime = datetime.utcnow()
     updated_at: datetime = datetime.utcnow()
 
-class Business(BaseModel):
+    class Config:
+        from_attributes = True
+
+class BusinessSchema(BaseModel):
+    """Schema for business entity."""
     id: str
     name: str
     domain: str
-    contact_email: EmailStr
-    config: BusinessConfig
-    created_at: datetime = datetime.utcnow()
-    updated_at: datetime = datetime.utcnow()
+    status: str
+    config: BusinessConfigSchema
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
-        arbitrary_types_allowed = True
+        from_attributes = True

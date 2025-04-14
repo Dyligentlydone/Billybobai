@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from services.sms_processor import SMSProcessor
-from app.models.workflow import Workflow
+from models.workflow import Workflow
 from twilio.twiml.messaging_response import MessagingResponse
 from utils.message_quality import MessageQualityAnalyzer
 from utils.cost_tracking import CostTracker

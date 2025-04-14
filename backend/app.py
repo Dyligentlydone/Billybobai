@@ -2,36 +2,37 @@ from flask import Flask, jsonify
 from flask_migrate import Migrate
 from datetime import datetime
 from flask_cors import CORS
-from app.database import db, init_db
+from config.database import init_db, Base, engine
 import os
 
 def create_app():
     app = Flask(__name__)
     CORS(app)
 
-    # Get database URL from environment or use SQLite as fallback
-    database_url = os.getenv('DATABASE_URL', 'sqlite:///instance/app.db')
-    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    
-    # Initialize extensions
-    db.init_app(app)
-
-    # Create all tables immediately since we're using in-memory database
-    with app.app_context():
-        db.create_all()
+    # Initialize database
+    init_db()
 
     # Register blueprints
     from app.routes.api import api
     from app.routes.webhooks import webhooks
+    from routes import workflows
     app.register_blueprint(api, url_prefix='/api')
     app.register_blueprint(webhooks, url_prefix='/webhooks')
+    app.register_blueprint(workflows.bp)
+
+    @app.route('/')
+    def index():
+        return jsonify({
+            'status': 'healthy',
+            'message': 'Twilio Automation Hub API',
+            'timestamp': datetime.utcnow().isoformat()
+        }), 200
 
     @app.route('/health')
     def health_check():
         return jsonify({
-            "status": "healthy",
-            "timestamp": datetime.utcnow().isoformat()
+            'status': 'healthy',
+            'timestamp': datetime.utcnow().isoformat()
         }), 200
 
     return app
@@ -40,5 +41,5 @@ def create_app():
 app = create_app()
 
 if __name__ == '__main__':
-    port = int(os.getenv('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+    port = int(os.getenv('PORT', 8000))
+    app.run(debug=True, host='0.0.0.0', port=port)
