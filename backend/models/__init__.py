@@ -1,38 +1,34 @@
 from .base import Base
-from .user import User
-from .api_integration import APIIntegration
-from .workflow import Workflow, WorkflowStatus
-from .message import Message, MessageDirection, MessageChannel, MessageStatus
-from .workflow_execution import WorkflowExecution, ExecutionStatus
 from .business import Business
-from .email import EmailThread, InboundEmail, Attachment
-from .integrations import (
-    Integration,
-    CalendlyIntegration,
-    TwilioIntegration,
-    SendGridIntegration,
-    OpenAIIntegration
-)
+from .user import User
+from .workflow import Workflow, WorkflowStatus, WorkflowType
+from .workflow_execution import WorkflowExecution
+from .message import Message, MessageDirection, MessageChannel, MessageStatus, CustomerSentiment
+from .metrics_log import MetricsLog, MetricType
+from .integrations.base import Integration
+from .integrations.twilio import TwilioIntegration
+from .integrations.openai import OpenAIIntegration
+from .integrations.sendgrid import SendGridIntegration
+from .integrations.calendly import CalendlyIntegration
 
 __all__ = [
     'Base',
+    'Business',
     'User',
-    'APIIntegration',
     'Workflow',
     'WorkflowStatus',
+    'WorkflowType',
+    'WorkflowExecution',
     'Message',
     'MessageDirection',
     'MessageChannel',
     'MessageStatus',
-    'WorkflowExecution',
-    'ExecutionStatus',
-    'Business',
-    'EmailThread',
-    'InboundEmail',
-    'Attachment',
+    'CustomerSentiment',
+    'MetricsLog',
+    'MetricType',
     'Integration',
-    'CalendlyIntegration',
     'TwilioIntegration',
+    'OpenAIIntegration',
     'SendGridIntegration',
-    'OpenAIIntegration'
+    'CalendlyIntegration',
 ]

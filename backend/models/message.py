@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, JSON, ForeignKey, Enum
+from sqlalchemy import Column, Integer, String, DateTime, JSON, ForeignKey, Enum, Float
 from sqlalchemy.orm import relationship
 import enum
 from .base import Base
@@ -19,6 +19,11 @@ class MessageStatus(enum.Enum):
     DELIVERED = 'delivered'
     FAILED = 'failed'
 
+class CustomerSentiment(enum.Enum):
+    POSITIVE = 'positive'
+    NEUTRAL = 'neutral'
+    NEGATIVE = 'negative'
+
 class Message(Base):
     __tablename__ = 'messages'
     __table_args__ = {'extend_existing': True}
@@ -31,6 +36,14 @@ class Message(Base):
     message_metadata = Column(JSON)
     status = Column(Enum(MessageStatus), default=MessageStatus.PENDING)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Analytics fields
+    ai_confidence = Column(Float)  # Confidence score of AI response
+    response_time = Column(Integer)  # Time taken to generate response in ms
+    customer_sentiment = Column(Enum(CustomerSentiment))  # Analyzed sentiment
+    template_used = Column(String(255))  # Which response template was used
+    processing_attempts = Column(Integer, default=0)  # Number of retry attempts
+    error_message = Column(String)  # Store any error messages
 
     # Relationships
     workflow = relationship('Workflow', back_populates='messages')

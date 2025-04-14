@@ -5,17 +5,27 @@ from sqlalchemy import pool
 
 from alembic import context
 
-from config.database import Base, DATABASE_URL
+from config.database import DATABASE_URL
 from models import (
-    User,
-    APIIntegration,
-    Workflow,
-    Message,
-    WorkflowExecution,
+    Base,
     Business,
-    EmailThread,
-    InboundEmail,
-    Attachment
+    User,
+    Workflow,
+    WorkflowStatus,
+    WorkflowType,
+    WorkflowExecution,
+    Message,
+    MessageDirection,
+    MessageChannel,
+    MessageStatus,
+    CustomerSentiment,
+    MetricsLog,
+    MetricType,
+    Integration,
+    TwilioIntegration,
+    OpenAIIntegration,
+    SendGridIntegration,
+    CalendlyIntegration,
 )
 
 # this is the Alembic Config object, which provides
@@ -50,7 +60,6 @@ def run_migrations_offline() -> None:
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
     configuration = config.get_section(config.config_ini_section)
-    configuration["sqlalchemy.url"] = DATABASE_URL
     connectable = engine_from_config(
         configuration,
         prefix="sqlalchemy.",
