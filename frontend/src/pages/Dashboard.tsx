@@ -57,12 +57,23 @@ const MOCK_STATS: AnalyticsData = {
 export default function Dashboard() {
   const { selectedBusinessId } = useBusiness();
 
+  // Calculate date range for analytics
+  const end = new Date();
+  const start = new Date();
+  start.setDate(start.getDate() - 30); // Last 30 days
+
   const { data: stats = MOCK_STATS, isLoading, isError } = useQuery<AnalyticsData>(
     ['dashboard-stats', selectedBusinessId],
     async () => {
       if (!selectedBusinessId) return MOCK_STATS;
       try {
-        const { data } = await axios.get(`/api/dashboard/${selectedBusinessId}`);
+        const { data } = await axios.get('/api/analytics', {
+          params: {
+            clientId: selectedBusinessId,
+            startDate: start.toISOString().split('T')[0],
+            endDate: end.toISOString().split('T')[0]
+          }
+        });
         return data;
       } catch (error) {
         console.error('Failed to fetch dashboard stats:', error);
