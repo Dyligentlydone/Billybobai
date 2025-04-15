@@ -3,24 +3,61 @@ import axios from 'axios';
 import { useBusiness } from '../contexts/BusinessContext';
 import BusinessSelector from '../components/business/BusinessSelector';
 import AnalyticsDashboard from '../components/analytics/AnalyticsDashboard';
-
-interface DashboardStats {
-  activeWorkflows: number;
-  messagesToday: number;
-  successRate: number;
-}
+import { AnalyticsData } from '../types/analytics';
 
 // Mock data for development/error cases
-const MOCK_STATS: DashboardStats = {
-  activeWorkflows: 0,
-  messagesToday: 0,
-  successRate: 0
+const MOCK_STATS: AnalyticsData = {
+  sms: {
+    totalCount: 0,
+    responseTime: 0,
+    aiCost: 0,
+    serviceCost: 0,
+    deliveryRate: 0,
+    optOutRate: 0,
+    qualityMetrics: [],
+    responseTypes: [],
+    dailyCosts: []
+  },
+  email: {
+    totalCount: 0,
+    responseTime: 0,
+    aiCost: 0,
+    serviceCost: 0,
+    openRate: 0,
+    clickRate: 0,
+    bounceRate: 0,
+    unsubscribeRate: 0,
+    qualityMetrics: [],
+    responseTypes: [],
+    dailyCosts: []
+  },
+  voice: {
+    totalCount: 0,
+    responseTime: 0,
+    aiCost: 0,
+    serviceCost: 0,
+    callDuration: 0,
+    transferRate: 0,
+    qualityMetrics: [],
+    responseTypes: [],
+    dailyCosts: []
+  },
+  overview: {
+    totalInteractions: 0,
+    totalCost: 0,
+    averageResponseTime: 0,
+    successRate: 0
+  },
+  dateRange: {
+    start: new Date().toISOString(),
+    end: new Date().toISOString()
+  }
 };
 
 export default function Dashboard() {
   const { selectedBusinessId } = useBusiness();
 
-  const { data: stats = MOCK_STATS, isLoading, isError } = useQuery<DashboardStats>(
+  const { data: stats = MOCK_STATS, isLoading, isError } = useQuery<AnalyticsData>(
     ['dashboard-stats', selectedBusinessId],
     async () => {
       if (!selectedBusinessId) return MOCK_STATS;
@@ -49,90 +86,22 @@ export default function Dashboard() {
             Welcome to Twilio Automation Hub. Manage your communication workflows across multiple channels.
           </p>
         </div>
-        <div className="mt-4 sm:mt-0">
+        <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
           <BusinessSelector />
         </div>
       </div>
 
       {!selectedBusinessId ? (
-        <div className="bg-white shadow sm:rounded-lg">
-          <div className="px-4 py-5 sm:p-6">
-            <h3 className="text-lg leading-6 font-medium text-gray-900">No Business Selected</h3>
-            <div className="mt-2 max-w-xl text-sm text-gray-500">
-              <p>Please select a business above to view statistics.</p>
-            </div>
-          </div>
+        <div className="text-center py-12 bg-white rounded-lg shadow">
+          <h3 className="mt-2 text-sm font-semibold text-gray-900">No business selected</h3>
+          <p className="mt-1 text-sm text-gray-500">Please select a business to view its dashboard.</p>
         </div>
       ) : (
-        <>
-          <AnalyticsDashboard 
-            clientId={selectedBusinessId} 
-            data={stats} 
-            isLoading={isLoading} 
-          />
-
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            <div className="bg-white overflow-hidden shadow rounded-lg">
-              <div className="p-5">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <svg className="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">Active Workflows</dt>
-                      <dd className="flex items-baseline">
-                        <div className="text-2xl font-semibold text-gray-900">{stats.activeWorkflows}</div>
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white overflow-hidden shadow rounded-lg">
-              <div className="p-5">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <svg className="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                    </svg>
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">Messages Today</dt>
-                      <dd className="flex items-baseline">
-                        <div className="text-2xl font-semibold text-gray-900">{stats.messagesToday}</div>
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white overflow-hidden shadow rounded-lg">
-              <div className="p-5">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <svg className="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">Success Rate</dt>
-                      <dd className="flex items-baseline">
-                        <div className="text-2xl font-semibold text-gray-900">{stats.successRate}%</div>
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
+        <AnalyticsDashboard 
+          clientId={selectedBusinessId} 
+          data={stats} 
+          isLoading={isLoading} 
+        />
       )}
     </div>
   );
