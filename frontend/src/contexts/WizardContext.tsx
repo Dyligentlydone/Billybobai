@@ -11,25 +11,32 @@ export interface CalendlyConfig {
   allow_rescheduling: boolean;
   booking_window_days: number;
   min_notice_hours: number;
+  sms_notifications: SMSNotificationSettings;
 }
 
-interface ServiceConfig {
-  accountSid?: string;
-  authToken?: string;
-  apiKey?: string;
-  apiToken?: string;
-  subdomain?: string;
-  enabled?: boolean;
-  isValid?: boolean;
-  error?: string;
+export interface SMSNotificationSettings {
+  enabled: boolean;
+  include_cancel_link: boolean;
+  include_reschedule_link: boolean;
+  confirmation_message: string;
+  reminder_message: string;
+  cancellation_message: string;
+  reschedule_message: string;
 }
 
 export interface WizardState {
+  businessId: number;
   currentStep: string;
   services: {
-    twilio: ServiceConfig;
-    openai: ServiceConfig;
-    zendesk?: ServiceConfig;
+    twilio: {
+      accountSid: string;
+      authToken: string;
+      isValid: boolean;
+    };
+    openai: {
+      apiKey: string;
+      isValid: boolean;
+    };
   };
   phone: {
     phoneNumbers: any[];
@@ -71,7 +78,17 @@ type WizardAction = {
   step: string;
 } | {
   type: 'UPDATE_SERVICES';
-  services: Partial<WizardState['services']>;
+  services: {
+    twilio?: {
+      accountSid: string;
+      authToken: string;
+      isValid: boolean;
+    };
+    openai?: {
+      apiKey: string;
+      isValid: boolean;
+    };
+  };
 } | {
   type: 'UPDATE_PHONE';
   phone: {
@@ -137,6 +154,7 @@ const defaultVoiceSettings = {
 };
 
 const initialState: WizardState = {
+  businessId: 0,
   currentStep: 'intro',
   services: {
     twilio: {
@@ -176,6 +194,15 @@ const initialState: WizardState = {
     allow_rescheduling: true,
     booking_window_days: 14,
     min_notice_hours: 1,
+    sms_notifications: {
+      enabled: false,
+      include_cancel_link: false,
+      include_reschedule_link: false,
+      confirmation_message: '',
+      reminder_message: '',
+      cancellation_message: '',
+      reschedule_message: '',
+    },
   }
 };
 

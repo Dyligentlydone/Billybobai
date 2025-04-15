@@ -18,7 +18,11 @@ Session = sessionmaker(bind=engine)
 def init_db():
     Base = db.Model
     # Import models here to ensure they're registered with SQLAlchemy
+    from .models import Business, BusinessConfig
     from .models.workflow import Workflow, WorkflowExecution, WorkflowNode, WorkflowEdge
+    
+    # Create all tables
+    Base.metadata.create_all(bind=engine)
     return Base
 
 def get_session():

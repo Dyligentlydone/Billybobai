@@ -32,6 +32,15 @@ interface CalendlyConfig {
   reminder_hours: number[];
   allow_cancellation: boolean;
   allow_rescheduling: boolean;
+  sms_notifications: {
+    enabled: boolean;
+    include_cancel_link: boolean;
+    include_reschedule_link: boolean;
+    confirmation_message: string;
+    reminder_message: string;
+    cancellation_message: string;
+    reschedule_message: string;
+  };
 }
 
 interface SystemIntegrationConfig {
@@ -226,7 +235,16 @@ const INITIAL_CONFIG: Config = {
       min_notice_hours: 4,
       reminder_hours: [24],
       allow_cancellation: true,
-      allow_rescheduling: true
+      allow_rescheduling: true,
+      sms_notifications: {
+        enabled: false,
+        include_cancel_link: false,
+        include_reschedule_link: false,
+        confirmation_message: '',
+        reminder_message: '',
+        cancellation_message: '',
+        reschedule_message: ''
+      }
     },
     webhook: {
       enabled: false,
@@ -1961,6 +1979,91 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
               />
             </div>
 
+            <div>
+              <label className="block text-sm font-medium text-gray-600">SMS Notifications</label>
+              <div className="mt-2 space-y-3">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={config.systemIntegration.calendly.sms_notifications.enabled}
+                    onChange={(e) => handleCalendlyChange({ sms_notifications: { ...config.systemIntegration.calendly.sms_notifications, enabled: e.target.checked } })}
+                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                  />
+                  <label className="ml-2 text-sm text-gray-600">Send SMS notifications for events</label>
+                </div>
+
+                {config.systemIntegration.calendly.sms_notifications.enabled && (
+                  <div className="ml-6 space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600">Include Cancel Link</label>
+                      <div className="mt-1 flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={config.systemIntegration.calendly.sms_notifications.include_cancel_link}
+                          onChange={(e) => handleCalendlyChange({ sms_notifications: { ...config.systemIntegration.calendly.sms_notifications, include_cancel_link: e.target.checked } })}
+                          className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                        />
+                        <label className="ml-2 text-sm text-gray-600">Include cancel link in SMS notifications</label>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600">Include Reschedule Link</label>
+                      <div className="mt-1 flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={config.systemIntegration.calendly.sms_notifications.include_reschedule_link}
+                          onChange={(e) => handleCalendlyChange({ sms_notifications: { ...config.systemIntegration.calendly.sms_notifications, include_reschedule_link: e.target.checked } })}
+                          className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                        />
+                        <label className="ml-2 text-sm text-gray-600">Include reschedule link in SMS notifications</label>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600">Confirmation Message</label>
+                      <input
+                        type="text"
+                        value={config.systemIntegration.calendly.sms_notifications.confirmation_message}
+                        onChange={(e) => handleCalendlyChange({ sms_notifications: { ...config.systemIntegration.calendly.sms_notifications, confirmation_message: e.target.value } })}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600">Reminder Message</label>
+                      <input
+                        type="text"
+                        value={config.systemIntegration.calendly.sms_notifications.reminder_message}
+                        onChange={(e) => handleCalendlyChange({ sms_notifications: { ...config.systemIntegration.calendly.sms_notifications, reminder_message: e.target.value } })}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600">Cancellation Message</label>
+                      <input
+                        type="text"
+                        value={config.systemIntegration.calendly.sms_notifications.cancellation_message}
+                        onChange={(e) => handleCalendlyChange({ sms_notifications: { ...config.systemIntegration.calendly.sms_notifications, cancellation_message: e.target.value } })}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600">Reschedule Message</label>
+                      <input
+                        type="text"
+                        value={config.systemIntegration.calendly.sms_notifications.reschedule_message}
+                        onChange={(e) => handleCalendlyChange({ sms_notifications: { ...config.systemIntegration.calendly.sms_notifications, reschedule_message: e.target.value } })}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div className="flex items-center">
               <input
                 type="checkbox"
@@ -2081,7 +2184,7 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
               }
             }))}
             placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
           />
           <p className="mt-1 text-xs text-gray-500">Find this in your Twilio Console</p>
         </div>
@@ -2099,7 +2202,7 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
               }
             }))}
             placeholder="your_auth_token"
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
           />
           <p className="mt-1 text-xs text-gray-500">Your Twilio account's auth token</p>
         </div>
@@ -2111,7 +2214,7 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
             value={config.twilio.phoneNumber}
             onChange={(e) => handlePhoneNumberChange(e.target.value)}
             placeholder="+1234567890"
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
           />
           <p className="mt-1 text-xs text-gray-500">Your Twilio phone number in E.164 format</p>
         </div>
@@ -2129,7 +2232,7 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
               }
             }))}
             placeholder="MGxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
           />
           <p className="mt-1 text-xs text-gray-500">If you're using a Messaging Service instead of a single phone number</p>
         </div>
@@ -2152,7 +2255,7 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
                 }
               }))}
               placeholder="https://your-domain.com/api/sms/webhook"
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
             />
             <p className="mt-1 text-xs text-gray-500">URL that Twilio will call when receiving messages</p>
           </div>
@@ -2170,7 +2273,7 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
                 }
               }))}
               placeholder="https://your-domain.com/api/sms/fallback"
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
             />
             <p className="mt-1 text-xs text-gray-500">URL that Twilio will call if the primary webhook fails</p>
           </div>
@@ -2188,7 +2291,7 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
                 }
               }))}
               placeholder="https://your-domain.com/api/sms/status"
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
             />
             <p className="mt-1 text-xs text-gray-500">URL for receiving message delivery status updates</p>
           </div>
@@ -2207,7 +2310,7 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
                   retryCount: parseInt(e.target.value) || 0
                 }
               }))}
-              className="mt-1 block w-24 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              className="block w-24 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
             />
             <p className="mt-1 text-xs text-gray-500">Number of times to retry failed message deliveries (0-10)</p>
           </div>

@@ -22,8 +22,10 @@ import {
   Add as AddIcon,
   Delete as DeleteIcon,
   Refresh as RefreshIcon,
+  Send as SendIcon,
 } from '@mui/icons-material';
 import axios from 'axios';
+import { enqueueSnackbar } from 'notistack';
 
 interface EventType {
   id: string;
@@ -31,6 +33,16 @@ interface EventType {
   duration: number;
   description?: string;
   price?: number;
+}
+
+interface SMSNotificationSettings {
+  enabled: boolean;
+  include_cancel_link: boolean;
+  include_reschedule_link: boolean;
+  confirmation_message: string;
+  reminder_message: string;
+  cancellation_message: string;
+  reschedule_message: string;
 }
 
 interface CalendlyConfig {
@@ -44,6 +56,7 @@ interface CalendlyConfig {
   allow_rescheduling: boolean;
   booking_window_days: number;
   min_notice_hours: number;
+  sms_notifications: SMSNotificationSettings;
 }
 
 const DEFAULT_CONFIG: CalendlyConfig = {
@@ -56,6 +69,15 @@ const DEFAULT_CONFIG: CalendlyConfig = {
   allow_rescheduling: true,
   booking_window_days: 14,
   min_notice_hours: 1,
+  sms_notifications: {
+    enabled: true,
+    include_cancel_link: true,
+    include_reschedule_link: true,
+    confirmation_message: 'Your appointment is confirmed for {{time}}. We look forward to meeting with you!',
+    reminder_message: 'Reminder: Your appointment is scheduled for {{time}}.',
+    cancellation_message: 'Your appointment for {{time}} has been cancelled.',
+    reschedule_message: 'Your appointment has been rescheduled to {{time}}.'
+  }
 };
 
 const CalendlySetup: React.FC = () => {
@@ -64,6 +86,7 @@ const CalendlySetup: React.FC = () => {
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
   const [eventTypes, setEventTypes] = useState<EventType[]>([]);
+  const [testingSMS, setTestingSMS] = useState(false);
 
   useEffect(() => {
     if (config.enabled && config.access_token && config.user_uri) {
@@ -117,6 +140,22 @@ const CalendlySetup: React.FC = () => {
   const removeReminder = (index: number) => {
     const hours = config.reminder_hours.filter((_, i) => i !== index);
     handleChange('reminder_hours', hours);
+  };
+
+  const testSMSNotifications = async () => {
+    setTestingSMS(true);
+    try {
+      await axios.post(`/api/calendly/test-sms?business_id=${state.businessId}`);
+      setError(null);
+      enqueueSnackbar('Test SMS messages sent successfully!', { variant: 'success' });
+    } catch (error: any) {
+      console.error('Error testing SMS:', error);
+      const errorMessage = error.response?.data?.error || 'Failed to send test SMS messages';
+      setError(errorMessage);
+      enqueueSnackbar(errorMessage, { variant: 'error' });
+    } finally {
+      setTestingSMS(false);
+    }
   };
 
   if (!config.enabled) {
@@ -291,6 +330,83 @@ const CalendlySetup: React.FC = () => {
                   }
                   label="Allow Rescheduling"
                 />
+              </Box>
+
+              <Box>
+                <Typography variant="h6">SMS Notifications</Typography>
+                <Stack spacing={2}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={config.sms_notifications.enabled}
+                        onChange={(e) => handleChange('sms_notifications', { ...config.sms_notifications, enabled: e.target.checked })}
+                      />
+                    }
+                    label="Enable SMS Notifications"
+                  />
+
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={config.sms_notifications.include_cancel_link}
+                        onChange={(e) => handleChange('sms_notifications', { ...config.sms_notifications, include_cancel_link: e.target.checked })}
+                      />
+                    }
+                    label="Include Cancellation Link"
+                  />
+
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={config.sms_notifications.include_reschedule_link}
+                        onChange={(e) => handleChange('sms_notifications', { ...config.sms_notifications, include_reschedule_link: e.target.checked })}
+                      />
+                    }
+                    label="Include Reschedule Link"
+                  />
+
+                  <TextField
+                    fullWidth
+                    label="Confirmation Message"
+                    value={config.sms_notifications.confirmation_message}
+                    onChange={(e) => handleChange('sms_notifications', { ...config.sms_notifications, confirmation_message: e.target.value })}
+                  />
+
+                  <TextField
+                    fullWidth
+                    label="Reminder Message"
+                    value={config.sms_notifications.reminder_message}
+                    onChange={(e) => handleChange('sms_notifications', { ...config.sms_notifications, reminder_message: e.target.value })}
+                  />
+
+                  <TextField
+                    fullWidth
+                    label="Cancellation Message"
+                    value={config.sms_notifications.cancellation_message}
+                    onChange={(e) => handleChange('sms_notifications', { ...config.sms_notifications, cancellation_message: e.target.value })}
+                  />
+
+                  <TextField
+                    fullWidth
+                    label="Reschedule Message"
+                    value={config.sms_notifications.reschedule_message}
+                    onChange={(e) => handleChange('sms_notifications', { ...config.sms_notifications, reschedule_message: e.target.value })}
+                  />
+
+                  <Box sx={{ mt: 2 }}>
+                    <Button
+                      variant="outlined"
+                      onClick={testSMSNotifications}
+                      disabled={testingSMS || !config.sms_notifications.enabled}
+                      startIcon={testingSMS ? <CircularProgress size={20} /> : <SendIcon />}
+                    >
+                      Test SMS Messages
+                    </Button>
+                    <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 1 }}>
+                      This will send test messages to your business phone number
+                    </Typography>
+                  </Box>
+                </Stack>
               </Box>
             </Stack>
           </CardContent>

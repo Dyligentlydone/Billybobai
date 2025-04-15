@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
+import { SnackbarProvider } from './contexts/SnackbarContext';
 import Dashboard from './pages/Dashboard';
 import Workflows from './pages/Workflows';
 import Clients from './pages/Clients';
@@ -10,7 +11,7 @@ import Layout from './components/Layout';
 
 function App() {
   return (
-    <>
+    <SnackbarProvider>
       <Router>
         <Layout>
           <Routes>
@@ -24,7 +25,7 @@ function App() {
         </Layout>
       </Router>
       <Toaster position="top-right" />
-    </>
+    </SnackbarProvider>
   );
 }
 

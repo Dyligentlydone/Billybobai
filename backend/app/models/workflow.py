@@ -22,25 +22,50 @@ __all__ = [
     'WorkflowEdge'
 ]
 
-from app.database import db
-from sqlalchemy.dialects.postgresql import JSON
+from sqlalchemy import Column, String, DateTime, JSON
+from app.database import Base
 from datetime import datetime
 from enum import Enum
 from typing import Dict, Optional, List
 from pydantic import BaseModel
 
-class Workflow(db.Model):
+class WorkflowStatus(str, Enum):
+    DRAFT = 'draft'
+    ACTIVE = 'active'
+    ARCHIVED = 'archived'
+
+class Workflow(Base):
     __tablename__ = 'workflows'
 
-    id = db.Column(db.String(255), primary_key=True)
-    name = db.Column(db.String(255), nullable=False)
-    status = db.Column(db.String(50), default='draft')  # draft, active, archived
-    client_id = db.Column(db.String(255))
-    created_at = db.Column(db.DateTime, nullable=False)
-    updated_at = db.Column(db.DateTime, nullable=False)
-    nodes = db.Column(JSON, default=[])
-    edges = db.Column(JSON, default=[])
-    executions = db.Column(JSON, default={})
+    id = Column(String(255), primary_key=True)
+    name = Column(String(255), nullable=False)
+    status = Column(String(50), default=WorkflowStatus.DRAFT)
+    client_id = Column(String(255))
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    nodes = Column(JSON, default=[])
+    edges = Column(JSON, default=[])
+    executions = Column(JSON, default={})
 
     def __repr__(self):
         return f'<Workflow {self.name}>'
+
+class WorkflowNode(BaseModel):
+    id: str
+    type: str
+    data: Dict
+    position: Dict[str, int]
+
+class WorkflowEdge(BaseModel):
+    id: str
+    source: str
+    target: str
+    animated: bool = False
+
+class WorkflowExecution(BaseModel):
+    id: str
+    workflow_id: str
+    status: str
+    started_at: datetime
+    completed_at: Optional[datetime]
+    node_executions: List[Dict]
