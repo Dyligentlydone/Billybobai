@@ -129,20 +129,32 @@ export function VoiceWizard({ onComplete, onCancel }: VoiceWizardProps) {
       case 'phone':
         return <PhoneSetup />;
       case 'voice':
-        const accountSid = state.services.twilio.accountSid;
-        const authToken = state.services.twilio.authToken;
-        const twilioConfig = accountSid && authToken ? {
-          accountSid,
-          authToken
-        } : undefined;
-        const voiceSettings = (state.voiceSettings || defaultVoiceSettings) as VoicePersonalizationSettings;
-        return (
-          <VoicePersonalization
-            settings={voiceSettings}
-            onSettingsChange={handleVoiceSettingsChange}
-            twilioConfig={twilioConfig}
-          />
-        );
+        // Handle Twilio credentials
+        if (state.services.twilio?.accountSid && state.services.twilio?.authToken) {
+          const accountSid = state.services.twilio.accountSid;
+          const authToken = state.services.twilio.authToken;
+          const twilioConfig = {
+            accountSid,
+            authToken
+          };
+          const voiceSettings = (state.voiceSettings || defaultVoiceSettings) as VoicePersonalizationSettings;
+          return (
+            <VoicePersonalization
+              settings={voiceSettings}
+              onSettingsChange={handleVoiceSettingsChange}
+              twilioConfig={twilioConfig}
+            />
+          );
+        } else {
+          const voiceSettings = (state.voiceSettings || defaultVoiceSettings) as VoicePersonalizationSettings;
+          return (
+            <VoicePersonalization
+              settings={voiceSettings}
+              onSettingsChange={handleVoiceSettingsChange}
+              twilioConfig={undefined}
+            />
+          );
+        }
       case 'workflow':
         return <WorkflowSetup />;
       case 'testing':

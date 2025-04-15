@@ -24,20 +24,36 @@ export interface SMSNotificationSettings {
   reschedule_message: string;
 }
 
+interface BaseService {
+  isValid?: boolean;
+  error?: string;
+}
+
+interface TwilioService extends BaseService {
+  accountSid?: string;
+  authToken?: string;
+}
+
+interface OpenAIService extends BaseService {
+  apiKey?: string;
+}
+
+interface ZendeskService extends BaseService {
+  enabled?: boolean;
+  subdomain?: string;
+  apiToken?: string;
+}
+
+interface Services {
+  twilio?: TwilioService;
+  openai?: OpenAIService;
+  zendesk?: ZendeskService;
+}
+
 export interface WizardState {
   businessId: number;
   currentStep: string;
-  services: {
-    twilio: {
-      accountSid: string;
-      authToken: string;
-      isValid: boolean;
-    };
-    openai: {
-      apiKey: string;
-      isValid: boolean;
-    };
-  };
+  services: Services;
   phone: {
     phoneNumbers: any[];
   };
@@ -78,17 +94,7 @@ type WizardAction = {
   step: string;
 } | {
   type: 'UPDATE_SERVICES';
-  services: {
-    twilio?: {
-      accountSid: string;
-      authToken: string;
-      isValid: boolean;
-    };
-    openai?: {
-      apiKey: string;
-      isValid: boolean;
-    };
-  };
+  services: Services;
 } | {
   type: 'UPDATE_PHONE';
   phone: {
@@ -160,12 +166,18 @@ const initialState: WizardState = {
     twilio: {
       accountSid: '',
       authToken: '',
-      isValid: false,
+      isValid: false
     },
     openai: {
       apiKey: '',
-      isValid: false,
+      isValid: false
     },
+    zendesk: {
+      enabled: false,
+      subdomain: '',
+      apiToken: '',
+      isValid: false
+    }
   },
   phone: {
     phoneNumbers: [],

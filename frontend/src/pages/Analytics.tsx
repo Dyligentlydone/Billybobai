@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import AnalyticsDashboard from '../components/analytics/AnalyticsDashboard';
 import BusinessSelector from '../components/business/BusinessSelector';
+import { useBusiness } from '../contexts/BusinessContext';
 
 // Mock data for development
 const MOCK_DATA = {
@@ -90,14 +91,34 @@ const MOCK_DATA = {
 };
 
 export default function Analytics() {
-  const [selectedBusiness, setSelectedBusiness] = useState<string>('');
+  const { selectedBusinessId } = useBusiness();
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <BusinessSelector onBusinessChange={setSelectedBusiness} />
+    <div className="space-y-6">
+      <div className="sm:flex sm:items-center sm:justify-between">
+        <div className="sm:flex-auto">
+          <h1 className="text-2xl font-semibold text-gray-900">Analytics</h1>
+          <p className="mt-2 text-sm text-gray-700">
+            View analytics and insights for your business.
+          </p>
+        </div>
+        <div className="mt-4 sm:mt-0">
+          <BusinessSelector />
+        </div>
       </div>
-      <AnalyticsDashboard businessId={selectedBusiness} clientId="demo" mockData={MOCK_DATA} />
+
+      {!selectedBusinessId ? (
+        <div className="text-center py-12">
+          <h3 className="mt-2 text-sm font-medium text-gray-900">No business selected</h3>
+          <p className="mt-1 text-sm text-gray-500">
+            Please select or enter a business ID above to view analytics.
+          </p>
+        </div>
+      ) : (
+        <div className="mt-8">
+          <AnalyticsDashboard businessId={selectedBusinessId} clientId="demo" mockData={MOCK_DATA} />
+        </div>
+      )}
     </div>
   );
 }
