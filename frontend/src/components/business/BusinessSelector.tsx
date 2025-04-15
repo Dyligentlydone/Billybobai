@@ -14,11 +14,20 @@ export default function BusinessSelector() {
   const { selectedBusinessId, setSelectedBusinessId, setSelectedBusinessName } = useBusiness();
 
   // Fetch list of businesses
-  const { data: businesses } = useQuery<Business[]>(
+  const { data: businesses, isError } = useQuery<Business[]>(
     'businesses',
     async () => {
-      const { data } = await axios.get('/api/businesses');
-      return data;
+      try {
+        const { data } = await axios.get('/api/businesses');
+        return data;
+      } catch (error) {
+        console.error('Failed to fetch businesses:', error);
+        return []; // Return empty array on error
+      }
+    },
+    {
+      retry: false,
+      refetchOnWindowFocus: false
     }
   );
 
@@ -51,7 +60,7 @@ export default function BusinessSelector() {
         className="block rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
       >
         <option value="manual">Select Business ID...</option>
-        {businesses?.map((business) => (
+        {(businesses || [])?.map((business) => (
           <option key={business.id} value={business.id}>
             {business.name} (ID: {business.id})
           </option>
