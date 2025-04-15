@@ -11,26 +11,12 @@ function classNames(...classes: string[]) {
 }
 
 interface Props {
-  businessId?: string;
   clientId: string;
-  mockData?: AnalyticsData;
+  data?: any;
+  isLoading?: boolean;
 }
 
-const AnalyticsDashboard: React.FC<Props> = ({ businessId, clientId, mockData = mockAnalyticsData }) => {
-  const { data, isLoading } = useQuery<AnalyticsData>(
-    ['analytics', businessId, clientId],
-    async () => {
-      if (!businessId || !clientId) return mockData;
-      const { data } = await axios.get(`/api/analytics/${clientId}/${businessId}`);
-      return data;
-    },
-    {
-      refetchInterval: 300000, // Refresh every 5 minutes
-      initialData: mockData,
-      keepPreviousData: true
-    }
-  );
-
+const AnalyticsDashboard: React.FC<Props> = ({ clientId, data, isLoading = false }) => {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -38,6 +24,8 @@ const AnalyticsDashboard: React.FC<Props> = ({ businessId, clientId, mockData = 
       </div>
     );
   }
+
+  if (!data) return null;
 
   const renderOverview = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -66,11 +54,6 @@ const AnalyticsDashboard: React.FC<Props> = ({ businessId, clientId, mockData = 
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-gray-900">Analytics Dashboard</h2>
-        {!businessId && (
-          <div className="text-sm text-gray-500 bg-yellow-50 px-3 py-1 rounded-full">
-            Showing mock data
-          </div>
-        )}
       </div>
       {renderOverview()}
       <Tab.Group>
@@ -99,7 +82,7 @@ const AnalyticsDashboard: React.FC<Props> = ({ businessId, clientId, mockData = 
               'ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2'
             )}
           >
-            <SMSAnalytics metrics={data?.sms || mockAnalyticsData.sms} businessId={businessId || ''} clientId={clientId} />
+            <SMSAnalytics metrics={data?.sms} businessId={''} clientId={clientId} />
           </Tab.Panel>
           <Tab.Panel
             className={classNames(
