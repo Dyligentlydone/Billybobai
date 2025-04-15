@@ -1,17 +1,30 @@
-import { useState } from 'react';
+import { useQuery } from 'react-query';
 import axios from 'axios';
+import { useBusiness } from '../contexts/BusinessContext';
 import BusinessSelector from '../components/business/BusinessSelector';
 import AnalyticsDashboard from '../components/analytics/AnalyticsDashboard';
 
-export default function Dashboard() {
-  const [message, setMessage] = useState('');
-  const [selectedBusinessId, setSelectedBusinessId] = useState<string>('');
+interface DashboardStats {
+  activeWorkflows: number;
+  messagesToday: number;
+  successRate: number;
+}
 
-  const checkServer = () => {
-    axios.get('/api/health')
-      .then(() => setMessage('Server is running'))
-      .catch(() => setMessage('Error connecting to server'));
-  };
+export default function Dashboard() {
+  const { selectedBusinessId } = useBusiness();
+
+  const { data: stats, isLoading } = useQuery<DashboardStats>(
+    ['dashboard-stats', selectedBusinessId],
+    async () => {
+      if (!selectedBusinessId) return null;
+      const { data } = await axios.get(`/api/dashboard/${selectedBusinessId}`);
+      return data;
+    },
+    {
+      enabled: !!selectedBusinessId,
+      refetchInterval: 30000 // Refresh every 30 seconds
+    }
+  );
 
   return (
     <div className="space-y-6">
@@ -23,7 +36,7 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="mt-4 sm:mt-0">
-          <BusinessSelector onBusinessChange={setSelectedBusinessId} />
+          <BusinessSelector />
         </div>
       </div>
 
@@ -43,7 +56,13 @@ export default function Dashboard() {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">Active Workflows</dt>
-                  <dd className="text-lg font-medium text-gray-900">0</dd>
+                  <dd className="text-lg font-medium text-gray-900">
+                    {isLoading ? (
+                      <div className="animate-pulse h-6 w-12 bg-gray-200 rounded"></div>
+                    ) : (
+                      stats?.activeWorkflows ?? '-'
+                    )}
+                  </dd>
                 </dl>
               </div>
             </div>
@@ -54,13 +73,19 @@ export default function Dashboard() {
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <svg className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                 </svg>
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">Messages Today</dt>
-                  <dd className="text-lg font-medium text-gray-900">0</dd>
+                  <dd className="text-lg font-medium text-gray-900">
+                    {isLoading ? (
+                      <div className="animate-pulse h-6 w-12 bg-gray-200 rounded"></div>
+                    ) : (
+                      stats?.messagesToday ?? '-'
+                    )}
+                  </dd>
                 </dl>
               </div>
             </div>
@@ -77,7 +102,13 @@ export default function Dashboard() {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">Success Rate</dt>
-                  <dd className="text-lg font-medium text-gray-900">100%</dd>
+                  <dd className="text-lg font-medium text-gray-900">
+                    {isLoading ? (
+                      <div className="animate-pulse h-6 w-12 bg-gray-200 rounded"></div>
+                    ) : (
+                      stats?.successRate ? `${stats.successRate}%` : '-'
+                    )}
+                  </dd>
                 </dl>
               </div>
             </div>
@@ -85,23 +116,16 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="bg-white shadow sm:rounded-lg">
-        <div className="px-4 py-5 sm:p-6">
-          <h3 className="text-lg leading-6 font-medium text-gray-900">Server Status</h3>
-          <div className="mt-2 max-w-xl text-sm text-gray-500">
-            <p>{message || 'Click to check server status'}</p>
-          </div>
-          <div className="mt-5">
-            <button
-              type="button"
-              onClick={checkServer}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              Check Server
-            </button>
+      {!selectedBusinessId && (
+        <div className="bg-white shadow sm:rounded-lg">
+          <div className="px-4 py-5 sm:p-6">
+            <h3 className="text-lg leading-6 font-medium text-gray-900">No Business Selected</h3>
+            <div className="mt-2 max-w-xl text-sm text-gray-500">
+              <p>Please select or enter a business ID above to view statistics.</p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

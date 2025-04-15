@@ -1,49 +1,79 @@
-import type { FC } from 'react';
-import { Box, FormControl, InputLabel, Select, MenuItem, Typography, SelectChangeEvent } from '@mui/material';
+import { useState } from 'react';
+import { useQuery } from 'react-query';
+import axios from 'axios';
+import { useBusiness } from '../../contexts/BusinessContext';
 
 interface Business {
   id: string;
   name: string;
-  active?: boolean;
+  active: boolean;
 }
 
-interface BusinessSelectorProps {
-  onBusinessChange: (businessId: string) => void;
-  businesses?: Business[];
-  selectedBusiness?: string;
-}
+export default function BusinessSelector() {
+  const [manualBusinessId, setManualBusinessId] = useState('');
+  const { selectedBusinessId, setSelectedBusinessId, setSelectedBusinessName } = useBusiness();
 
-const BusinessSelector: FC<BusinessSelectorProps> = ({ 
-  onBusinessChange,
-  businesses = [],
-  selectedBusiness = ''
-}) => {
-  const handleChange = (event: SelectChangeEvent<string>) => {
-    onBusinessChange(event.target.value);
+  // Fetch list of businesses
+  const { data: businesses } = useQuery<Business[]>(
+    'businesses',
+    async () => {
+      const { data } = await axios.get('/api/businesses');
+      return data;
+    }
+  );
+
+  const handleManualSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (manualBusinessId.trim()) {
+      setSelectedBusinessId(manualBusinessId.trim());
+      setSelectedBusinessName(`Business ${manualBusinessId.trim()}`);
+      setManualBusinessId('');
+    }
+  };
+
+  const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    if (value === 'manual') return; // Don't do anything if they select the manual option
+
+    const business = businesses?.find(b => b.id === value);
+    if (business) {
+      setSelectedBusinessId(business.id);
+      setSelectedBusinessName(business.name);
+    }
   };
 
   return (
-    <Box>
-      {businesses.length === 0 ? (
-        <Typography>No businesses available</Typography>
-      ) : (
-        <FormControl fullWidth>
-          <InputLabel>Select Business</InputLabel>
-          <Select
-            value={selectedBusiness}
-            onChange={handleChange}
-            label="Select Business"
-          >
-            {businesses.map((business: Business) => (
-              <MenuItem key={business.id} value={business.id}>
-                {business.name} {business.active === false && '(Inactive)'}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-      )}
-    </Box>
-  );
-};
+    <div className="flex gap-2 items-start">
+      {/* Dropdown for existing businesses */}
+      <select
+        value={selectedBusinessId || 'manual'}
+        onChange={handleSelectChange}
+        className="block rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+      >
+        <option value="manual">Select Business ID...</option>
+        {businesses?.map((business) => (
+          <option key={business.id} value={business.id}>
+            {business.name} (ID: {business.id})
+          </option>
+        ))}
+      </select>
 
-export default BusinessSelector;
+      {/* Manual input form */}
+      <form onSubmit={handleManualSubmit} className="flex gap-2">
+        <input
+          type="text"
+          value={manualBusinessId}
+          onChange={(e) => setManualBusinessId(e.target.value)}
+          placeholder="Or enter Business ID"
+          className="block rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+        />
+        <button
+          type="submit"
+          className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        >
+          Set
+        </button>
+      </form>
+    </div>
+  );
+}
