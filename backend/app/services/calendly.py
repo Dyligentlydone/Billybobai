@@ -1,6 +1,6 @@
 import httpx
 from datetime import datetime, timedelta
-from typing import List, Optional, Dict, Tuple
+from typing import List, Optional, Dict, Tuple, Any
 from ..schemas.calendly import (
     CalendlyConfig,
     TimeSlot,
@@ -8,8 +8,13 @@ from ..schemas.calendly import (
     Booking,
     CalendlyEventType,
     WebhookEvent,
-    SMSBookingState
+    SMSBookingState,
+    WorkflowCreate,
+    WorkflowStep
 )
+import logging
+
+logger = logging.getLogger(__name__)
 
 class CalendlyService:
     BASE_URL = "https://api.calendly.com/v2"
@@ -24,6 +29,83 @@ class CalendlyService:
             }
         )
         self._sms_states: Dict[str, SMSBookingState] = {}
+    
+    async def setup_sms_workflow(self) -> Dict[str, Any]:
+        """Set up or update Calendly Workflow for SMS notifications"""
+        if not self.config.sms_notifications.enabled:
+            return {"status": "disabled"}
+
+        # Create steps for the workflow
+        steps: List[WorkflowStep] = []
+        
+        # Booking confirmation
+        steps.append(WorkflowStep(
+            action="send_sms",
+            trigger="invitee.created",
+            message_template=self.config.sms_notifications.confirmation_message
+        ))
+        
+        # Reminders before event
+        for hours in self.config.reminder_hours:
+            steps.append(WorkflowStep(
+                action="send_sms",
+                trigger="before_event",
+                before_event_minutes=hours * 60,
+                message_template=self.config.sms_notifications.reminder_message
+            ))
+        
+        # Cancellation notification
+        if self.config.allow_cancellation:
+            steps.append(WorkflowStep(
+                action="send_sms",
+                trigger="invitee.canceled",
+                message_template=self.config.sms_notifications.cancellation_message
+            ))
+        
+        # Reschedule notification
+        if self.config.allow_rescheduling:
+            steps.append(WorkflowStep(
+                action="send_sms",
+                trigger="invitee.rescheduled",
+                message_template=self.config.sms_notifications.reschedule_message
+            ))
+
+        # Create or update the workflow
+        workflow = WorkflowCreate(
+            name="SMS Notifications Workflow",
+            owner_uri=self.config.user_uri,
+            steps=steps
+        )
+
+        try:
+            # Check if workflow already exists
+            response = await self.client.get(f"/users/{self.config.user_uri}/workflows")
+            existing_workflows = response.json()["data"]
+            
+            sms_workflow = next(
+                (w for w in existing_workflows if w["name"] == workflow.name),
+                None
+            )
+
+            if sms_workflow:
+                # Update existing workflow
+                response = await self.client.patch(
+                    f"/workflows/{sms_workflow['uri']}",
+                    json=workflow.dict()
+                )
+            else:
+                # Create new workflow
+                response = await self.client.post(
+                    "/workflows",
+                    json=workflow.dict()
+                )
+
+            response.raise_for_status()
+            return response.json()["data"]
+        
+        except Exception as e:
+            logger.error(f"Failed to setup SMS workflow: {str(e)}")
+            raise
     
     async def get_event_types(self) -> List[CalendlyEventType]:
         """Fetch all event types for the user"""
@@ -72,6 +154,10 @@ class CalendlyService:
     
     async def create_booking(self, request: BookingRequest) -> Booking:
         """Create a new booking"""
+        # Ensure SMS workflow is set up
+        if self.config.sms_notifications.enabled:
+            await self.setup_sms_workflow()
+            
         response = await self.client.post(
             f"/event_types/{request.event_type_id}/bookings",
             json={
@@ -95,90 +181,6 @@ class CalendlyService:
             customer_name=request.customer_name,
             customer_phone=request.customer_phone,
             status="active",
-            cancellation_url=booking_data.get("cancellation_url"),
-            reschedule_url=booking_data.get("reschedule_url")
+            cancellation_url=booking_data.get("cancellation_url") if self.config.sms_notifications.include_cancel_link else None,
+            reschedule_url=booking_data.get("reschedule_url") if self.config.sms_notifications.include_reschedule_link else None
         )
-    
-    async def cancel_booking(self, booking_id: str) -> bool:
-        """Cancel a booking"""
-        response = await self.client.post(
-            f"/bookings/{booking_id}/cancel"
-        )
-        return response.status_code == 200
-    
-    def format_slots_for_sms(self, slots: List[TimeSlot]) -> str:
-        """Format time slots for SMS display"""
-        if not slots:
-            return "No available slots in the next few days. Please try a different date range."
-            
-        slot_texts = []
-        for slot in slots[:5]:  # Show max 5 slots
-            slot_texts.append(
-                f"{slot.display_id}. {slot.start_time.strftime('%a %b %d at %I:%M %p')}"
-            )
-            
-        return self.config.sms_templates["available_slots"].format(
-            slots="\n".join(slot_texts)
-        )
-
-    def get_booking_state(self, phone_number: str) -> Optional[SMSBookingState]:
-        """Get the current booking state for a phone number"""
-        state = self._sms_states.get(phone_number)
-        if state and state.expires_at > datetime.now():
-            return state
-        return None
-
-    def set_booking_state(self, phone_number: str, state: SMSBookingState):
-        """Set the booking state for a phone number"""
-        self._sms_states[phone_number] = state
-
-    def clear_booking_state(self, phone_number: str):
-        """Clear the booking state for a phone number"""
-        if phone_number in self._sms_states:
-            del self._sms_states[phone_number]
-
-    def format_booking_confirmation(self, booking: Booking) -> str:
-        """Format booking confirmation message for SMS"""
-        date = booking.start_time.strftime("%A, %B %d")
-        time = booking.start_time.strftime("%I:%M %p")
-        cancellation_info = ""
-        
-        if self.config.allow_cancellation:
-            cancellation_info = f"\nTo cancel, visit: {booking.cancellation_url}"
-        
-        return self.config.sms_templates["booking_confirmation"].format(
-            date=date,
-            time=time,
-            cancellation_info=cancellation_info
-        )
-
-    def format_reminder(self, booking: Booking) -> str:
-        """Format reminder message for SMS"""
-        return self.config.sms_templates["reminder"].format(
-            date=booking.start_time.strftime("%A, %B %d"),
-            time=booking.start_time.strftime("%I:%M %p")
-        )
-
-    async def process_webhook_event(self, event: WebhookEvent) -> Optional[Tuple[str, str]]:
-        """Process a webhook event and return (phone_number, message) if SMS should be sent"""
-        booking_data = event.payload.get("booking", {})
-        phone = booking_data.get("customer", {}).get("phone")
-        
-        if not phone:
-            return None
-            
-        if event.event == "invitee.canceled":
-            message = self.config.sms_templates["cancellation"].format(
-                date=datetime.fromisoformat(booking_data["start_time"]).strftime("%A, %B %d"),
-                time=datetime.fromisoformat(booking_data["start_time"]).strftime("%I:%M %p")
-            )
-            return (phone, message)
-            
-        elif event.event == "invitee.rescheduled":
-            message = self.config.sms_templates["reschedule"].format(
-                date=datetime.fromisoformat(booking_data["start_time"]).strftime("%A, %B %d"),
-                time=datetime.fromisoformat(booking_data["start_time"]).strftime("%I:%M %p")
-            )
-            return (phone, message)
-            
-        return None

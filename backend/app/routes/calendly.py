@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from ..services.calendly import CalendlyService
-from ..schemas.calendly import CalendlyConfig, BookingRequest, WebhookEvent
+from ..schemas.calendly import CalendlyConfig, BookingRequest, WebhookEvent, SMSNotificationSettings
 from ..models import Business
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -17,6 +17,31 @@ def get_calendly_service(business_id: int, db: Session) -> Optional[CalendlyServ
     
     config = CalendlyConfig(**business.config.calendly_settings)
     return CalendlyService(config)
+
+@bp.route('/api/calendly/setup-sms', methods=['POST'])
+async def setup_sms_workflow():
+    """Set up or update Calendly SMS workflow"""
+    try:
+        business_id = request.args.get('business_id', type=int)
+        if not business_id:
+            return jsonify({"error": "business_id is required"}), 400
+
+        service = get_calendly_service(business_id)
+        if not service:
+            return jsonify({"error": "Calendly not configured"}), 404
+
+        # Get SMS notification settings from request
+        settings = SMSNotificationSettings(**request.json)
+        
+        # Update service config with new settings
+        service.config.sms_notifications = settings
+        
+        # Set up the workflow
+        workflow = await service.setup_sms_workflow()
+        return jsonify(workflow)
+    except Exception as e:
+        logger.error(f"Error setting up SMS workflow: {e}")
+        return jsonify({"error": str(e)}), 500
 
 @bp.route('/api/calendly/event-types', methods=['GET'])
 async def get_event_types():
@@ -46,6 +71,11 @@ async def test_connection():
         
         # Try to fetch event types as a connection test
         await service.get_event_types()
+        
+        # If SMS notifications are enabled, test workflow setup
+        if config.sms_notifications.enabled:
+            await service.setup_sms_workflow()
+            
         return jsonify({"status": "success"})
     except Exception as e:
         logger.error(f"Connection test failed: {e}")
@@ -98,16 +128,7 @@ async def handle_webhook():
         if not business_id:
             return jsonify({"error": "business_id is required"}), 400
 
-        service = get_calendly_service(business_id)
-        if not service:
-            return jsonify({"error": "Calendly not configured"}), 404
-
-        phone_number, message = await service.process_webhook_event(event)
-        if phone_number and message:
-            # Send SMS notification
-            from ..services.twilio import send_sms
-            await send_sms(phone_number, message)
-
+        # We don't need to do anything with webhooks anymore since Calendly handles SMS
         return jsonify({"status": "success"})
     except Exception as e:
         logger.error(f"Error processing webhook: {e}")

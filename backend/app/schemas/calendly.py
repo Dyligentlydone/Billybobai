@@ -1,5 +1,5 @@
 from pydantic import BaseModel, HttpUrl
-from typing import List, Optional, Dict, Literal
+from typing import List, Optional, Dict, Literal, Any
 from datetime import datetime
 
 class CalendlyEventType(BaseModel):
@@ -23,13 +23,35 @@ class CalendlyConfig(BaseModel):
     allow_rescheduling: bool = True
     booking_window_days: int = 14  # How many days in advance can book
     min_notice_hours: int = 1  # Minimum hours notice needed for booking
-    sms_templates: Dict[str, str] = {
-        "booking_confirmation": "Your appointment has been confirmed for {date} at {time}. {cancellation_info}",
-        "reminder": "Reminder: You have an appointment scheduled for {date} at {time}.",
-        "cancellation": "Your appointment for {date} at {time} has been cancelled.",
-        "reschedule": "Your appointment has been rescheduled to {date} at {time}.",
-        "available_slots": "Available time slots:\n{slots}\nReply with the slot number to book.",
-    }
+    sms_notifications: SMSNotificationSettings = SMSNotificationSettings()
+
+class SMSNotificationSettings(BaseModel):
+    """Settings for Calendly's native SMS notifications"""
+    enabled: bool = True
+    include_cancel_link: bool = True
+    include_reschedule_link: bool = True
+    confirmation_message: str
+    reminder_message: str
+    cancellation_message: str
+    reschedule_message: str
+
+class WorkflowCreate(BaseModel):
+    """Create a Calendly Workflow for SMS notifications"""
+    name: str
+    owner_uri: str
+    steps: List[WorkflowStep]
+
+class WorkflowStep(BaseModel):
+    """A step in a Calendly Workflow"""
+    action: Literal["send_sms"] = "send_sms"
+    trigger: Literal[
+        "invitee.created", 
+        "invitee.canceled", 
+        "invitee.rescheduled",
+        "before_event"
+    ]
+    before_event_minutes: Optional[int] = None  # Only for "before_event" trigger
+    message_template: str
 
 class TimeSlot(BaseModel):
     start_time: datetime
