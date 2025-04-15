@@ -41,10 +41,12 @@ def create_app():
         from .routes.api import api
         from .routes.webhooks import webhooks
         from .routes.workflows import bp as workflows_bp
+        from .routes.calendly import bp as calendly_bp
         
         app.register_blueprint(api, url_prefix='/api')
         app.register_blueprint(webhooks, url_prefix='/webhooks')
         app.register_blueprint(workflows_bp)
+        app.register_blueprint(calendly_bp)
         logger.info("Blueprints registered successfully")
     except Exception as e:
         logger.error(f"Failed to register blueprints: {str(e)}")
