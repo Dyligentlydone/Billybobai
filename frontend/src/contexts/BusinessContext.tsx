@@ -1,38 +1,16 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 
 interface BusinessContextType {
   selectedBusinessId: string | null;
   setSelectedBusinessId: (id: string | null) => void;
-  selectedBusinessName: string;
-  setSelectedBusinessName: (name: string) => void;
 }
 
 const defaultContext: BusinessContextType = {
   selectedBusinessId: null,
-  setSelectedBusinessId: () => {},
-  selectedBusinessName: '',
-  setSelectedBusinessName: () => {}
+  setSelectedBusinessId: () => {}
 };
 
 const BusinessContext = createContext<BusinessContextType>(defaultContext);
-
-export function BusinessProvider({ children }: { children: ReactNode }) {
-  const [selectedBusinessId, setSelectedBusinessId] = useState<string | null>(null);
-  const [selectedBusinessName, setSelectedBusinessName] = useState('');
-
-  return (
-    <BusinessContext.Provider 
-      value={{ 
-        selectedBusinessId, 
-        setSelectedBusinessId,
-        selectedBusinessName,
-        setSelectedBusinessName
-      }}
-    >
-      {children}
-    </BusinessContext.Provider>
-  );
-}
 
 export function useBusiness() {
   const context = useContext(BusinessContext);
@@ -40,4 +18,19 @@ export function useBusiness() {
     throw new Error('useBusiness must be used within a BusinessProvider');
   }
   return context;
+}
+
+export function BusinessProvider({ children }: { children: React.ReactNode }) {
+  const [selectedBusinessId, setSelectedBusinessId] = useState<string | null>(null);
+
+  return (
+    <BusinessContext.Provider 
+      value={{ 
+        selectedBusinessId, 
+        setSelectedBusinessId
+      }}
+    >
+      {children}
+    </BusinessContext.Provider>
+  );
 }

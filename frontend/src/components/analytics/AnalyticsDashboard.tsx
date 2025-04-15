@@ -3,8 +3,6 @@ import { Tab } from '@headlessui/react';
 import { AnalyticsData } from '../../types/analytics';
 import { mockAnalyticsData } from '../../data/mockAnalytics';
 import SMSAnalytics from './SMSAnalytics';
-import { useQuery } from 'react-query';
-import axios from 'axios';
 
 function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(' ');
@@ -12,11 +10,11 @@ function classNames(...classes: string[]) {
 
 interface Props {
   clientId: string;
-  data?: any;
+  data?: AnalyticsData;
   isLoading?: boolean;
 }
 
-const AnalyticsDashboard: React.FC<Props> = ({ clientId, data, isLoading = false }) => {
+const AnalyticsDashboard: React.FC<Props> = ({ clientId, data = mockAnalyticsData, isLoading = false }) => {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -25,25 +23,23 @@ const AnalyticsDashboard: React.FC<Props> = ({ clientId, data, isLoading = false
     );
   }
 
-  if (!data) return null;
-
   const renderOverview = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
       <div className="bg-white rounded-lg shadow p-4">
         <h3 className="text-sm text-gray-500">Total Interactions</h3>
-        <p className="mt-1 text-2xl font-semibold">{data?.overview.totalInteractions}</p>
+        <p className="mt-1 text-2xl font-semibold">{data.overview.totalInteractions}</p>
       </div>
       <div className="bg-white rounded-lg shadow p-4">
         <h3 className="text-sm text-gray-500">Total Cost</h3>
-        <p className="mt-1 text-2xl font-semibold">${data?.overview.totalCost.toFixed(2)}</p>
+        <p className="mt-1 text-2xl font-semibold">${data.overview.totalCost.toFixed(2)}</p>
       </div>
       <div className="bg-white rounded-lg shadow p-4">
         <h3 className="text-sm text-gray-500">Avg Response Time</h3>
-        <p className="mt-1 text-2xl font-semibold">{data?.overview.averageResponseTime}s</p>
+        <p className="mt-1 text-2xl font-semibold">{data.overview.averageResponseTime}s</p>
       </div>
       <div className="bg-white rounded-lg shadow p-4">
         <h3 className="text-sm text-gray-500">Success Rate</h3>
-        <p className="mt-1 text-2xl font-semibold">{data?.overview.successRate}%</p>
+        <p className="mt-1 text-2xl font-semibold">{data.overview.successRate}%</p>
       </div>
     </div>
   );
@@ -82,7 +78,7 @@ const AnalyticsDashboard: React.FC<Props> = ({ clientId, data, isLoading = false
               'ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2'
             )}
           >
-            <SMSAnalytics metrics={data?.sms} businessId={''} clientId={clientId} />
+            <SMSAnalytics metrics={data.sms} businessId={clientId} clientId={clientId} />
           </Tab.Panel>
           <Tab.Panel
             className={classNames(

@@ -11,7 +11,7 @@ interface Business {
 
 export default function BusinessSelector() {
   const [manualBusinessId, setManualBusinessId] = useState('');
-  const { selectedBusinessId, setSelectedBusinessId, setSelectedBusinessName } = useBusiness();
+  const { selectedBusinessId, setSelectedBusinessId } = useBusiness();
 
   // Fetch list of businesses
   const { data: businesses, isError } = useQuery<Business[]>(
@@ -35,7 +35,6 @@ export default function BusinessSelector() {
     e.preventDefault();
     if (manualBusinessId.trim()) {
       setSelectedBusinessId(manualBusinessId.trim());
-      setSelectedBusinessName(`Business ${manualBusinessId.trim()}`);
       setManualBusinessId('');
     }
   };
@@ -47,41 +46,42 @@ export default function BusinessSelector() {
     const business = businesses?.find(b => b.id === value);
     if (business) {
       setSelectedBusinessId(business.id);
-      setSelectedBusinessName(business.name);
     }
   };
 
   return (
-    <div className="flex gap-2 items-start">
-      {/* Dropdown for existing businesses */}
+    <div className="flex items-center space-x-4">
       <select
-        value={selectedBusinessId || 'manual'}
+        value={selectedBusinessId || ''}
         onChange={handleSelectChange}
-        className="block rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+        className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
       >
-        <option value="manual">Select Business ID...</option>
-        {(businesses || [])?.map((business) => (
+        <option value="">Select a business</option>
+        {businesses?.map((business) => (
           <option key={business.id} value={business.id}>
-            {business.name} (ID: {business.id})
+            {business.name || business.id}
           </option>
         ))}
+        <option value="manual">Enter manually...</option>
       </select>
 
-      {/* Manual input form */}
-      <form onSubmit={handleManualSubmit} className="flex gap-2">
-        <input
-          type="text"
-          value={manualBusinessId}
-          onChange={(e) => setManualBusinessId(e.target.value)}
-          placeholder="Or enter Business ID"
-          className="block rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-        />
-        <button
-          type="submit"
-          className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-        >
-          Set
-        </button>
+      {/* Manual business ID input */}
+      <form onSubmit={handleManualSubmit} className="flex-1">
+        <div className="mt-1 flex rounded-md shadow-sm">
+          <input
+            type="text"
+            value={manualBusinessId}
+            onChange={(e) => setManualBusinessId(e.target.value)}
+            placeholder="Enter business ID"
+            className="flex-1 min-w-0 block w-full px-3 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          />
+          <button
+            type="submit"
+            className="ml-3 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+            Set
+          </button>
+        </div>
       </form>
     </div>
   );
