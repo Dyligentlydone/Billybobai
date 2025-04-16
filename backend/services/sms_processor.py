@@ -1,4 +1,4 @@
-from typing import Dict, Optional, Tuple, NamedTuple
+from typing import Dict, Optional, Tuple, NamedTuple, Any
 import time
 from datetime import datetime
 import os
@@ -11,6 +11,8 @@ from utils.cost_tracking import CostTracker
 from twilio.rest import Client as TwilioClient
 from zenpy import Zenpy
 from zenpy.lib.api_objects import Ticket, User, Comment
+from .retry_handler import RetryHandler
+from .opt_out_handler import OptOutHandler
 
 class ProcessingResult(NamedTuple):
     success: bool
@@ -55,6 +57,12 @@ class SMSProcessor:
         # Initialize quality analyzer and cost tracker
         self.quality_analyzer = MessageQualityAnalyzer()
         self.cost_tracker = CostTracker()
+        
+        # Initialize retry handler
+        self.retry_handler = RetryHandler(self.twilio_client, None)
+        
+        # Initialize opt-out handler
+        self.opt_out_handler = OptOutHandler(None)
         
         # Get monitoring thresholds
         self.thresholds = config.get('monitoring', {}).get('alertThresholds', {
@@ -128,7 +136,8 @@ Business ID: {self.business_id}
         self, 
         from_number: str, 
         message_body: str,
-        use_twiml: bool = False
+        use_twiml: bool = False,
+        metadata: Dict[str, Any] = None
     ) -> ProcessingResult:
         """Process an incoming SMS message and optionally send AI-generated response"""
         start_time = time.time()
@@ -173,7 +182,7 @@ Business ID: {self.business_id}
                 message_params = {
                     'body': response,
                     'to': from_number,
-                    'status_callback': f"{self.config.get('status_callback_url', '')}/{self.workflow_id}"
+                    'status_callback': metadata.get('status_callback') if metadata else None
                 }
                 
                 # Use either messaging service or phone number
@@ -182,9 +191,30 @@ Business ID: {self.business_id}
                 else:
                     message_params['from_'] = self.twilio_phone
                 
-                twilio_message = self.twilio_client.messages.create(**message_params)
-                message_sid = twilio_message.sid
-                logging.info(f"Sent message via Twilio API. SID: {message_sid}")
+                # Check if number is opted out
+                if await self.opt_out_handler.is_opted_out(from_number, self.business_id):
+                    self.logger.info(f"Skipping send to opted-out number: {from_number}")
+                    return ProcessingResult(
+                        success=True,
+                        response=None,
+                        error=None,
+                        message_sid=None,
+                        ticket_id=ticket_id,
+                        sent_via_api=False
+                    )
+                
+                twilio_message = await self.retry_handler.retry_send(
+                    message_id=None,
+                    to_number=from_number,
+                    from_number=self.twilio_phone,
+                    body=response,
+                    attempt=1,
+                    metadata=metadata
+                )
+                
+                if twilio_message:
+                    message_sid = twilio_message.sid
+                    logging.info(f"Sent message via Twilio API. SID: {message_sid}")
             
             # Compile metrics
             metrics = {
@@ -210,7 +240,7 @@ Business ID: {self.business_id}
                     message_params = {
                         'body': response,
                         'to': from_number,
-                        'status_callback': f"{self.config.get('status_callback_url', '')}/{self.workflow_id}"
+                        'status_callback': metadata.get('status_callback') if metadata else None
                     }
                     
                     if self.messaging_service_sid:
@@ -218,9 +248,18 @@ Business ID: {self.business_id}
                     else:
                         message_params['from_'] = self.twilio_phone
                     
-                    twilio_message = self.twilio_client.messages.create(**message_params)
-                    message_sid = twilio_message.sid
-                    logging.info(f"Sent fallback message via Twilio API. SID: {message_sid}")
+                    twilio_message = await self.retry_handler.retry_send(
+                        message_id=None,
+                        to_number=from_number,
+                        from_number=self.twilio_phone,
+                        body=response,
+                        attempt=1,
+                        metadata=metadata
+                    )
+                    
+                    if twilio_message:
+                        message_sid = twilio_message.sid
+                        logging.info(f"Sent fallback message via Twilio API. SID: {message_sid}")
                 except Exception as fallback_error:
                     error = f"Original error: {error}. Fallback error: {str(fallback_error)}"
                     logging.error(f"Failed to send fallback message: {error}")
@@ -254,17 +293,40 @@ Business ID: {self.business_id}
             "We're sorry, but we couldn't process your message at this time. Please try again later."
         )
 
-    def process_delivery_status(self, message_sid: str, status: str, error_code: Optional[str] = None) -> None:
+    async def process_delivery_status(
+        self,
+        message_sid: str,
+        status: str,
+        error_code: Optional[str] = None
+    ):
         """Process message delivery status updates"""
-        try:
-            logging.info(f"Message {message_sid} status update: {status}")
-            if error_code:
-                logging.error(f"Message {message_sid} error: {error_code}")
-                
-            # TODO: Update message status in database once implemented
+        # Get message ID from database
+        query = """
+            SELECT id, to_number, from_number, body, metadata
+            FROM sms_messages
+            WHERE message_sid = :message_sid
+        """
+        result = await self.db.execute(query, {'message_sid': message_sid})
+        message = result.fetchone()
+        
+        if not message:
+            self.logger.error(f"Message {message_sid} not found in database")
+            return
             
-        except Exception as e:
-            logging.error(f"Error processing status update: {str(e)}")
+        if status in self.retry_handler.RETRYABLE_STATUSES:
+            # Initiate retry process
+            await self.retry_handler.process_failed_message(
+                message_id=message.id,
+                status=status,
+                error_code=error_code
+            )
+        else:
+            # Update final status
+            await self.retry_handler.update_message_status(
+                message_id=message.id,
+                status=status,
+                error_code=error_code
+            )
 
     def _is_international(self, phone_number: str) -> bool:
         """Check if a phone number is international (non-US)"""

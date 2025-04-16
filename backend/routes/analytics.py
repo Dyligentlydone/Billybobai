@@ -47,126 +47,94 @@ def get_analytics():
     db = get_db()
     cursor = db.cursor()
     
-    # Get message metrics
+    # Get message metrics including status and retry data
     cursor.execute("""
         SELECT 
-            date(created_at) as date,
             COUNT(*) as total_messages,
-            AVG(response_time) as avg_response_time,
-            AVG(sentiment_score) as avg_sentiment,
-            AVG(quality_score) as avg_quality
-        FROM messages
-        WHERE business_id = ? 
-        AND date(created_at) BETWEEN ? AND ?
-        GROUP BY date(created_at)
-        ORDER BY date(created_at)
-    """, (client_id, start_date, end_date))
-    
-    daily_metrics = cursor.fetchall()
-    
-    # Get cost data
-    cursor.execute("""
-        SELECT 
-            date(created_at) as date,
-            SUM(ai_cost) as ai_cost,
-            SUM(sms_cost) as sms_cost
-        FROM message_costs
+            SUM(CASE WHEN status = 'delivered' THEN 1 ELSE 0 END) as delivered_count,
+            SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed_count,
+            SUM(CASE WHEN retry_attempt > 0 THEN 1 ELSE 0 END) as retried_count,
+            AVG(CASE WHEN retry_attempt > 0 THEN retry_attempt ELSE 0 END) as avg_retries,
+            SUM(CASE WHEN is_opted_out = 1 THEN 1 ELSE 0 END) as opt_out_count,
+            AVG(CASE 
+                WHEN status = 'delivered' 
+                THEN ROUND((julianday(updated_at) - julianday(created_at)) * 86400)
+                ELSE NULL 
+            END) as avg_delivery_time
+        FROM sms_messages
         WHERE business_id = ?
-        AND date(created_at) BETWEEN ? AND ?
-        GROUP BY date(created_at)
-        ORDER BY date(created_at)
+        AND date(created_at) BETWEEN date(?) AND date(?)
     """, (client_id, start_date, end_date))
     
-    cost_data = cursor.fetchall()
+    message_metrics = dict(cursor.fetchone())
     
-    # Get response types distribution
+    # Get hourly message volume and status distribution
     cursor.execute("""
         SELECT 
-            response_type,
+            strftime('%H', created_at) as hour,
+            status,
             COUNT(*) as count
-        FROM messages
+        FROM sms_messages
         WHERE business_id = ?
-        AND date(created_at) BETWEEN ? AND ?
-        GROUP BY response_type
+        AND date(created_at) BETWEEN date(?) AND date(?)
+        GROUP BY hour, status
+        ORDER BY hour, status
     """, (client_id, start_date, end_date))
     
-    response_types = cursor.fetchall()
+    hourly_stats = {}
+    for row in cursor.fetchall():
+        hour = row[0]
+        status = row[1]
+        count = row[2]
+        if hour not in hourly_stats:
+            hourly_stats[hour] = {}
+        hourly_stats[hour][status] = count
     
-    # Calculate period comparisons
-    days = (datetime.strptime(end_date, '%Y-%m-%d') - 
-            datetime.strptime(start_date, '%Y-%m-%d')).days
-    previous_start = (datetime.strptime(start_date, '%Y-%m-%d') - 
-                     timedelta(days=days)).strftime('%Y-%m-%d')
-    
+    # Get opt-out trends
     cursor.execute("""
         SELECT 
-            COUNT(*) as total_messages,
-            AVG(response_time) as avg_response_time,
-            SUM(ai_cost) as ai_cost,
-            SUM(sms_cost) as sms_cost
-        FROM messages m
-        JOIN message_costs c ON m.id = c.message_id
-        WHERE m.business_id = ?
-        AND date(m.created_at) BETWEEN ? AND ?
-    """, (client_id, previous_start, start_date))
-    
-    previous_period = cursor.fetchone()
-    
-    cursor.execute("""
-        SELECT 
-            COUNT(*) as total_messages,
-            AVG(response_time) as avg_response_time,
-            SUM(ai_cost) as ai_cost,
-            SUM(sms_cost) as sms_cost
-        FROM messages m
-        JOIN message_costs c ON m.id = c.message_id
-        WHERE m.business_id = ?
-        AND date(m.created_at) BETWEEN ? AND ?
+            date(opted_out_at) as date,
+            COUNT(*) as count
+        FROM opt_outs
+        WHERE business_id = ?
+        AND date(opted_out_at) BETWEEN date(?) AND date(?)
+        GROUP BY date
+        ORDER BY date
     """, (client_id, start_date, end_date))
     
-    current_period = cursor.fetchone()
-    
-    # Calculate percentage changes
-    def calc_change(current, previous):
-        if not previous:
-            return 0
-        return ((current - previous) / previous) * 100
-    
-    analytics_data = {
-        'sms': {
-            'totalMessages': current_period[0],
-            'messageChange': calc_change(current_period[0], previous_period[0]),
-            'avgResponseTime': current_period[1],
-            'responseTimeChange': calc_change(current_period[1], previous_period[1]),
-            'aiCost': current_period[2],
-            'aiCostChange': calc_change(current_period[2], previous_period[2]),
-            'smsCost': current_period[3],
-            'smsCostChange': calc_change(current_period[3], previous_period[3]),
-            'qualityMetrics': [
-                {
-                    'date': row[0],
-                    'sentiment': row[3],
-                    'quality': row[4]
-                }
-                for row in daily_metrics
-            ],
-            'responseTypes': [
-                {
-                    'type': row[0],
-                    'count': row[1]
-                }
-                for row in response_types
-            ],
-            'dailyCosts': [
-                {
-                    'date': row[0],
-                    'ai': row[1],
-                    'sms': row[2],
-                    'total': row[1] + row[2]
-                }
-                for row in cost_data
-            ]
+    opt_out_trends = [
+        {
+            'date': row[0],
+            'count': row[1]
         }
-    }
+        for row in cursor.fetchall()
+    ]
     
-    return jsonify(analytics_data)
+    # Get error distribution
+    cursor.execute("""
+        SELECT 
+            error_code,
+            COUNT(*) as count
+        FROM sms_messages
+        WHERE business_id = ?
+        AND date(created_at) BETWEEN date(?) AND date(?)
+        AND error_code IS NOT NULL
+        GROUP BY error_code
+        ORDER BY count DESC
+        LIMIT 10
+    """, (client_id, start_date, end_date))
+    
+    error_distribution = [
+        {
+            'error_code': row[0],
+            'count': row[1]
+        }
+        for row in cursor.fetchall()
+    ]
+    
+    return jsonify({
+        'message_metrics': message_metrics,
+        'hourly_stats': hourly_stats,
+        'opt_out_trends': opt_out_trends,
+        'error_distribution': error_distribution
+    })
