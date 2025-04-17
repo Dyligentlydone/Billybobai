@@ -1,11 +1,15 @@
 import React from 'react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell } from 'recharts';
+import { AnalyticsData } from '../../types/analytics';
 
 interface Props {
+  metrics: AnalyticsData;
+  businessId: string;
+  clientId: string;
   isPlaceholder?: boolean;
 }
 
-const OverviewAnalytics: React.FC<Props> = ({ isPlaceholder = false }) => {
+const OverviewAnalytics: React.FC<Props> = ({ metrics, businessId, clientId, isPlaceholder = false }) => {
   // Sample data for development
   const placeholderData = {
     totalMetrics: {

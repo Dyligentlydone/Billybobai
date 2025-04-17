@@ -1,15 +1,26 @@
 import React from 'react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, BarChart, Bar } from 'recharts';
+import { EmailMetrics } from '../../types/analytics';
 
 interface Props {
+  metrics: EmailMetrics;
+  businessId: string;
+  clientId: string;
   isPlaceholder?: boolean;
 }
 
-const EmailAnalytics: React.FC<Props> = ({ isPlaceholder = false }) => {
+const EmailAnalytics: React.FC<Props> = ({ metrics, businessId, clientId, isPlaceholder = false }) => {
   // Sample data for development
+  const displayData = isPlaceholder ? {
+    totalCount: 1234,
+    openRate: 0.65,
+    clickRate: 0.32,
+    bounceRate: 0.02
+  } : metrics;
+
   const placeholderData = {
     emailMetrics: {
-      totalEmails: 2500,
+      totalCount: 2500,
       openRate: 0.68,
       clickRate: 0.15,
       bounceRate: 0.02
@@ -65,24 +76,24 @@ const EmailAnalytics: React.FC<Props> = ({ isPlaceholder = false }) => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white rounded-lg shadow p-4">
           <h3 className="text-sm text-gray-500">Total Emails</h3>
-          <p className="mt-1 text-2xl font-semibold">{placeholderData.emailMetrics.totalEmails}</p>
+          <p className="mt-1 text-2xl font-semibold">{displayData.totalCount}</p>
         </div>
         <div className="bg-white rounded-lg shadow p-4">
           <h3 className="text-sm text-gray-500">Open Rate</h3>
           <p className="mt-1 text-2xl font-semibold">
-            {(placeholderData.emailMetrics.openRate * 100).toFixed(1)}%
+            {(displayData.openRate * 100).toFixed(1)}%
           </p>
         </div>
         <div className="bg-white rounded-lg shadow p-4">
           <h3 className="text-sm text-gray-500">Click Rate</h3>
           <p className="mt-1 text-2xl font-semibold">
-            {(placeholderData.emailMetrics.clickRate * 100).toFixed(1)}%
+            {(displayData.clickRate * 100).toFixed(1)}%
           </p>
         </div>
         <div className="bg-white rounded-lg shadow p-4">
           <h3 className="text-sm text-gray-500">Bounce Rate</h3>
           <p className="mt-1 text-2xl font-semibold">
-            {(placeholderData.emailMetrics.bounceRate * 100).toFixed(1)}%
+            {(displayData.bounceRate * 100).toFixed(1)}%
           </p>
         </div>
       </div>

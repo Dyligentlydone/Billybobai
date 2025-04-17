@@ -1,6 +1,6 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, JSON, ForeignKey, Enum, Float
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Integer, String, DateTime, JSON, ForeignKey, Enum, Float, Boolean, Index
+from sqlalchemy.orm import relationship, backref
 import enum
 from .base import Base
 
@@ -45,8 +45,18 @@ class Message(Base):
     processing_attempts = Column(Integer, default=0)  # Number of retry attempts
     error_message = Column(String)  # Store any error messages
 
+    # New conversation threading fields
+    conversation_id = Column(String(255), index=True)  # Group messages in same conversation
+    phone_number = Column(String(20), index=True)      # Store the customer's phone number
+    topic = Column(String(100))                        # AI-categorized topic
+    is_first_in_conversation = Column(Boolean, default=False)
+    response_to_message_id = Column(Integer, ForeignKey('messages.id'), nullable=True)
+
     # Relationships
     workflow = relationship('Workflow', back_populates='messages')
+    responses = relationship('Message', 
+                           backref=backref('parent', remote_side=[id]),
+                           foreign_keys=[response_to_message_id])
 
     def __repr__(self):
         return f'<Message {self.channel}:{self.direction}>'

@@ -1,11 +1,15 @@
 import React from 'react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, BarChart, Bar } from 'recharts';
+import { VoiceMetrics } from '../../types/analytics';
 
 interface Props {
+  metrics: VoiceMetrics;
+  businessId: string;
+  clientId: string;
   isPlaceholder?: boolean;
 }
 
-const VoiceAnalytics: React.FC<Props> = ({ isPlaceholder = false }) => {
+const VoiceAnalytics: React.FC<Props> = ({ metrics, businessId, clientId, isPlaceholder = false }) => {
   // Sample data for development
   const placeholderData = {
     callMetrics: {

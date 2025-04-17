@@ -11,92 +11,56 @@ export interface MetricCategory {
   }[];
 }
 
+export interface Message {
+  id: string;
+  content: string;
+  timestamp: string;
+  direction: 'inbound' | 'outbound';
+  status: string;
+  phoneNumber: string;
+}
+
+export interface Conversation {
+  id: string;
+  messages: Message[];
+  phoneNumber: string;
+  lastMessageAt: string;
+  status: string;
+}
+
 export interface SMSMetrics {
-  totalCount: number;
-  responseTime: number;
-  aiCost: number;
-  serviceCost: number;
+  totalMessages: number;
+  inboundMessages: number;
+  outboundMessages: number;
+  averageResponseTime: number;
   deliveryRate: number;
-  optOutRate: number;
-  qualityMetrics: Array<{
-    date: string;
-    sentiment: number;
-    quality: number;
-  }>;
-  responseTypes: Array<{
-    type: string;
-    count: number;
-  }>;
-  dailyCosts: Array<{
-    date: string;
-    ai: number;
-    service: number;
-    total: number;
-  }>;
+  conversations: Conversation[];
+  hourlyActivity: { hour: number; count: number }[];
+}
+
+export interface VoiceMetrics {
+  totalCalls: number;
+  inboundCalls: number;
+  outboundCalls: number;
+  averageDuration: number;
+  successRate: number;
+  hourlyActivity: { hour: number; count: number }[];
 }
 
 export interface EmailMetrics {
   totalCount: number;
-  responseTime: number;
-  aiCost: number;
-  serviceCost: number;
   openRate: number;
   clickRate: number;
   bounceRate: number;
-  unsubscribeRate: number;
-  qualityMetrics: Array<{
-    date: string;
-    sentiment: number;
-    quality: number;
-  }>;
-  responseTypes: Array<{
-    type: string;
-    count: number;
-  }>;
-  dailyCosts: Array<{
-    date: string;
-    ai: number;
-    service: number;
-    total: number;
-  }>;
-}
-
-export interface VoiceMetrics {
-  totalCount: number;
-  responseTime: number;
-  aiCost: number;
-  serviceCost: number;
-  callDuration: number;
-  transferRate: number;
-  qualityMetrics: Array<{
-    date: string;
-    sentiment: number;
-    quality: number;
-  }>;
-  responseTypes: Array<{
-    type: string;
-    count: number;
-  }>;
-  dailyCosts: Array<{
-    date: string;
-    ai: number;
-    service: number;
-    total: number;
-  }>;
+  hourlyActivity: { hour: number; count: number }[];
 }
 
 export interface AnalyticsData {
-  sms: SMSMetrics;
-  email: EmailMetrics;
-  voice: VoiceMetrics;
-  overview: {
-    totalInteractions: number;
-    totalCost: number;
-    averageResponseTime: number;
-    successRate: number;
-  };
-  dateRange: {
-    start: string;
-    end: string;
-  };
+  smsMetrics: SMSMetrics;
+  voiceMetrics: VoiceMetrics;
+  emailMetrics: EmailMetrics;
+  totalInteractions: number;
+  customerSatisfaction: number;
+  responseTime: number;
+  resolutionRate: number;
 }

@@ -15,41 +15,70 @@ function classNames(...classes: string[]) {
 
 export default function Analytics() {
   const { selectedBusinessId } = useBusiness();
-  
+
   // Calculate date range (last 30 days)
   const end = new Date();
   const start = new Date();
   start.setDate(start.getDate() - 30);
-  
-  const { data: analyticsData, isLoading } = useQuery(
+
+  const { data: analyticsData, isLoading, error } = useQuery(
     ['analytics', selectedBusinessId],
     async () => {
       if (!selectedBusinessId) return null;
-      const { data } = await axios.get('/api/analytics', {
+      const response = await axios.get(`/api/analytics/${selectedBusinessId}`, {
         params: {
-          clientId: selectedBusinessId,
-          startDate: start.toISOString().split('T')[0],
-          endDate: end.toISOString().split('T')[0]
+          start_date: start.toISOString(),
+          end_date: end.toISOString()
         }
       });
-      return data;
+      return response.data;
     },
     {
       enabled: !!selectedBusinessId,
-      refetchInterval: 30000 // Refresh every 30 seconds
+      staleTime: 5 * 60 * 1000 // Consider data fresh for 5 minutes
     }
   );
+
+  if (error) {
+    return (
+      <div className="p-4">
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          Error loading analytics data
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="p-4">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-24 bg-gray-200 rounded"></div>
+            ))}
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {[...Array(2)].map((_, i) => (
+              <div key={i} className="h-80 bg-gray-200 rounded"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <div className="sm:flex sm:items-center sm:justify-between">
-        <div className="sm:flex-auto">
+        <div>
           <h1 className="text-2xl font-semibold text-gray-900">Analytics</h1>
           <p className="mt-2 text-sm text-gray-700">
-            Detailed analytics and insights across all communication channels.
+            View analytics and insights for your business communications
           </p>
         </div>
-        <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
+        <div className="mt-4 sm:mt-0">
           <BusinessSelector />
         </div>
       </div>
@@ -109,47 +138,38 @@ export default function Analytics() {
             Email
           </Tab>
         </Tab.List>
-        <Tab.Panels className="mt-2">
+        <Tab.Panels>
           <Tab.Panel>
-            {isLoading ? (
-              <div className="text-center py-12">
-                <div className="spinner">Loading...</div>
-              </div>
-            ) : (
-              <OverviewAnalytics isPlaceholder={!selectedBusinessId} />
-            )}
+            <OverviewAnalytics
+              metrics={analyticsData?.overview_metrics || {}}
+              businessId={selectedBusinessId || ''}
+              clientId={selectedBusinessId || ''}
+              isPlaceholder={true}
+            />
           </Tab.Panel>
           <Tab.Panel>
-            {isLoading ? (
-              <div className="text-center py-12">
-                <div className="spinner">Loading...</div>
-              </div>
-            ) : (
-              <SMSAnalytics
-                metrics={analyticsData?.message_metrics || {}}
-                businessId={selectedBusinessId || ''}
-                clientId={selectedBusinessId || ''}
-                isPlaceholder={!selectedBusinessId}
-              />
-            )}
+            <SMSAnalytics
+              metrics={analyticsData?.message_metrics || {}}
+              businessId={selectedBusinessId || ''}
+              clientId={selectedBusinessId || ''}
+              isPlaceholder={true}
+            />
           </Tab.Panel>
           <Tab.Panel>
-            {isLoading ? (
-              <div className="text-center py-12">
-                <div className="spinner">Loading...</div>
-              </div>
-            ) : (
-              <VoiceAnalytics isPlaceholder={!selectedBusinessId} />
-            )}
+            <VoiceAnalytics
+              metrics={analyticsData?.voice_metrics || {}}
+              businessId={selectedBusinessId || ''}
+              clientId={selectedBusinessId || ''}
+              isPlaceholder={true}
+            />
           </Tab.Panel>
           <Tab.Panel>
-            {isLoading ? (
-              <div className="text-center py-12">
-                <div className="spinner">Loading...</div>
-              </div>
-            ) : (
-              <EmailAnalytics isPlaceholder={!selectedBusinessId} />
-            )}
+            <EmailAnalytics
+              metrics={analyticsData?.email_metrics || {}}
+              businessId={selectedBusinessId || ''}
+              clientId={selectedBusinessId || ''}
+              isPlaceholder={true}
+            />
           </Tab.Panel>
         </Tab.Panels>
       </Tab.Group>
