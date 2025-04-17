@@ -29,13 +29,31 @@ export interface Conversation {
 }
 
 export interface SMSMetrics {
-  totalMessages: number;
-  inboundMessages: number;
-  outboundMessages: number;
-  averageResponseTime: number;
+  totalCount: string;
+  responseTime: string;
   deliveryRate: number;
+  optOutRate: number;
+  aiConfidence: number;
+  qualityMetrics: Array<{
+    date: string;
+    sentiment: number;
+    quality: number;
+  }>;
+  responseTypes: Array<{
+    type: string;
+    count: number;
+  }>;
+  dailyCosts: Array<{
+    date: string;
+    ai: number;
+    service: number;
+    total: number;
+  }>;
+  hourlyActivity: Array<{
+    hour: number;
+    count: number;
+  }>;
   conversations: Conversation[];
-  hourlyActivity: { hour: number; count: number }[];
 }
 
 export interface VoiceMetrics {
@@ -56,11 +74,17 @@ export interface EmailMetrics {
 }
 
 export interface AnalyticsData {
-  smsMetrics: SMSMetrics;
-  voiceMetrics: VoiceMetrics;
-  emailMetrics: EmailMetrics;
-  totalInteractions: number;
-  customerSatisfaction: number;
-  responseTime: number;
-  resolutionRate: number;
+  sms: SMSMetrics;
+  voice: VoiceMetrics;
+  email: EmailMetrics;
+  overview: {
+    totalInteractions: number;
+    totalCost: number;
+    averageResponseTime: number;
+    successRate: number;
+  };
+  dateRange: {
+    start: string;
+    end: string;
+  };
 }

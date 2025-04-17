@@ -141,7 +141,7 @@ export default function Analytics() {
         <Tab.Panels>
           <Tab.Panel>
             <OverviewAnalytics
-              metrics={analyticsData?.overview_metrics || {}}
+              metrics={analyticsData?.overview || {}}
               businessId={selectedBusinessId || ''}
               clientId={selectedBusinessId || ''}
               isPlaceholder={true}
@@ -149,7 +149,7 @@ export default function Analytics() {
           </Tab.Panel>
           <Tab.Panel>
             <SMSAnalytics
-              metrics={analyticsData?.message_metrics || {}}
+              metrics={analyticsData?.sms || {}}
               businessId={selectedBusinessId || ''}
               clientId={selectedBusinessId || ''}
               isPlaceholder={true}
@@ -157,7 +157,7 @@ export default function Analytics() {
           </Tab.Panel>
           <Tab.Panel>
             <VoiceAnalytics
-              metrics={analyticsData?.voice_metrics || {}}
+              metrics={analyticsData?.voice || {}}
               businessId={selectedBusinessId || ''}
               clientId={selectedBusinessId || ''}
               isPlaceholder={true}
@@ -165,7 +165,7 @@ export default function Analytics() {
           </Tab.Panel>
           <Tab.Panel>
             <EmailAnalytics
-              metrics={analyticsData?.email_metrics || {}}
+              metrics={analyticsData?.email || {}}
               businessId={selectedBusinessId || ''}
               clientId={selectedBusinessId || ''}
               isPlaceholder={true}
