@@ -82,63 +82,57 @@ export default function Dashboard() {
     }
   );
 
-  const analyticsData: AnalyticsData = {
+  const mockData = {
     sms: {
-      totalCount: '1,234',
-      responseTime: '2.5s',
-      deliveryRate: 0.98,
-      optOutRate: 0.02,
-      aiCost: 150,
-      serviceCost: 300,
       qualityMetrics: [
-        { date: '2025-04-17', sentiment: 0.85, quality: 0.9 }
-      ],
-      responseTypes: [
-        { type: 'Auto', count: 980 },
-        { type: 'Manual', count: 254 }
+        { name: 'Sentiment', value: 0.85 },
+        { name: 'Quality', value: 0.92 }
       ],
       dailyCosts: [
-        { date: '2025-04-17', ai: 50, service: 100, total: 150 }
+        { date: '2025-04-10', cost: 25.50 },
+        { date: '2025-04-11', cost: 27.80 }
       ],
-      hourlyActivity: [
-        { hour: 9, count: 125 },
-        { hour: 10, count: 145 }
-      ],
-      conversations: []
+      hourlyActivity: Array.from({ length: 24 }, (_, i) => ({
+        hour: i,
+        count: Math.floor(Math.random() * 100)
+      }))
     },
     voice: {
-      totalCount: '456',
-      inboundCalls: 300,
-      outboundCalls: 156,
-      averageDuration: 180,
-      successRate: 0.95,
-      hourlyActivity: [
-        { hour: 9, count: 45 },
-        { hour: 10, count: 55 }
-      ]
+      hourlyActivity: Array.from({ length: 24 }, (_, i) => ({
+        hour: i,
+        count: Math.floor(Math.random() * 50),
+        successRate: 0.9 + Math.random() * 0.1,
+        duration: Math.floor(Math.random() * 300)
+      }))
     },
     email: {
-      totalCount: '789',
-      responseTime: '5m',
-      openRate: 0.65,
-      clickRate: 0.32,
-      bounceRate: 0.02,
-      hourlyActivity: [
-        { hour: 9, count: 78 },
-        { hour: 10, count: 89 }
-      ]
-    },
-    overview: {
-      totalInteractions: '2,479',
-      totalCost: 2500,
-      averageResponseTime: '3.5s',
-      successRate: 0.96
-    },
-    dateRange: {
-      start: '2025-04-10',
-      end: '2025-04-17'
+      hourlyActivity: Array.from({ length: 24 }, (_, i) => ({
+        hour: i,
+        count: Math.floor(Math.random() * 75),
+        opens: Math.floor(Math.random() * 50),
+        clicks: Math.floor(Math.random() * 20)
+      }))
     }
   };
+
+  const costBreakdown = stats.sms.dailyCosts.map(cost => ({
+    name: cost.date,
+    value: cost.cost
+  }));
+
+  const aiMetrics = stats.sms.qualityMetrics.map(metric => ({
+    name: metric.name,
+    value: metric.value
+  }));
+
+  const hourlyActivity = mockData.sms.hourlyActivity;
+  const hourlyVoiceActivity = mockData.voice.hourlyActivity;
+  const hourlyEmailActivity = mockData.email.hourlyActivity;
+
+  const recentActivity = stats.sms.conversations.map(conv => ({
+    name: conv.phoneNumber,
+    value: conv.lastMessage
+  }));
 
   return (
     <div className="space-y-6">
@@ -166,6 +160,55 @@ export default function Dashboard() {
           isLoading={isLoading} 
         />
       )}
+      <div className="bg-white shadow rounded-lg p-4">
+        <h2 className="text-lg font-medium mb-4">Recent Activity</h2>
+        <div className="space-y-4">
+          {recentActivity.map((activity, index) => (
+            <div key={index} className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className={`w-2 h-2 rounded-full ${activity.value ? 'bg-green-500' : 'bg-gray-500'}`} />
+                <span className="ml-3 text-sm text-gray-500">{activity.value}</span>
+              </div>
+              <span className="text-sm text-gray-400">{activity.name}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-white shadow rounded-lg p-4">
+        <h2 className="text-lg font-medium mb-4">Cost Breakdown</h2>
+        <div className="space-y-4">
+          {costBreakdown.map((item, index) => (
+            <div key={index} className="flex items-center justify-between">
+              <span className="text-sm text-gray-500">{item.name}</span>
+              <span className="text-sm font-medium">${item.value.toFixed(2)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-white shadow rounded-lg p-4">
+        <h2 className="text-lg font-medium mb-4">AI Performance</h2>
+        <div className="space-y-4">
+          {aiMetrics.map((metric, index) => (
+            <div key={index} className="flex items-center justify-between">
+              <span className="text-sm text-gray-500">{metric.name}</span>
+              <span className="text-sm font-medium">{(metric.value * 100).toFixed(1)}%</span>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
+}
+
+function getStatusColor(status: string) {
+  switch (status) {
+    case 'success':
+      return 'bg-green-500';
+    case 'error':
+      return 'bg-red-500';
+    default:
+      return 'bg-gray-500';
+  }
 }
