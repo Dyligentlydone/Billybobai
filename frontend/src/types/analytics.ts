@@ -14,18 +14,23 @@ export interface MetricCategory {
 export interface Message {
   id: string;
   content: string;
-  timestamp: string;
+  createdAt: string;
   direction: 'inbound' | 'outbound';
   status: string;
   phoneNumber: string;
+  aiConfidence?: number;
+  templateUsed?: string;
 }
 
 export interface Conversation {
   id: string;
-  messages: Message[];
+  startedAt: string;
+  topic: string;
+  sentiment: 'positive' | 'neutral' | 'negative';
+  messageCount: number;
+  avgResponseTime: number;
   phoneNumber: string;
-  lastMessageAt: string;
-  status: string;
+  messages: Message[];
 }
 
 export interface SMSMetrics {
@@ -33,7 +38,8 @@ export interface SMSMetrics {
   responseTime: string;
   deliveryRate: number;
   optOutRate: number;
-  aiConfidence: number;
+  aiCost: number;
+  serviceCost: number;
   qualityMetrics: Array<{
     date: string;
     sentiment: number;
@@ -57,7 +63,7 @@ export interface SMSMetrics {
 }
 
 export interface VoiceMetrics {
-  totalCalls: number;
+  totalCount: string;
   inboundCalls: number;
   outboundCalls: number;
   averageDuration: number;
@@ -66,7 +72,8 @@ export interface VoiceMetrics {
 }
 
 export interface EmailMetrics {
-  totalCount: number;
+  totalCount: string;
+  responseTime: string;
   openRate: number;
   clickRate: number;
   bounceRate: number;
@@ -78,9 +85,9 @@ export interface AnalyticsData {
   voice: VoiceMetrics;
   email: EmailMetrics;
   overview: {
-    totalInteractions: number;
+    totalInteractions: string;
     totalCost: number;
-    averageResponseTime: number;
+    averageResponseTime: string;
     successRate: number;
   };
   dateRange: {

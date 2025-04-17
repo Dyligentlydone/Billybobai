@@ -6,7 +6,8 @@ export const mockAnalyticsData: AnalyticsData = {
     responseTime: '3.2s',
     deliveryRate: 0.98,
     optOutRate: 0.02,
-    aiConfidence: 0.89,
+    aiCost: 25,
+    serviceCost: 15,
     qualityMetrics: [
       { date: '2025-04-10', sentiment: 0.8, quality: 0.9 },
       { date: '2025-04-11', sentiment: 0.75, quality: 0.85 },
@@ -30,7 +31,7 @@ export const mockAnalyticsData: AnalyticsData = {
     conversations: []
   },
   voice: {
-    totalCalls: 500,
+    totalCount: '500',
     inboundCalls: 300,
     outboundCalls: 200,
     averageDuration: 180,
@@ -42,7 +43,8 @@ export const mockAnalyticsData: AnalyticsData = {
     ]
   },
   email: {
-    totalCount: 1000,
+    totalCount: '1,000',
+    responseTime: '4.5s',
     openRate: 0.65,
     clickRate: 0.32,
     bounceRate: 0.02,
@@ -53,9 +55,9 @@ export const mockAnalyticsData: AnalyticsData = {
     ]
   },
   overview: {
-    totalInteractions: 4000,
+    totalInteractions: '4,000',
     totalCost: 2500,
-    averageResponseTime: 3.5,
+    averageResponseTime: '3.5s',
     successRate: 0.96
   },
   dateRange: {
