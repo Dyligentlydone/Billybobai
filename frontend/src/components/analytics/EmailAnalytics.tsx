@@ -1,5 +1,5 @@
 import React from 'react';
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, BarChart, Bar } from 'recharts';
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, BarChart, Bar, PieChart, Pie, Legend, Cell } from 'recharts';
 import { EmailMetrics } from '../../types/analytics';
 
 interface Props {
@@ -73,43 +73,107 @@ const EmailAnalytics: React.FC<Props> = ({ metrics, businessId, clientId, isPlac
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
         <div className="bg-white rounded-lg shadow p-4">
-          <h3 className="text-sm text-gray-500">Total Emails</h3>
-          <p className="mt-1 text-2xl font-semibold">{displayData.totalCount}</p>
+          <h3 className="text-sm font-medium text-gray-500">Total Emails</h3>
+          <p className="mt-2 text-3xl font-semibold text-gray-900">{displayData.totalCount}</p>
+          {!businessId && <p className="mt-1 text-sm text-gray-500">No business selected</p>}
         </div>
         <div className="bg-white rounded-lg shadow p-4">
-          <h3 className="text-sm text-gray-500">Open Rate</h3>
-          <p className="mt-1 text-2xl font-semibold">
-            {(displayData.openRate * 100).toFixed(1)}%
-          </p>
+          <h3 className="text-sm font-medium text-gray-500">Open Rate</h3>
+          <p className="mt-2 text-3xl font-semibold text-gray-900">{(displayData.openRate * 100).toFixed(1)}%</p>
+          {!businessId && <p className="mt-1 text-sm text-gray-500">No business selected</p>}
         </div>
         <div className="bg-white rounded-lg shadow p-4">
-          <h3 className="text-sm text-gray-500">Click Rate</h3>
-          <p className="mt-1 text-2xl font-semibold">
-            {(displayData.clickRate * 100).toFixed(1)}%
-          </p>
+          <h3 className="text-sm font-medium text-gray-500">Click Rate</h3>
+          <p className="mt-2 text-3xl font-semibold text-gray-900">{(displayData.clickRate * 100).toFixed(1)}%</p>
+          {!businessId && <p className="mt-1 text-sm text-gray-500">No business selected</p>}
         </div>
         <div className="bg-white rounded-lg shadow p-4">
-          <h3 className="text-sm text-gray-500">Bounce Rate</h3>
-          <p className="mt-1 text-2xl font-semibold">
-            {(displayData.bounceRate * 100).toFixed(1)}%
-          </p>
+          <h3 className="text-sm font-medium text-gray-500">Bounce Rate</h3>
+          <p className="mt-2 text-3xl font-semibold text-gray-900">{(displayData.bounceRate * 100).toFixed(1)}%</p>
+          {!businessId && <p className="mt-1 text-sm text-gray-500">No business selected</p>}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {renderDailyMetrics()}
-        {renderTemplatePerformance()}
+      {/* Email Volume */}
+      <div className="bg-white rounded-lg shadow p-4">
+        <h3 className="text-lg font-medium mb-4">Email Volume</h3>
+        {metrics.hourlyActivity.length > 0 ? (
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={metrics.hourlyActivity}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="hour" />
+                <YAxis />
+                <Tooltip />
+                <Line type="monotone" dataKey="count" stroke="#3B82F6" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div className="h-64 flex items-center justify-center">
+            <p className="text-gray-500">No email volume data available{!businessId && " - Select a business to view data"}</p>
+          </div>
+        )}
       </div>
 
-      {isPlaceholder && (
-        <div className="text-center mt-4">
-          <p className="text-sm text-gray-500">
-            ℹ️ Showing sample data. Select a business to view actual analytics.
-          </p>
-        </div>
-      )}
+      {/* Engagement Metrics */}
+      <div className="bg-white rounded-lg shadow p-4">
+        <h3 className="text-lg font-medium mb-4">Engagement Metrics</h3>
+        {metrics.hourlyActivity.length > 0 ? (
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={metrics.hourlyActivity}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="hour" />
+                <YAxis />
+                <Tooltip />
+                <Line type="monotone" dataKey="opens" stroke="#3B82F6" name="Opens" />
+                <Line type="monotone" dataKey="clicks" stroke="#10B981" name="Clicks" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div className="h-64 flex items-center justify-center">
+            <p className="text-gray-500">No engagement data available{!businessId && " - Select a business to view data"}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Delivery Status */}
+      <div className="bg-white rounded-lg shadow p-4">
+        <h3 className="text-lg font-medium mb-4">Delivery Status</h3>
+        {metrics.hourlyActivity.length > 0 ? (
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={[
+                    { name: 'Delivered', value: Number(metrics.totalCount) * (1 - metrics.bounceRate) },
+                    { name: 'Bounced', value: Number(metrics.totalCount) * metrics.bounceRate }
+                  ]}
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={80}
+                  fill="#3B82F6"
+                  dataKey="value"
+                  label
+                >
+                  <Cell fill="#3B82F6" />
+                  <Cell fill="#EF4444" />
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div className="h-64 flex items-center justify-center">
+            <p className="text-gray-500">No delivery status data available{!businessId && " - Select a business to view data"}</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

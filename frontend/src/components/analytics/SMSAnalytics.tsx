@@ -94,118 +94,118 @@ const SMSAnalytics: React.FC<Props> = ({ metrics, businessId, clientId, isPlaceh
   const renderQualityMetrics = () => (
     <div className="bg-white rounded-lg shadow p-4">
       <h3 className="text-lg font-medium mb-4">Quality Metrics</h3>
-      <ResponsiveContainer width="100%" height={300}>
-        <LineChart data={displayData.qualityMetrics}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="date" />
-          <YAxis />
-          <Tooltip />
-          <Line type="monotone" dataKey="sentiment" stroke="#8884d8" name="Sentiment" />
-          <Line type="monotone" dataKey="quality" stroke="#82ca9d" name="Quality" />
-        </LineChart>
-      </ResponsiveContainer>
+      {displayData.qualityMetrics.length > 0 ? (
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={displayData.qualityMetrics}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="date" />
+            <YAxis />
+            <Tooltip />
+            <Line type="monotone" dataKey="sentiment" stroke="#8884d8" name="Sentiment" />
+            <Line type="monotone" dataKey="quality" stroke="#82ca9d" name="Quality" />
+          </LineChart>
+        </ResponsiveContainer>
+      ) : (
+        <div className="h-64 flex items-center justify-center">
+          <p className="text-gray-500">No quality metrics available{!businessId && " - Select a business to view data"}</p>
+        </div>
+      )}
     </div>
   );
 
   const renderResponseTypes = () => (
     <div className="bg-white rounded-lg shadow p-4">
       <h3 className="text-lg font-medium mb-4">Response Types</h3>
-      <ResponsiveContainer width="100%" height={300}>
-        <BarChart data={displayData.responseTypes}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="type" />
-          <YAxis />
-          <Tooltip />
-          <Bar dataKey="count" fill="#8884d8" />
-        </BarChart>
-      </ResponsiveContainer>
+      {displayData.responseTypes.length > 0 ? (
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={displayData.responseTypes}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="type" />
+            <YAxis />
+            <Tooltip />
+            <Bar dataKey="count" fill="#8884d8" />
+          </BarChart>
+        </ResponsiveContainer>
+      ) : (
+        <div className="h-64 flex items-center justify-center">
+          <p className="text-gray-500">No response type data available{!businessId && " - Select a business to view data"}</p>
+        </div>
+      )}
     </div>
   );
 
   const renderCostMetrics = () => (
     <div className="bg-white rounded-lg shadow p-4">
       <h3 className="text-lg font-medium mb-4">Daily Costs</h3>
-      <ResponsiveContainer width="100%" height={300}>
-        <LineChart data={displayData.dailyCosts}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="date" />
-          <YAxis />
-          <Tooltip />
-          <Line type="monotone" dataKey="ai" stroke="#8884d8" name="AI Cost" />
-          <Line type="monotone" dataKey="service" stroke="#82ca9d" name="Service Cost" />
-          <Line type="monotone" dataKey="total" stroke="#ffc658" name="Total Cost" />
-        </LineChart>
-      </ResponsiveContainer>
+      {displayData.dailyCosts.length > 0 ? (
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={displayData.dailyCosts}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="date" />
+            <YAxis />
+            <Tooltip />
+            <Line type="monotone" dataKey="ai" stroke="#8884d8" name="AI Cost" />
+            <Line type="monotone" dataKey="service" stroke="#82ca9d" name="Service Cost" />
+            <Line type="monotone" dataKey="total" stroke="#ffc658" name="Total Cost" />
+          </LineChart>
+        </ResponsiveContainer>
+      ) : (
+        <div className="h-64 flex items-center justify-center">
+          <p className="text-gray-500">No cost trend data available{!businessId && " - Select a business to view data"}</p>
+        </div>
+      )}
     </div>
   );
 
   const renderHourlyActivity = () => (
     <div className="bg-white rounded-lg shadow p-4">
       <h3 className="text-lg font-medium mb-4">Hourly Message Volume</h3>
-      <ResponsiveContainer width="100%" height={300}>
-        <BarChart data={displayData.hourlyActivity}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="hour" tickFormatter={(hour) => `${hour}:00`} />
-          <YAxis />
-          <Tooltip labelFormatter={(hour) => `${hour}:00`} />
-          <Bar dataKey="count" fill="#8884d8" name="Messages" />
-        </BarChart>
-      </ResponsiveContainer>
+      {displayData.hourlyActivity.length > 0 ? (
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={displayData.hourlyActivity}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="hour" tickFormatter={(hour) => `${hour}:00`} />
+            <YAxis />
+            <Tooltip labelFormatter={(hour) => `${hour}:00`} />
+            <Bar dataKey="count" fill="#8884d8" name="Messages" />
+          </BarChart>
+        </ResponsiveContainer>
+      ) : (
+        <div className="h-64 flex items-center justify-center">
+          <p className="text-gray-500">No activity data available{!businessId && " - Select a business to view data"}</p>
+        </div>
+      )}
     </div>
   );
 
   const renderConversations = () => (
-    <div className="bg-white rounded-lg shadow p-4 mt-6">
-      <h3 className="text-lg font-medium mb-4">Recent Conversations</h3>
-      <div className="space-y-4">
-        {displayData.conversations.map((conv) => (
-          <div 
-            key={conv.id} 
-            className="border rounded p-4 cursor-pointer hover:bg-gray-50"
-            onClick={() => setSelectedConversation(transformConversation(conv))}
-          >
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="font-medium">{format(new Date(conv.startedAt), 'MMM d, yyyy h:mm a')}</p>
-                <p className="text-sm text-gray-600">Topic: {conv.topic}</p>
-                <p className="text-sm text-gray-600">Contact: {conv.phoneNumber}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-sm">{conv.messageCount} messages</p>
-                <p className="text-sm text-gray-600">
-                  Avg Response: {Math.round(conv.avgResponseTime)}s
-                </p>
-              </div>
-            </div>
-            <div className="mt-2">
-              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                ${conv.sentiment === 'positive' ? 'bg-green-100 text-green-800' :
-                  conv.sentiment === 'negative' ? 'bg-red-100 text-red-800' :
-                  'bg-gray-100 text-gray-800'}`}>
-                {conv.sentiment}
-              </span>
-            </div>
-          </div>
-        ))}
+    <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="p-4 border-b border-gray-200">
+        <h3 className="text-lg font-medium">Recent Conversations</h3>
       </div>
-      
-      {/* Pagination */}
-      <div className="mt-4 flex justify-center space-x-2">
-        <button
-          className="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50"
-          disabled={conversationsPage === 1}
-          onClick={() => setConversationsPage(p => p - 1)}
-        >
-          Previous
-        </button>
-        <span className="px-3 py-1">Page {conversationsPage}</span>
-        <button
-          className="px-3 py-1 border rounded hover:bg-gray-50"
-          onClick={() => setConversationsPage(p => p + 1)}
-        >
-          Next
-        </button>
-      </div>
+      {displayData.conversations.length > 0 ? (
+        <div className="divide-y divide-gray-200">
+          {displayData.conversations.map((conv, i) => {
+            const lastMessage = 'lastMessage' in conv ? conv.lastMessage : conv.messages[conv.messages.length - 1]?.content || '';
+            const timestamp = 'timestamp' in conv ? conv.timestamp : format(new Date(conv.startedAt), 'MMM d, yyyy h:mm a');
+            return (
+              <div key={i} className="p-4">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{conv.phoneNumber}</p>
+                    <p className="mt-1 text-sm text-gray-500">{lastMessage}</p>
+                  </div>
+                  <span className="text-sm text-gray-500">{timestamp}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="p-4 text-center">
+          <p className="text-gray-500">No conversations available{!businessId && " - Select a business to view data"}</p>
+        </div>
+      )}
     </div>
   );
 
@@ -263,31 +263,35 @@ const SMSAnalytics: React.FC<Props> = ({ metrics, businessId, clientId, isPlaceh
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
         <div className="bg-white rounded-lg shadow p-4">
-          <h3 className="text-sm text-gray-500">Total Messages</h3>
-          <p className="mt-1 text-2xl font-semibold">{displayData.totalCount}</p>
+          <h3 className="text-sm font-medium text-gray-500">Total Messages</h3>
+          <p className="mt-2 text-3xl font-semibold text-gray-900">{displayData.totalCount}</p>
+          {!businessId && <p className="mt-1 text-sm text-gray-500">No business selected</p>}
         </div>
         <div className="bg-white rounded-lg shadow p-4">
-          <h3 className="text-sm text-gray-500">Response Time</h3>
-          <p className="mt-1 text-2xl font-semibold">{displayData.responseTime}s</p>
+          <h3 className="text-sm font-medium text-gray-500">Response Time</h3>
+          <p className="mt-2 text-3xl font-semibold text-gray-900">{displayData.responseTime}</p>
+          {!businessId && <p className="mt-1 text-sm text-gray-500">No business selected</p>}
         </div>
         <div className="bg-white rounded-lg shadow p-4">
-          <h3 className="text-sm text-gray-500">Delivery Rate</h3>
-          <p className="mt-1 text-2xl font-semibold">{(displayData.deliveryRate * 100).toFixed(1)}%</p>
+          <h3 className="text-sm font-medium text-gray-500">Delivery Rate</h3>
+          <p className="mt-2 text-3xl font-semibold text-gray-900">{(displayData.deliveryRate * 100).toFixed(1)}%</p>
+          {!businessId && <p className="mt-1 text-sm text-gray-500">No business selected</p>}
         </div>
         <div className="bg-white rounded-lg shadow p-4">
-          <h3 className="text-sm text-gray-500">Opt-out Rate</h3>
-          <p className="mt-1 text-2xl font-semibold">{(displayData.optOutRate * 100).toFixed(1)}%</p>
+          <h3 className="text-sm font-medium text-gray-500">Opt-out Rate</h3>
+          <p className="mt-2 text-3xl font-semibold text-gray-900">{(displayData.optOutRate * 100).toFixed(1)}%</p>
+          {!businessId && <p className="mt-1 text-sm text-gray-500">No business selected</p>}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {renderQualityMetrics()}
         {renderResponseTypes()}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {renderCostMetrics()}
         {renderHourlyActivity()}
       </div>

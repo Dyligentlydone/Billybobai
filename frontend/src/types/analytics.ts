@@ -33,6 +33,13 @@ export interface Conversation {
   messages: Message[];
 }
 
+export interface OverviewMetrics {
+  totalInteractions: string;
+  totalCost: number;
+  averageResponseTime: string;
+  successRate: number;
+}
+
 export interface SMSMetrics {
   totalCount: string;
   responseTime: string;
@@ -41,25 +48,26 @@ export interface SMSMetrics {
   aiCost: number;
   serviceCost: number;
   qualityMetrics: Array<{
-    date: string;
-    sentiment: number;
-    quality: number;
+    name: string;
+    value: number;
   }>;
   responseTypes: Array<{
-    type: string;
-    count: number;
+    name: string;
+    value: number;
   }>;
   dailyCosts: Array<{
     date: string;
-    ai: number;
-    service: number;
-    total: number;
+    cost: number;
   }>;
   hourlyActivity: Array<{
     hour: number;
     count: number;
   }>;
-  conversations: Conversation[];
+  conversations: Array<{
+    phoneNumber: string;
+    lastMessage: string;
+    timestamp: string;
+  }>;
 }
 
 export interface VoiceMetrics {
@@ -68,7 +76,12 @@ export interface VoiceMetrics {
   outboundCalls: number;
   averageDuration: number;
   successRate: number;
-  hourlyActivity: { hour: number; count: number }[];
+  hourlyActivity: Array<{
+    hour: number;
+    count: number;
+    successRate: number;
+    duration: number;
+  }>;
 }
 
 export interface EmailMetrics {
@@ -77,19 +90,19 @@ export interface EmailMetrics {
   openRate: number;
   clickRate: number;
   bounceRate: number;
-  hourlyActivity: { hour: number; count: number }[];
+  hourlyActivity: Array<{
+    hour: number;
+    count: number;
+    opens: number;
+    clicks: number;
+  }>;
 }
 
 export interface AnalyticsData {
+  overview: OverviewMetrics;
   sms: SMSMetrics;
   voice: VoiceMetrics;
   email: EmailMetrics;
-  overview: {
-    totalInteractions: string;
-    totalCost: number;
-    averageResponseTime: string;
-    successRate: number;
-  };
   dateRange: {
     start: string;
     end: string;

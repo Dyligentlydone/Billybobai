@@ -62,41 +62,96 @@ const VoiceAnalytics: React.FC<Props> = ({ metrics, businessId, clientId, isPlac
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
         <div className="bg-white rounded-lg shadow p-4">
-          <h3 className="text-sm text-gray-500">Total Calls</h3>
-          <p className="mt-1 text-2xl font-semibold">{placeholderData.callMetrics.totalCalls}</p>
+          <h3 className="text-sm font-medium text-gray-500">Total Calls</h3>
+          <p className="mt-2 text-3xl font-semibold text-gray-900">{metrics.totalCount}</p>
+          {!businessId && <p className="mt-1 text-sm text-gray-500">No business selected</p>}
         </div>
         <div className="bg-white rounded-lg shadow p-4">
-          <h3 className="text-sm text-gray-500">Average Duration</h3>
-          <p className="mt-1 text-2xl font-semibold">{placeholderData.callMetrics.averageDuration}</p>
+          <h3 className="text-sm font-medium text-gray-500">Average Duration</h3>
+          <p className="mt-2 text-3xl font-semibold text-gray-900">{Math.round(metrics.averageDuration / 60)}m</p>
+          {!businessId && <p className="mt-1 text-sm text-gray-500">No business selected</p>}
         </div>
         <div className="bg-white rounded-lg shadow p-4">
-          <h3 className="text-sm text-gray-500">Answer Rate</h3>
-          <p className="mt-1 text-2xl font-semibold">
-            {(placeholderData.callMetrics.answerRate * 100).toFixed(1)}%
+          <h3 className="text-sm font-medium text-gray-500">Success Rate</h3>
+          <p className="mt-2 text-3xl font-semibold text-gray-900">{(metrics.successRate * 100).toFixed(1)}%</p>
+          {!businessId && <p className="mt-1 text-sm text-gray-500">No business selected</p>}
+        </div>
+        <div className="bg-white rounded-lg shadow p-4">
+          <h3 className="text-sm font-medium text-gray-500">Inbound/Outbound</h3>
+          <p className="mt-2 text-3xl font-semibold text-gray-900">
+            {metrics.inboundCalls}/{metrics.outboundCalls}
           </p>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4">
-          <h3 className="text-sm text-gray-500">Failure Rate</h3>
-          <p className="mt-1 text-2xl font-semibold">
-            {(placeholderData.callMetrics.failureRate * 100).toFixed(1)}%
-          </p>
+          {!businessId && <p className="mt-1 text-sm text-gray-500">No business selected</p>}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {renderCallVolume()}
-        {renderQualityMetrics()}
+      {/* Call Volume */}
+      <div className="bg-white rounded-lg shadow p-4">
+        <h3 className="text-lg font-medium mb-4">Call Volume</h3>
+        {metrics.hourlyActivity.length > 0 ? (
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={metrics.hourlyActivity}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="hour" />
+                <YAxis />
+                <Tooltip />
+                <Line type="monotone" dataKey="count" stroke="#3B82F6" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div className="h-64 flex items-center justify-center">
+            <p className="text-gray-500">No call volume data available{!businessId && " - Select a business to view data"}</p>
+          </div>
+        )}
       </div>
 
-      {isPlaceholder && (
-        <div className="text-center mt-4">
-          <p className="text-sm text-gray-500">
-            ℹ️ Showing sample data. Select a business to view actual analytics.
-          </p>
-        </div>
-      )}
+      {/* Success Rate Trend */}
+      <div className="bg-white rounded-lg shadow p-4">
+        <h3 className="text-lg font-medium mb-4">Success Rate Trend</h3>
+        {metrics.hourlyActivity.length > 0 ? (
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={metrics.hourlyActivity}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="hour" />
+                <YAxis />
+                <Tooltip />
+                <Line type="monotone" dataKey="successRate" stroke="#3B82F6" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div className="h-64 flex items-center justify-center">
+            <p className="text-gray-500">No success rate data available{!businessId && " - Select a business to view data"}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Call Duration Distribution */}
+      <div className="bg-white rounded-lg shadow p-4">
+        <h3 className="text-lg font-medium mb-4">Call Duration Distribution</h3>
+        {metrics.hourlyActivity.length > 0 ? (
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={metrics.hourlyActivity}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="duration" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="count" fill="#3B82F6" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div className="h-64 flex items-center justify-center">
+            <p className="text-gray-500">No duration data available{!businessId && " - Select a business to view data"}</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

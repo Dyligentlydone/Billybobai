@@ -141,34 +141,96 @@ export default function Analytics() {
         <Tab.Panels>
           <Tab.Panel>
             <OverviewAnalytics
-              metrics={analyticsData?.overview || {}}
+              metrics={{
+                overview: {
+                  totalInteractions: '0',
+                  totalCost: 0,
+                  averageResponseTime: '0s',
+                  successRate: 0
+                },
+                sms: {
+                  totalCount: '0',
+                  responseTime: '0s',
+                  deliveryRate: 0,
+                  optOutRate: 0,
+                  aiCost: 0,
+                  serviceCost: 0,
+                  qualityMetrics: [],
+                  responseTypes: [],
+                  dailyCosts: [],
+                  hourlyActivity: [],
+                  conversations: []
+                },
+                voice: {
+                  totalCount: '0',
+                  inboundCalls: 0,
+                  outboundCalls: 0,
+                  averageDuration: 0,
+                  successRate: 0,
+                  hourlyActivity: []
+                },
+                email: {
+                  totalCount: '0',
+                  responseTime: '0s',
+                  openRate: 0,
+                  clickRate: 0,
+                  bounceRate: 0,
+                  hourlyActivity: []
+                },
+                dateRange: {
+                  start: start.toISOString(),
+                  end: end.toISOString()
+                }
+              }}
               businessId={selectedBusinessId || ''}
               clientId={selectedBusinessId || ''}
-              isPlaceholder={true}
             />
           </Tab.Panel>
           <Tab.Panel>
             <SMSAnalytics
-              metrics={analyticsData?.sms || {}}
+              metrics={{
+                totalCount: '0',
+                responseTime: '0s',
+                deliveryRate: 0,
+                optOutRate: 0,
+                aiCost: 0,
+                serviceCost: 0,
+                qualityMetrics: [],
+                responseTypes: [],
+                dailyCosts: [],
+                hourlyActivity: [],
+                conversations: []
+              }}
               businessId={selectedBusinessId || ''}
               clientId={selectedBusinessId || ''}
-              isPlaceholder={true}
             />
           </Tab.Panel>
           <Tab.Panel>
             <VoiceAnalytics
-              metrics={analyticsData?.voice || {}}
+              metrics={{
+                totalCount: '0',
+                inboundCalls: 0,
+                outboundCalls: 0,
+                averageDuration: 0,
+                successRate: 0,
+                hourlyActivity: []
+              }}
               businessId={selectedBusinessId || ''}
               clientId={selectedBusinessId || ''}
-              isPlaceholder={true}
             />
           </Tab.Panel>
           <Tab.Panel>
             <EmailAnalytics
-              metrics={analyticsData?.email || {}}
+              metrics={{
+                totalCount: '0',
+                responseTime: '0s',
+                openRate: 0,
+                clickRate: 0,
+                bounceRate: 0,
+                hourlyActivity: []
+              }}
               businessId={selectedBusinessId || ''}
               clientId={selectedBusinessId || ''}
-              isPlaceholder={true}
             />
           </Tab.Panel>
         </Tab.Panels>
