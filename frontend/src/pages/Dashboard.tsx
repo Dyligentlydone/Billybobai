@@ -8,49 +8,43 @@ import { AnalyticsData } from '../types/analytics';
 // Mock data for development/error cases
 const MOCK_STATS: AnalyticsData = {
   sms: {
-    totalCount: 0,
-    responseTime: 0,
+    totalCount: '0',
+    responseTime: '0s',
     aiCost: 0,
     serviceCost: 0,
     deliveryRate: 0,
     optOutRate: 0,
     qualityMetrics: [],
     responseTypes: [],
-    dailyCosts: []
+    dailyCosts: [],
+    hourlyActivity: [],
+    conversations: []
   },
   email: {
-    totalCount: 0,
-    responseTime: 0,
-    aiCost: 0,
-    serviceCost: 0,
+    totalCount: '0',
+    responseTime: '0s',
     openRate: 0,
     clickRate: 0,
     bounceRate: 0,
-    unsubscribeRate: 0,
-    qualityMetrics: [],
-    responseTypes: [],
-    dailyCosts: []
+    hourlyActivity: []
   },
   voice: {
-    totalCount: 0,
-    responseTime: 0,
-    aiCost: 0,
-    serviceCost: 0,
-    callDuration: 0,
-    transferRate: 0,
-    qualityMetrics: [],
-    responseTypes: [],
-    dailyCosts: []
+    totalCount: '0',
+    inboundCalls: 0,
+    outboundCalls: 0,
+    averageDuration: 0,
+    successRate: 0,
+    hourlyActivity: []
   },
   overview: {
-    totalInteractions: 0,
+    totalInteractions: '0',
     totalCost: 0,
-    averageResponseTime: 0,
+    averageResponseTime: '0s',
     successRate: 0
   },
   dateRange: {
-    start: new Date().toISOString(),
-    end: new Date().toISOString()
+    start: '',
+    end: ''
   }
 };
 
@@ -87,6 +81,64 @@ export default function Dashboard() {
       refetchOnWindowFocus: false
     }
   );
+
+  const analyticsData: AnalyticsData = {
+    sms: {
+      totalCount: '1,234',
+      responseTime: '2.5s',
+      deliveryRate: 0.98,
+      optOutRate: 0.02,
+      aiCost: 150,
+      serviceCost: 300,
+      qualityMetrics: [
+        { date: '2025-04-17', sentiment: 0.85, quality: 0.9 }
+      ],
+      responseTypes: [
+        { type: 'Auto', count: 980 },
+        { type: 'Manual', count: 254 }
+      ],
+      dailyCosts: [
+        { date: '2025-04-17', ai: 50, service: 100, total: 150 }
+      ],
+      hourlyActivity: [
+        { hour: 9, count: 125 },
+        { hour: 10, count: 145 }
+      ],
+      conversations: []
+    },
+    voice: {
+      totalCount: '456',
+      inboundCalls: 300,
+      outboundCalls: 156,
+      averageDuration: 180,
+      successRate: 0.95,
+      hourlyActivity: [
+        { hour: 9, count: 45 },
+        { hour: 10, count: 55 }
+      ]
+    },
+    email: {
+      totalCount: '789',
+      responseTime: '5m',
+      openRate: 0.65,
+      clickRate: 0.32,
+      bounceRate: 0.02,
+      hourlyActivity: [
+        { hour: 9, count: 78 },
+        { hour: 10, count: 89 }
+      ]
+    },
+    overview: {
+      totalInteractions: '2,479',
+      totalCost: 2500,
+      averageResponseTime: '3.5s',
+      successRate: 0.96
+    },
+    dateRange: {
+      start: '2025-04-10',
+      end: '2025-04-17'
+    }
+  };
 
   return (
     <div className="space-y-6">

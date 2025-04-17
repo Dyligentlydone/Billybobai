@@ -45,9 +45,12 @@ const SMSAnalytics: React.FC<Props> = ({ metrics, businessId, clientId, isPlaceh
       avgResponseTime: Math.random() * 60 + 30,
       phoneNumber: `+1${Math.floor(Math.random() * 9000000000) + 1000000000}`,
       messages: Array.from({ length: Math.floor(Math.random() * 5) + 2 }, (_, j) => ({
-        direction: j % 2 === 0 ? 'inbound' as const : 'outbound' as const,
+        id: `msg-${j}`,
         content: j % 2 === 0 ? 'Customer message' : 'AI response',
         createdAt: new Date(Date.now() - (86400000 - j * 3600000)).toISOString(),
+        direction: j % 2 === 0 ? 'inbound' as const : 'outbound' as const,
+        status: j % 2 === 0 ? 'delivered' : 'sent',
+        phoneNumber: `+1${Math.floor(Math.random() * 9000000000) + 1000000000}`,
         aiConfidence: Math.random(),
         templateUsed: j % 2 === 0 ? undefined : 'Template A'
       }))
@@ -65,6 +68,28 @@ const SMSAnalytics: React.FC<Props> = ({ metrics, businessId, clientId, isPlaceh
     hourlyActivity: placeholderData.hourlyActivity,
     conversations: placeholderData.conversations
   } : metrics;
+
+  const transformConversation = (conversation: Conversation): Conversation => {
+    return {
+      id: conversation.id,
+      startedAt: conversation.startedAt,
+      topic: conversation.topic,
+      sentiment: conversation.sentiment,
+      messageCount: conversation.messageCount,
+      avgResponseTime: conversation.avgResponseTime,
+      phoneNumber: conversation.phoneNumber,
+      messages: conversation.messages.map(msg => ({
+        id: msg.id,
+        content: msg.content,
+        createdAt: msg.createdAt,
+        direction: msg.direction,
+        status: msg.status || 'delivered',
+        phoneNumber: msg.phoneNumber,
+        aiConfidence: msg.aiConfidence,
+        templateUsed: msg.templateUsed
+      }))
+    };
+  };
 
   const renderQualityMetrics = () => (
     <div className="bg-white rounded-lg shadow p-4">
@@ -137,7 +162,7 @@ const SMSAnalytics: React.FC<Props> = ({ metrics, businessId, clientId, isPlaceh
           <div 
             key={conv.id} 
             className="border rounded p-4 cursor-pointer hover:bg-gray-50"
-            onClick={() => setSelectedConversation(conv)}
+            onClick={() => setSelectedConversation(transformConversation(conv))}
           >
             <div className="flex justify-between items-start">
               <div>
