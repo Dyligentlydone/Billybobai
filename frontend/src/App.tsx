@@ -9,24 +9,33 @@ import Settings from './pages/Settings';
 import Analytics from './pages/Analytics';
 import VoiceSetup from './pages/VoiceSetup';
 import Layout from './components/Layout';
+import PasscodePage from './pages/PasscodePage';
+import ProtectedRoute from './components/auth/ProtectedRoute';
 
 function App() {
   return (
     <SnackbarProvider>
       <BusinessProvider>
         <Router>
-          <Layout>
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/workflows" element={<Workflows />} />
-              <Route path="/voice-setup" element={<VoiceSetup />} />
-              <Route path="/clients" element={<Clients />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/analytics" element={<Analytics />} />
-            </Routes>
-          </Layout>
+          <Routes>
+            <Route path="/passcode" element={<PasscodePage />} />
+            <Route path="/" element={
+              <ProtectedRoute>
+                <Layout>
+                  <Routes>
+                    <Route path="/" element={<Dashboard />} />
+                    <Route path="/workflows" element={<Workflows />} />
+                    <Route path="/voice-setup" element={<VoiceSetup />} />
+                    <Route path="/clients" element={<Clients />} />
+                    <Route path="/settings" element={<Settings />} />
+                    <Route path="/analytics" element={<Analytics />} />
+                  </Routes>
+                </Layout>
+              </ProtectedRoute>
+            } />
+          </Routes>
+          <Toaster position="top-right" />
         </Router>
-        <Toaster position="top-right" />
       </BusinessProvider>
     </SnackbarProvider>
   );
