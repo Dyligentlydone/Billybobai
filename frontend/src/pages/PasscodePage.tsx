@@ -6,6 +6,35 @@ import { useBusiness } from '../contexts/BusinessContext';
 interface ClientPasscode {
   business_id: string;
   passcode: string;
+  permissions: {
+    navigation: {
+      workflows: boolean;
+      analytics: boolean;
+      settings: boolean;
+      api_access: boolean;
+    };
+    analytics: {
+      sms: {
+        response_time: boolean;
+        message_volume: boolean;
+        success_rate: boolean;
+        cost_per_message: boolean;
+        ai_usage: boolean;
+      };
+      voice: {
+        call_duration: boolean;
+        call_volume: boolean;
+        success_rate: boolean;
+        cost_per_call: boolean;
+      };
+      email: {
+        delivery_rate: boolean;
+        open_rate: boolean;
+        response_rate: boolean;
+        cost_per_email: boolean;
+      };
+    };
+  };
 }
 
 export default function PasscodePage() {
@@ -31,13 +60,34 @@ export default function PasscodePage() {
         domain: 'admin.dyligent.ai',
         business_id: 'admin',
         is_admin: true,
-        visible_metrics: {
-          show_response_time: true,
-          show_message_volume: true,
-          show_success_rate: true,
-          show_cost: true,
-          show_ai_settings: true,
-          show_prompt: true
+        permissions: {
+          navigation: {
+            workflows: true,
+            analytics: true,
+            settings: true,
+            api_access: true
+          },
+          analytics: {
+            sms: {
+              response_time: true,
+              message_volume: true,
+              success_rate: true,
+              cost_per_message: true,
+              ai_usage: true
+            },
+            voice: {
+              call_duration: true,
+              call_volume: true,
+              success_rate: true,
+              cost_per_call: true
+            },
+            email: {
+              delivery_rate: true,
+              open_rate: true,
+              response_rate: true,
+              cost_per_email: true
+            }
+          }
         }
       };
       
@@ -71,16 +121,24 @@ export default function PasscodePage() {
 
         const businessData = await businessResponse.json();
         
-        // Set business data with client flag
+        // Set business data with permissions
         setBusiness({
           ...businessData,
-          is_admin: false
+          is_admin: false,
+          permissions: clientPasscode.permissions
         });
 
         localStorage.setItem('isAuthenticated', 'true');
         
+        // Navigate based on permissions
         setTimeout(() => {
-          navigate('/');
+          if (clientPasscode.permissions.navigation.analytics) {
+            navigate('/analytics');
+          } else if (clientPasscode.permissions.navigation.workflows) {
+            navigate('/workflows');
+          } else {
+            navigate('/');
+          }
         }, 800);
       } catch (error) {
         console.error('Login error:', error);
