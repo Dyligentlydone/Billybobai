@@ -15,6 +15,7 @@ restartPolicyMaxRetries = 10
 PORT = "80"
 VITE_API_URL = "https://billybobai-production.up.railway.app"
 NODE_ENV = "production"
+VITE_APP_PASSCODE = "97225"
 
 [[redirects]]
 from = "/*"
