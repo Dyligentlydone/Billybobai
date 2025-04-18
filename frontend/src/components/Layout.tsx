@@ -4,7 +4,7 @@ export default function Layout() {
   const location = useLocation();
 
   const navItems = [
-    { path: '/', label: 'Dashboard' },
+    { path: '/dashboard', label: 'Dashboard' },
     { path: '/workflows', label: 'Workflows' },
     { path: '/analytics', label: 'Analytics' },
     { path: '/clients', label: 'Clients' },

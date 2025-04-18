@@ -38,7 +38,7 @@ function AuthRedirect() {
   const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
   
   if (isAuthenticated && business) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <Navigate to="/passcode" replace />;
@@ -62,15 +62,6 @@ function App() {
 
             {/* Protected routes */}
             <Route element={<RequireAuth><Layout /></RequireAuth>}>              
-              <Route
-                path="/"
-                element={
-                  <PermissionGuard requiredPermission="navigation.dashboard">
-                    <Dashboard />
-                  </PermissionGuard>
-                }
-              />
-              
               <Route
                 path="dashboard"
                 element={
