@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 
 interface BusinessPermissions {
   navigation: {
@@ -53,6 +53,7 @@ interface BusinessContextType {
   isAdmin: boolean;
   business: Business | null;
   setBusiness: (business: Business | null) => void;
+  logout: () => void;
 }
 
 const defaultContext: BusinessContextType = {
@@ -65,6 +66,7 @@ const defaultContext: BusinessContextType = {
   isAdmin: false,
   business: null,
   setBusiness: () => {},
+  logout: () => {}
 };
 
 const BusinessContext = createContext<BusinessContextType>(defaultContext);
@@ -84,6 +86,14 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
     const stored = localStorage.getItem('business');
     return stored ? JSON.parse(stored) : null;
   });
+
+  // Clear authentication on mount if no valid business data
+  useEffect(() => {
+    const storedBusiness = localStorage.getItem('business');
+    if (!storedBusiness) {
+      localStorage.removeItem('isAuthenticated');
+    }
+  }, []);
 
   const isAdmin = business?.is_admin ?? false;
 
@@ -114,7 +124,17 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('business', JSON.stringify(newBusiness));
     } else {
       localStorage.removeItem('business');
+      localStorage.removeItem('isAuthenticated');
     }
+  };
+
+  // Logout function
+  const logout = () => {
+    setBusiness(null);
+    setPermissions(null);
+    setSelectedBusinessId(null);
+    localStorage.removeItem('business');
+    localStorage.removeItem('isAuthenticated');
   };
 
   return (
@@ -127,7 +147,8 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
       canViewMetric,
       isAdmin,
       business,
-      setBusiness: handleSetBusiness
+      setBusiness: handleSetBusiness,
+      logout
     }}>
       {children}
     </BusinessContext.Provider>
