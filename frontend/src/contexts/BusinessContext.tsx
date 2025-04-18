@@ -44,19 +44,21 @@ interface Business {
 }
 
 interface BusinessContextType {
-  business: Business | null;
-  setBusiness: (business: Business | null) => void;
-  isAdmin: boolean;
-  hasPermission: (path: string) => boolean;
-  canViewMetric: (metric: keyof Business['visible_metrics']) => boolean;
+  selectedBusinessId: string | null;
+  setSelectedBusinessId: (id: string | null) => void;
+  permissions: BusinessPermissions | null;
+  setPermissions: (permissions: BusinessPermissions | null) => void;
+  hasPermission: (permission: string) => boolean;
+  canViewMetric: (metric: string) => boolean;
 }
 
 const defaultContext: BusinessContextType = {
-  business: null,
-  setBusiness: () => {},
-  isAdmin: false,
+  selectedBusinessId: null,
+  setSelectedBusinessId: () => {},
+  permissions: null,
+  setPermissions: () => {},
   hasPermission: () => false,
-  canViewMetric: () => false
+  canViewMetric: () => false,
 };
 
 const BusinessContext = createContext<BusinessContextType>(defaultContext);
@@ -70,49 +72,36 @@ export function useBusiness() {
 }
 
 export function BusinessProvider({ children }: { children: React.ReactNode }) {
-  const [business, setBusiness] = useState<Business | null>(() => {
-    const stored = localStorage.getItem('business');
-    return stored ? JSON.parse(stored) : null;
-  });
+  const [selectedBusinessId, setSelectedBusinessId] = useState<string | null>(null);
+  const [permissions, setPermissions] = useState<BusinessPermissions | null>(null);
 
-  // Helper function to check if a metric is visible
-  const canViewMetric = (metric: keyof Business['visible_metrics']): boolean => {
-    if (!business) return false;
-    if (business.is_admin) return true;
-    return business.visible_metrics?.[metric] ?? false;
-  };
-
-  // Compute isAdmin from business
-  const isAdmin = business?.is_admin ?? false;
-
-  // Helper function to check nested permissions
-  const hasPermission = (path: string): boolean => {
-    if (isAdmin) return true;
-    if (!business?.permissions) return false;
-
-    return path.split('.').reduce((acc: any, part) => acc?.[part], business.permissions) ?? false;
-  };
-
-  // Update localStorage when business changes
-  const handleSetBusiness = (newBusiness: Business | null) => {
-    setBusiness(newBusiness);
-    if (newBusiness) {
-      localStorage.setItem('business', JSON.stringify(newBusiness));
-    } else {
-      localStorage.removeItem('business');
+  const hasPermission = (permission: string): boolean => {
+    if (!permissions) return false;
+    
+    const parts = permission.split('.');
+    let current: any = permissions;
+    
+    for (const part of parts) {
+      if (current[part] === undefined) return false;
+      current = current[part];
     }
+    
+    return Boolean(current);
+  };
+
+  const canViewMetric = (metric: string): boolean => {
+    return hasPermission(`analytics.${metric}`);
   };
 
   return (
-    <BusinessContext.Provider 
-      value={{ 
-        business,
-        setBusiness: handleSetBusiness,
-        isAdmin,
-        hasPermission,
-        canViewMetric
-      }}
-    >
+    <BusinessContext.Provider value={{
+      selectedBusinessId,
+      setSelectedBusinessId,
+      permissions,
+      setPermissions,
+      hasPermission,
+      canViewMetric
+    }}>
       {children}
     </BusinessContext.Provider>
   );
