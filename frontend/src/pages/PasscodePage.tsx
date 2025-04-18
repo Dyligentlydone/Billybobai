@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useBusiness } from '../contexts/BusinessContext';
@@ -42,10 +42,45 @@ interface Business {
   };
 }
 
+interface ClientPasscode {
+  business_id: string;
+  passcode: string;
+  permissions: {
+    navigation: {
+      workflows: boolean;
+      analytics: boolean;
+      settings: boolean;
+      api_access: boolean;
+    };
+    analytics: {
+      sms: {
+        recent_conversations: boolean;
+        response_time: boolean;
+        message_volume: boolean;
+        success_rate: boolean;
+        cost_per_message: boolean;
+        ai_usage: boolean;
+      };
+      voice: {
+        call_duration: boolean;
+        call_volume: boolean;
+        success_rate: boolean;
+        cost_per_call: boolean;
+      };
+      email: {
+        delivery_rate: boolean;
+        open_rate: boolean;
+        response_rate: boolean;
+        cost_per_email: boolean;
+      };
+    };
+  };
+}
+
 export default function PasscodePage() {
   const [passcode, setPasscode] = useState('');
-  const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
   const { setBusiness, setPermissions } = useBusiness();
 
@@ -56,11 +91,13 @@ export default function PasscodePage() {
 
     // Admin passcode check
     const adminPasscode = '97225';
+    
     if (passcode === adminPasscode) {
-      const adminBusiness: Business = {
+      // Set admin business data
+      const adminBusiness = {
         id: 'admin',
-        name: 'Admin',
-        domain: 'admin',
+        name: 'Admin Account',
+        domain: 'admin.dyligent.ai',
         business_id: 'admin',
         is_admin: true,
         permissions: {
@@ -68,7 +105,7 @@ export default function PasscodePage() {
             workflows: true,
             analytics: true,
             settings: true,
-            api_access: true,
+            api_access: true
           },
           analytics: {
             sms: {
@@ -77,29 +114,30 @@ export default function PasscodePage() {
               message_volume: true,
               success_rate: true,
               cost_per_message: true,
-              ai_usage: true,
+              ai_usage: true
             },
             voice: {
               call_duration: true,
               call_volume: true,
               success_rate: true,
-              cost_per_call: true,
+              cost_per_call: true
             },
             email: {
               delivery_rate: true,
               open_rate: true,
               response_rate: true,
-              cost_per_email: true,
-            },
-          },
-        },
+              cost_per_email: true
+            }
+          }
+        }
       };
       
       setBusiness(adminBusiness);
       setPermissions(adminBusiness.permissions);
+      localStorage.setItem('isAuthenticated', 'true');
       
       setTimeout(() => {
-        navigate('/analytics');
+        navigate('/');
       }, 800);
     } else {
       try {
@@ -107,7 +145,7 @@ export default function PasscodePage() {
         const passcodesResponse = await axios.post('/api/auth/passcodes', { passcode });
         const { clients } = await passcodesResponse.data;
         
-        const clientPasscode = clients.find((c: any) => c.passcode === passcode);
+        const clientPasscode = clients.find((c: ClientPasscode) => c.passcode === passcode);
         
         if (!clientPasscode) {
           setError('Invalid passcode');
@@ -132,7 +170,10 @@ export default function PasscodePage() {
           permissions: clientPasscode.permissions
         });
         setPermissions(clientPasscode.permissions);
+
+        localStorage.setItem('isAuthenticated', 'true');
         
+        // Navigate based on permissions
         setTimeout(() => {
           if (clientPasscode.permissions.navigation.analytics) {
             navigate('/analytics');
@@ -153,76 +194,108 @@ export default function PasscodePage() {
           }
         }, 800);
       } catch (error) {
-        console.error('Login failed:', error);
-        setError('Invalid passcode');
-      } finally {
+        console.error('Login error:', error);
+        setError('Failed to verify passcode');
         setIsLoading(false);
       }
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Enter your passcode
-          </h2>
+    <motion.div 
+      initial={{ opacity: 0 }} 
+      animate={{ opacity: 1 }} 
+      className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center p-4"
+    >
+      <motion.div 
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ delay: 0.1 }}
+        className="w-full max-w-md"
+      >
+        <div className="text-center mb-8">
+          <motion.h1 
+            initial={{ y: -20 }}
+            animate={{ y: 0 }}
+            className="text-4xl font-bold text-gold-400 mb-2"
+          >
+            Diligence on <span className="text-gold-300">LOCK</span>
+          </motion.h1>
+          <motion.p 
+            initial={{ y: -20 }}
+            animate={{ y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="text-gold-300"
+          >
+            Enter passcode to continue
+          </motion.p>
         </div>
+
         <motion.form 
-          className="mt-8 space-y-6" 
           onSubmit={handleSubmit}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
+          className="space-y-4"
         >
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <label htmlFor="passcode" className="sr-only">
-                Passcode
-              </label>
-              <input
-                id="passcode"
-                name="passcode"
-                type="password"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Enter your passcode"
-                value={passcode}
-                onChange={(e) => setPasscode(e.target.value)}
-                disabled={isLoading}
-              />
-            </div>
-          </div>
-
-          {error && (
-            <motion.div 
-              className="text-red-600 text-sm text-center"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.3 }}
-            >
-              {error}
-            </motion.div>
-          )}
-
           <div>
-            <motion.button
-              type="submit"
-              disabled={isLoading}
-              className={`group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white ${
-                isLoading
-                  ? 'bg-indigo-400 cursor-not-allowed'
-                  : 'bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500'
-              }`}
-              whileHover={{ scale: isLoading ? 1 : 1.02 }}
-              whileTap={{ scale: isLoading ? 1 : 0.98 }}
-            >
-              {isLoading ? 'Signing in...' : 'Sign in'}
-            </motion.button>
+            <motion.input
+              type="password"
+              value={passcode}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setPasscode(e.target.value)}
+              className="w-full px-4 py-3 bg-transparent border-none
+                text-gold-300 placeholder-gold-600/50 focus:outline-none focus:ring-0
+                text-center text-2xl tracking-[1em] font-light"
+              placeholder="• • • • •"
+              maxLength={5}
+              pattern="[0-9]{5}"
+              inputMode="numeric"
+              autoFocus
+            />
+            {error && (
+              <motion.p 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="mt-2 text-sm text-red-500"
+              >
+                {error}
+              </motion.p>
+            )}
           </div>
+
+          <motion.button
+            type="submit"
+            disabled={isLoading || passcode.length !== 5}
+            className={`w-full py-3 rounded-lg text-gray-900 font-medium
+              ${isLoading ? 'bg-gold-400' : 'bg-gold-500 hover:bg-gold-400'} 
+              transition-colors focus:outline-none focus:ring-2 focus:ring-gold-400 focus:ring-offset-2 
+              focus:ring-offset-gray-800 disabled:opacity-50 disabled:cursor-not-allowed`}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            {isLoading ? (
+              <motion.div 
+                className="flex items-center justify-center"
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24">
+                  <circle 
+                    className="opacity-25" 
+                    cx="12" 
+                    cy="12" 
+                    r="10" 
+                    stroke="currentColor" 
+                    strokeWidth="4"
+                  />
+                  <path 
+                    className="opacity-75" 
+                    fill="currentColor" 
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  />
+                </svg>
+              </motion.div>
+            ) : 'Enter'}
+          </motion.button>
         </motion.form>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
