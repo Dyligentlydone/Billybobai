@@ -16,6 +16,8 @@ export default function PasscodePage() {
     // In production, this should be an environment variable
     const correctPasscode = import.meta.env.VITE_APP_PASSCODE || '12345';
 
+    console.log('Entered:', passcode, 'Expected:', correctPasscode);
+
     if (passcode === correctPasscode) {
       // Add success animation
       localStorage.setItem('isAuthenticated', 'true');
