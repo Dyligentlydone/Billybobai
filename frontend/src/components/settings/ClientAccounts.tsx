@@ -14,6 +14,7 @@ interface ClientPasscode {
     };
     analytics: {
       sms: {
+        recent_conversations: boolean;
         response_time: boolean;
         message_volume: boolean;
         success_rate: boolean;
@@ -60,6 +61,7 @@ const PERMISSION_SECTIONS: PermissionSection[] = [
     title: 'SMS Analytics',
     key: 'analytics.sms',
     items: [
+      { key: 'recent_conversations', label: 'Recent Conversations' },
       { key: 'response_time', label: 'Response Time' },
       { key: 'message_volume', label: 'Message Volume' },
       { key: 'success_rate', label: 'Success Rate' },
@@ -101,6 +103,7 @@ const defaultClientState: ClientPasscode = {
     },
     analytics: {
       sms: {
+        recent_conversations: true,
         response_time: true,
         message_volume: true,
         success_rate: true,

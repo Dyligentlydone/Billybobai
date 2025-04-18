@@ -14,6 +14,7 @@ interface BusinessPermissions {
       success_rate: boolean;
       cost_per_message: boolean;
       ai_usage: boolean;
+      recent_conversations: boolean;
     };
     voice: {
       call_duration: boolean;
