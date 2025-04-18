@@ -1,4 +1,4 @@
-import { HashRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { SnackbarProvider } from './contexts/SnackbarContext';
 import { BusinessProvider } from './contexts/BusinessContext';
@@ -10,7 +10,7 @@ import Analytics from './pages/Analytics';
 import VoiceSetup from './pages/VoiceSetup';
 import Layout from './components/Layout';
 import PasscodePage from './pages/PasscodePage';
-import ProtectedRoute from './components/auth/ProtectedRoute';
+import PermissionGuard from './components/guards/PermissionGuard';
 
 function App() {
   return (
@@ -19,17 +19,64 @@ function App() {
         <Router>
           <Routes>
             <Route path="/passcode" element={<PasscodePage />} />
-            <Route element={
-              <ProtectedRoute>
-                <Layout />
-              </ProtectedRoute>
-            }>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/workflows" element={<Workflows />} />
-              <Route path="/voice-setup" element={<VoiceSetup />} />
-              <Route path="/clients" element={<Clients />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/analytics" element={<Analytics />} />
+            
+            {/* Protected routes */}
+            <Route path="/" element={<Layout />}>
+              <Route index element={<Navigate to="/analytics" replace />} />
+              
+              <Route
+                path="dashboard"
+                element={
+                  <PermissionGuard requiredPermission="navigation.dashboard">
+                    <Dashboard />
+                  </PermissionGuard>
+                }
+              />
+              
+              <Route
+                path="workflows"
+                element={
+                  <PermissionGuard requiredPermission="navigation.workflows">
+                    <Workflows />
+                  </PermissionGuard>
+                }
+              />
+              
+              <Route
+                path="voice-setup"
+                element={
+                  <PermissionGuard requiredPermission="navigation.voice_setup">
+                    <VoiceSetup />
+                  </PermissionGuard>
+                }
+              />
+              
+              <Route
+                path="clients"
+                element={
+                  <PermissionGuard requiredPermission="navigation.clients">
+                    <Clients />
+                  </PermissionGuard>
+                }
+              />
+              
+              <Route
+                path="settings"
+                element={
+                  <PermissionGuard requiredPermission="navigation.settings">
+                    <Settings />
+                  </PermissionGuard>
+                }
+              />
+              
+              <Route
+                path="analytics"
+                element={
+                  <PermissionGuard requiredPermission="navigation.analytics">
+                    <Analytics />
+                  </PermissionGuard>
+                }
+              />
             </Route>
           </Routes>
           <Toaster position="top-right" />
