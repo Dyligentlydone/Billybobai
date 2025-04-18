@@ -13,12 +13,12 @@ export default function PasscodePage() {
     setIsLoading(true);
     setError('');
 
-    // In production, this should be an environment variable
-    const correctPasscode = import.meta.env.VITE_APP_PASSCODE || '12345';
+    // Remove the fallback value and ensure we're using the environment variable
+    const correctPasscode = import.meta.env.VITE_APP_PASSCODE;
+    console.log('Entered:', passcode, 'Expected:', correctPasscode, 'Type of entered:', typeof passcode, 'Type of expected:', typeof correctPasscode);
 
-    console.log('Entered:', passcode, 'Expected:', correctPasscode);
-
-    if (passcode === correctPasscode) {
+    // Convert both to strings and trim any whitespace
+    if (String(passcode).trim() === String(correctPasscode).trim()) {
       // Add success animation
       localStorage.setItem('isAuthenticated', 'true');
       
