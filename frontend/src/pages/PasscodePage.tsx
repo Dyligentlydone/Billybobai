@@ -1,24 +1,43 @@
 import React, { useState, ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useBusiness } from '../contexts/BusinessContext';
 
 export default function PasscodePage() {
   const [passcode, setPasscode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { setBusiness } = useBusiness();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
 
-    // Hardcode the passcode for now
-    const correctPasscode = '97225';
-    console.log('Entered:', passcode, 'Expected:', correctPasscode);
-
-    if (passcode === correctPasscode) {
-      // Add success animation
+    // Hardcode the admin passcode for now
+    const adminPasscode = '97225';
+    
+    if (passcode === adminPasscode) {
+      // Set admin business data
+      const adminBusiness = {
+        id: 'admin',
+        name: 'Admin Account',
+        domain: 'admin.dyligent.ai',
+        business_id: 'admin',
+        is_admin: true,
+        visible_metrics: {
+          show_response_time: true,
+          show_message_volume: true,
+          show_success_rate: true,
+          show_cost: true,
+          show_ai_settings: true,
+          show_prompt: true
+        }
+      };
+      
+      // Store in context and localStorage
+      setBusiness(adminBusiness);
       localStorage.setItem('isAuthenticated', 'true');
       
       // Delay navigation for animation

@@ -1,29 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { PlusIcon, PencilIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
-
-interface Business {
-  id: string;
-  name: string;
-  domain: string;
-  business_id: string;
-  visible_metrics: {
-    show_response_time: boolean;
-    show_message_volume: boolean;
-    show_success_rate: boolean;
-    show_cost: boolean;
-    show_ai_settings: boolean;
-    show_prompt: boolean;
-  };
-}
-
-interface NewBusinessForm {
-  name: string;
-  domain: string;
-  passcode: string;
-  business_id: string;
-}
+import { Business, NewBusinessForm } from '../../types/business';
+import { useBusiness } from '../../contexts/BusinessContext';
 
 export default function ClientAccounts() {
+  const { isAdmin } = useBusiness();
   const [clients, setClients] = useState<Business[]>([]);
   const [showNewClientForm, setShowNewClientForm] = useState(false);
   const [editingClient, setEditingClient] = useState<string | null>(null);
@@ -34,10 +15,19 @@ export default function ClientAccounts() {
     business_id: ''
   });
 
+  // Redirect if not admin
+  useEffect(() => {
+    if (!isAdmin) {
+      window.location.href = '/';
+    }
+  }, [isAdmin]);
+
   // Fetch clients on mount
   useEffect(() => {
-    fetchClients();
-  }, []);
+    if (isAdmin) {
+      fetchClients();
+    }
+  }, [isAdmin]);
 
   const fetchClients = async () => {
     try {
@@ -90,6 +80,10 @@ export default function ClientAccounts() {
       console.error('Failed to update metrics:', error);
     }
   };
+
+  if (!isAdmin) {
+    return null;
+  }
 
   return (
     <div className="space-y-6">

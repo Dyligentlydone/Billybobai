@@ -1,16 +1,18 @@
 import { useState } from 'react';
 import { Tab } from '@headlessui/react';
 import ClientAccounts from '../components/settings/ClientAccounts';
+import { useBusiness } from '../contexts/BusinessContext';
 
 function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(' ');
 }
 
 export default function Settings() {
+  const { isAdmin } = useBusiness();
   const [selectedTab, setSelectedTab] = useState(0);
 
   const tabs = [
-    { name: 'Client Accounts', content: <ClientAccounts /> },
+    ...(isAdmin ? [{ name: 'Client Accounts', content: <ClientAccounts /> }] : []),
     { name: 'General', content: 'General settings coming soon...' },
     { name: 'Notifications', content: 'Notification settings coming soon...' },
   ];

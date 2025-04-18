@@ -1,13 +1,18 @@
 import React, { createContext, useContext, useState } from 'react';
+import { Business } from '../types/business';
 
 interface BusinessContextType {
-  selectedBusinessId: string | null;
-  setSelectedBusinessId: (id: string | null) => void;
+  business: Business | null;
+  setBusiness: (business: Business | null) => void;
+  isAdmin: boolean;
+  canViewMetric: (metric: keyof Business['visible_metrics']) => boolean;
 }
 
 const defaultContext: BusinessContextType = {
-  selectedBusinessId: null,
-  setSelectedBusinessId: () => {}
+  business: null,
+  setBusiness: () => {},
+  isAdmin: false,
+  canViewMetric: () => false
 };
 
 const BusinessContext = createContext<BusinessContextType>(defaultContext);
@@ -21,13 +26,38 @@ export function useBusiness() {
 }
 
 export function BusinessProvider({ children }: { children: React.ReactNode }) {
-  const [selectedBusinessId, setSelectedBusinessId] = useState<string | null>(null);
+  const [business, setBusiness] = useState<Business | null>(() => {
+    const stored = localStorage.getItem('business');
+    return stored ? JSON.parse(stored) : null;
+  });
+
+  // Helper function to check if a metric is visible
+  const canViewMetric = (metric: keyof Business['visible_metrics']): boolean => {
+    if (!business) return false;
+    if (business.is_admin) return true;
+    return business.visible_metrics[metric];
+  };
+
+  // Compute isAdmin from business
+  const isAdmin = business?.is_admin ?? false;
+
+  // Update localStorage when business changes
+  const handleSetBusiness = (newBusiness: Business | null) => {
+    setBusiness(newBusiness);
+    if (newBusiness) {
+      localStorage.setItem('business', JSON.stringify(newBusiness));
+    } else {
+      localStorage.removeItem('business');
+    }
+  };
 
   return (
     <BusinessContext.Provider 
       value={{ 
-        selectedBusinessId, 
-        setSelectedBusinessId
+        business,
+        setBusiness: handleSetBusiness,
+        isAdmin,
+        canViewMetric
       }}
     >
       {children}
