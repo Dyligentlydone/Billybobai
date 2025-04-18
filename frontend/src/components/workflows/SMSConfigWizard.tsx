@@ -645,17 +645,14 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
   };
 
   const handlePhoneNumberChange = (phoneNumber: string) => {
-    const formattedNumber = phoneNumber.replace(/\D/g, '');
-    
-    if (formattedNumber.length === 10) {
-      setConfig(prev => ({
-        ...prev,
-        twilio: {
-          ...prev.twilio,
-          phoneNumber: `+1${formattedNumber}`
-        }
-      }));
-    }
+    // Allow any input but validate format
+    setConfig(prev => ({
+      ...prev,
+      twilio: {
+        ...prev.twilio,
+        phoneNumber: phoneNumber
+      }
+    }));
   };
 
   const renderBrandToneStep = () => (
@@ -1354,7 +1351,7 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
               type="button"
               onClick={addTemplate}
               disabled={!newTemplateName.trim() || !newTemplate.trim()}
-              className="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-300 disabled:cursor-not-allowed"
+              className="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
               Add Template
             </button>
@@ -2113,7 +2110,7 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
                 value={config.systemIntegration.webhook.url}
                 onChange={(e) => handleWebhookChange({ url: e.target.value })}
                 placeholder="https://your-domain.com/webhook"
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               />
             </div>
 
@@ -2213,10 +2210,10 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
             type="tel"
             value={config.twilio.phoneNumber}
             onChange={(e) => handlePhoneNumberChange(e.target.value)}
-            placeholder="+1234567890"
-            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            placeholder="+1234567890 or +44123456789"
+            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-gold-500 focus:ring-gold-500 sm:text-sm"
           />
-          <p className="mt-1 text-xs text-gray-500">Your Twilio phone number in E.164 format</p>
+          <p className="mt-1 text-xs text-gray-500">Your Twilio phone number in E.164 format (e.g., +1234567890 for US, +44123456789 for UK)</p>
         </div>
 
         <div>
@@ -2234,7 +2231,9 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
             placeholder="MGxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
             className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
           />
-          <p className="mt-1 text-xs text-gray-500">If you're using a Messaging Service instead of a single phone number</p>
+          <p className="mt-1 text-xs text-gray-500">
+            If you're using a Messaging Service instead of a single phone number
+          </p>
         </div>
       </div>
 
@@ -2312,7 +2311,9 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
               }))}
               className="block w-24 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
             />
-            <p className="mt-1 text-xs text-gray-500">Number of times to retry failed message deliveries (0-10)</p>
+            <p className="mt-1 text-xs text-gray-500">
+              Number of times to retry failed message deliveries (0-10)
+            </p>
           </div>
         </div>
       </div>
