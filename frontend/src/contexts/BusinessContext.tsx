@@ -50,6 +50,9 @@ interface BusinessContextType {
   setPermissions: (permissions: BusinessPermissions | null) => void;
   hasPermission: (permission: string) => boolean;
   canViewMetric: (metric: string) => boolean;
+  isAdmin: boolean;
+  business: Business | null;
+  setBusiness: (business: Business | null) => void;
 }
 
 const defaultContext: BusinessContextType = {
@@ -59,6 +62,9 @@ const defaultContext: BusinessContextType = {
   setPermissions: () => {},
   hasPermission: () => false,
   canViewMetric: () => false,
+  isAdmin: false,
+  business: null,
+  setBusiness: () => {},
 };
 
 const BusinessContext = createContext<BusinessContextType>(defaultContext);
@@ -74,8 +80,15 @@ export function useBusiness() {
 export function BusinessProvider({ children }: { children: React.ReactNode }) {
   const [selectedBusinessId, setSelectedBusinessId] = useState<string | null>(null);
   const [permissions, setPermissions] = useState<BusinessPermissions | null>(null);
+  const [business, setBusiness] = useState<Business | null>(() => {
+    const stored = localStorage.getItem('business');
+    return stored ? JSON.parse(stored) : null;
+  });
+
+  const isAdmin = business?.is_admin ?? false;
 
   const hasPermission = (permission: string): boolean => {
+    if (isAdmin) return true;
     if (!permissions) return false;
     
     const parts = permission.split('.');
@@ -90,7 +103,18 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
   };
 
   const canViewMetric = (metric: string): boolean => {
+    if (isAdmin) return true;
     return hasPermission(`analytics.${metric}`);
+  };
+
+  // Update localStorage when business changes
+  const handleSetBusiness = (newBusiness: Business | null) => {
+    setBusiness(newBusiness);
+    if (newBusiness) {
+      localStorage.setItem('business', JSON.stringify(newBusiness));
+    } else {
+      localStorage.removeItem('business');
+    }
   };
 
   return (
@@ -100,7 +124,10 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
       permissions,
       setPermissions,
       hasPermission,
-      canViewMetric
+      canViewMetric,
+      isAdmin,
+      business,
+      setBusiness: handleSetBusiness
     }}>
       {children}
     </BusinessContext.Provider>
