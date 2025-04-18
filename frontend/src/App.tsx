@@ -12,16 +12,26 @@ import Layout from './components/Layout';
 import PasscodePage from './pages/PasscodePage';
 import PermissionGuard from './components/guards/PermissionGuard';
 
+function RequireAuth({ children }: { children: React.ReactNode }) {
+  const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
+  
+  if (!isAuthenticated) {
+    return <Navigate to="/passcode" replace />;
+  }
+
+  return <>{children}</>;
+}
+
 function App() {
   return (
-    <SnackbarProvider>
-      <BusinessProvider>
+    <BusinessProvider>
+      <SnackbarProvider>
         <Router>
           <Routes>
             <Route path="/passcode" element={<PasscodePage />} />
             
             {/* Protected routes */}
-            <Route path="/" element={<Layout />}>
+            <Route element={<RequireAuth><Layout /></RequireAuth>}>
               <Route index element={<Navigate to="/analytics" replace />} />
               
               <Route
@@ -78,11 +88,14 @@ function App() {
                 }
               />
             </Route>
+
+            {/* Catch all other routes and redirect to passcode if not authenticated */}
+            <Route path="*" element={<Navigate to="/passcode" replace />} />
           </Routes>
           <Toaster position="top-right" />
         </Router>
-      </BusinessProvider>
-    </SnackbarProvider>
+      </SnackbarProvider>
+    </BusinessProvider>
   );
 }
 
