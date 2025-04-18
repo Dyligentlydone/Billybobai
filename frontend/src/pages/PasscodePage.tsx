@@ -2,6 +2,45 @@ import React, { useState, ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useBusiness } from '../contexts/BusinessContext';
+import axios from 'axios';
+
+interface Business {
+  id: string;
+  name: string;
+  domain: string;
+  business_id: string;
+  is_admin: boolean;
+  permissions: {
+    navigation: {
+      workflows: boolean;
+      analytics: boolean;
+      settings: boolean;
+      api_access: boolean;
+    };
+    analytics: {
+      sms: {
+        recent_conversations: boolean;
+        response_time: boolean;
+        message_volume: boolean;
+        success_rate: boolean;
+        cost_per_message: boolean;
+        ai_usage: boolean;
+      };
+      voice: {
+        call_duration: boolean;
+        call_volume: boolean;
+        success_rate: boolean;
+        cost_per_call: boolean;
+      };
+      email: {
+        delivery_rate: boolean;
+        open_rate: boolean;
+        response_rate: boolean;
+        cost_per_email: boolean;
+      };
+    };
+  };
+}
 
 interface ClientPasscode {
   business_id: string;
@@ -15,6 +54,7 @@ interface ClientPasscode {
     };
     analytics: {
       sms: {
+        recent_conversations: boolean;
         response_time: boolean;
         message_volume: boolean;
         success_rate: boolean;
@@ -42,12 +82,12 @@ export default function PasscodePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
-  const { setBusiness } = useBusiness();
+  const { setBusiness, setPermissions } = useBusiness();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
     setError('');
+    setIsLoading(true);
 
     // Admin passcode check
     const adminPasscode = '97225';
@@ -69,6 +109,7 @@ export default function PasscodePage() {
           },
           analytics: {
             sms: {
+              recent_conversations: true,
               response_time: true,
               message_volume: true,
               success_rate: true,
@@ -92,6 +133,7 @@ export default function PasscodePage() {
       };
       
       setBusiness(adminBusiness);
+      setPermissions(adminBusiness.permissions);
       localStorage.setItem('isAuthenticated', 'true');
       
       setTimeout(() => {
@@ -100,8 +142,8 @@ export default function PasscodePage() {
     } else {
       try {
         // First, find the business_id by passcode
-        const passcodesResponse = await fetch('/api/auth/passcodes');
-        const { clients } = await passcodesResponse.json();
+        const passcodesResponse = await axios.post('/api/auth/passcodes', { passcode });
+        const { clients } = await passcodesResponse.data;
         
         const clientPasscode = clients.find((c: ClientPasscode) => c.passcode === passcode);
         
@@ -112,14 +154,14 @@ export default function PasscodePage() {
         }
 
         // Then get the full business data
-        const businessResponse = await fetch(`/api/auth/businesses/${clientPasscode.business_id}`);
-        if (!businessResponse.ok) {
+        const businessResponse = await axios.get(`/api/auth/businesses/${clientPasscode.business_id}`);
+        if (!businessResponse.data) {
           setError('Failed to load business data');
           setIsLoading(false);
           return;
         }
 
-        const businessData = await businessResponse.json();
+        const businessData = businessResponse.data;
         
         // Set business data with permissions
         setBusiness({
@@ -127,6 +169,7 @@ export default function PasscodePage() {
           is_admin: false,
           permissions: clientPasscode.permissions
         });
+        setPermissions(clientPasscode.permissions);
 
         localStorage.setItem('isAuthenticated', 'true');
         
@@ -136,8 +179,18 @@ export default function PasscodePage() {
             navigate('/analytics');
           } else if (clientPasscode.permissions.navigation.workflows) {
             navigate('/workflows');
+          } else if (clientPasscode.permissions.navigation.settings) {
+            navigate('/settings');
           } else {
-            navigate('/');
+            // Fallback to first available permission
+            const availableRoute = Object.entries(clientPasscode.permissions.navigation)
+              .find(([_, hasAccess]) => hasAccess);
+            
+            if (availableRoute) {
+              navigate(`/${availableRoute[0]}`);
+            } else {
+              setError('No accessible routes available');
+            }
           }
         }, 800);
       } catch (error) {
