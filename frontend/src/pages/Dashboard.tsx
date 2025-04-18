@@ -140,7 +140,7 @@ export default function Dashboard() {
         <div className="sm:flex-auto">
           <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
           <p className="mt-2 text-sm text-gray-700">
-            Welcome to Twilio Automation Hub. Manage your communication workflows across multiple channels.
+            Welcome to Dyligent. Manage your communication workflows across multiple channels.
           </p>
         </div>
         <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
