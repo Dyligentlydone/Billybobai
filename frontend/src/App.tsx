@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { SnackbarProvider } from './contexts/SnackbarContext';
 import { BusinessProvider, useBusiness } from './contexts/BusinessContext';
@@ -14,19 +14,9 @@ import PasscodePage from './pages/PasscodePage';
 import PermissionGuard from './components/guards/PermissionGuard';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
-  const navigate = useNavigate();
-  const { business, logout } = useBusiness();
-  const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
+  const { business } = useBusiness();
   
-  useEffect(() => {
-    // If authenticated but no business data, logout and redirect
-    if (isAuthenticated && !business) {
-      logout();
-      navigate('/passcode', { replace: true });
-    }
-  }, [isAuthenticated, business, logout, navigate]);
-
-  if (!isAuthenticated || !business) {
+  if (!business) {
     return <Navigate to="/passcode" replace />;
   }
 
@@ -35,9 +25,8 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 
 function AuthRedirect() {
   const { business } = useBusiness();
-  const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
   
-  if (isAuthenticated && business) {
+  if (business) {
     return <Navigate to="/analytics" replace />;
   }
 
@@ -130,9 +119,8 @@ function App() {
 // Prevent authenticated users from accessing public routes
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { business } = useBusiness();
-  const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
   
-  if (isAuthenticated && business) {
+  if (business) {
     return <Navigate to="/analytics" replace />;
   }
 
