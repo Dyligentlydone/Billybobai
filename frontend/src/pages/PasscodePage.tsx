@@ -3,6 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useBusiness } from '../contexts/BusinessContext';
 
+interface ClientPasscode {
+  business_id: string;
+  passcode: string;
+}
+
 export default function PasscodePage() {
   const [passcode, setPasscode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -15,7 +20,7 @@ export default function PasscodePage() {
     setIsLoading(true);
     setError('');
 
-    // Hardcode the admin passcode for now
+    // Admin passcode check
     const adminPasscode = '97225';
     
     if (passcode === adminPasscode) {
@@ -36,17 +41,52 @@ export default function PasscodePage() {
         }
       };
       
-      // Store in context and localStorage
       setBusiness(adminBusiness);
       localStorage.setItem('isAuthenticated', 'true');
       
-      // Delay navigation for animation
       setTimeout(() => {
         navigate('/');
       }, 800);
     } else {
-      setError('Invalid passcode');
-      setIsLoading(false);
+      try {
+        // First, find the business_id by passcode
+        const passcodesResponse = await fetch('/api/auth/passcodes');
+        const { clients } = await passcodesResponse.json();
+        
+        const clientPasscode = clients.find((c: ClientPasscode) => c.passcode === passcode);
+        
+        if (!clientPasscode) {
+          setError('Invalid passcode');
+          setIsLoading(false);
+          return;
+        }
+
+        // Then get the full business data
+        const businessResponse = await fetch(`/api/auth/businesses/${clientPasscode.business_id}`);
+        if (!businessResponse.ok) {
+          setError('Failed to load business data');
+          setIsLoading(false);
+          return;
+        }
+
+        const businessData = await businessResponse.json();
+        
+        // Set business data with client flag
+        setBusiness({
+          ...businessData,
+          is_admin: false
+        });
+
+        localStorage.setItem('isAuthenticated', 'true');
+        
+        setTimeout(() => {
+          navigate('/');
+        }, 800);
+      } catch (error) {
+        console.error('Login error:', error);
+        setError('Failed to verify passcode');
+        setIsLoading(false);
+      }
     }
   };
 
@@ -94,6 +134,8 @@ export default function PasscodePage() {
                 text-center text-2xl tracking-[1em] font-light"
               placeholder="• • • • •"
               maxLength={5}
+              pattern="[0-9]{5}"
+              inputMode="numeric"
               autoFocus
             />
             {error && (
@@ -109,7 +151,7 @@ export default function PasscodePage() {
 
           <motion.button
             type="submit"
-            disabled={isLoading || passcode.length === 0}
+            disabled={isLoading || passcode.length !== 5}
             className={`w-full py-3 rounded-lg text-gray-900 font-medium
               ${isLoading ? 'bg-gold-400' : 'bg-gold-500 hover:bg-gold-400'} 
               transition-colors focus:outline-none focus:ring-2 focus:ring-gold-400 focus:ring-offset-2 
