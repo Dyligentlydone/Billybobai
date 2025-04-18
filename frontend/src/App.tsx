@@ -1,3 +1,4 @@
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { SnackbarProvider } from './contexts/SnackbarContext';
@@ -22,18 +23,34 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function AuthRedirect() {
+  const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
+  
+  if (isAuthenticated) {
+    return <Navigate to="/analytics" replace />;
+  }
+
+  return <Navigate to="/passcode" replace />;
+}
+
 function App() {
   return (
     <BusinessProvider>
       <SnackbarProvider>
         <Router>
           <Routes>
-            <Route path="/passcode" element={<PasscodePage />} />
+            {/* Public route */}
+            <Route path="/passcode" element={
+              <PublicRoute>
+                <PasscodePage />
+              </PublicRoute>
+            } />
             
+            {/* Root redirect */}
+            <Route index element={<AuthRedirect />} />
+
             {/* Protected routes */}
-            <Route element={<RequireAuth><Layout /></RequireAuth>}>
-              <Route index element={<Navigate to="/analytics" replace />} />
-              
+            <Route element={<RequireAuth><Layout /></RequireAuth>}>              
               <Route
                 path="dashboard"
                 element={
@@ -90,13 +107,24 @@ function App() {
             </Route>
 
             {/* Catch all other routes and redirect to passcode if not authenticated */}
-            <Route path="*" element={<Navigate to="/passcode" replace />} />
+            <Route path="*" element={<AuthRedirect />} />
           </Routes>
           <Toaster position="top-right" />
         </Router>
       </SnackbarProvider>
     </BusinessProvider>
   );
+}
+
+// Prevent authenticated users from accessing public routes
+function PublicRoute({ children }: { children: React.ReactNode }) {
+  const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
+  
+  if (isAuthenticated) {
+    return <Navigate to="/analytics" replace />;
+  }
+
+  return <>{children}</>;
 }
 
 export default App;
