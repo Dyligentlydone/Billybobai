@@ -19,20 +19,18 @@ function App() {
         <Router>
           <Routes>
             <Route path="/passcode" element={<PasscodePage />} />
-            <Route path="/" element={
+            <Route element={
               <ProtectedRoute>
-                <Layout>
-                  <Routes>
-                    <Route path="/" element={<Dashboard />} />
-                    <Route path="/workflows" element={<Workflows />} />
-                    <Route path="/voice-setup" element={<VoiceSetup />} />
-                    <Route path="/clients" element={<Clients />} />
-                    <Route path="/settings" element={<Settings />} />
-                    <Route path="/analytics" element={<Analytics />} />
-                  </Routes>
-                </Layout>
+                <Layout />
               </ProtectedRoute>
-            } />
+            }>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/workflows" element={<Workflows />} />
+              <Route path="/voice-setup" element={<VoiceSetup />} />
+              <Route path="/clients" element={<Clients />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/analytics" element={<Analytics />} />
+            </Route>
           </Routes>
           <Toaster position="top-right" />
         </Router>
