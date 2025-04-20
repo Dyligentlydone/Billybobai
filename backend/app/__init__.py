@@ -26,11 +26,11 @@ def create_app():
         logger.info(f"{var}: {os.getenv(var)}")
 
     try:
-        # Initialize database
-        from .models import init_db
-        logger.info("Initializing database...")
-        init_db()
-        logger.info("Database initialized successfully")
+        # Initialize database (if needed, otherwise rely on Alembic)
+        from .models import Base, engine
+        logger.info("Creating all tables with SQLAlchemy Base.metadata.create_all...")
+        Base.metadata.create_all(bind=engine)
+        logger.info("Database tables created successfully (if not already present)")
     except Exception as e:
         logger.error(f"Failed to initialize database: {str(e)}")
         # Don't raise the error, let the app start anyway
