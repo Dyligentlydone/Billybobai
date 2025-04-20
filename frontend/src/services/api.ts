@@ -1,3 +1,5 @@
+console.log("VITE_BACKEND_URL (build):", import.meta.env.VITE_BACKEND_URL);
+
 import axios from 'axios';
 import { EmailConfig as ImportedEmailConfig } from '../types/email';
 import { VoiceConfig } from '../types/voice';
