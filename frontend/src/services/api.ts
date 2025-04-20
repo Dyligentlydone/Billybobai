@@ -74,6 +74,8 @@ export interface EmailConfig {
   };
 }
 
+// Trigger redeploy: Trivial comment to force new build
+
 // AI Service
 export const analyzeRequirements = async (description: string): Promise<WorkflowConfig> => {
   const { data } = await api.post('/api/ai/analyze', { description });
