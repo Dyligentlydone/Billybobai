@@ -660,6 +660,49 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
     }));
   };
 
+  const handleComplete = async () => {
+    try {
+      // Prepare the workflow data using the business ID as the workflow ID
+      const workflowData = {
+        business_id: config.twilio.businessId,
+        workflow_id: config.twilio.businessId,  // Use business ID as workflow ID
+        name: `SMS Automation ${config.twilio.businessId}`,
+        type: 'sms',
+        actions: {
+          sms: config
+        },
+        twilio: config.twilio,
+        brandTone: config.brandTone,
+        aiTraining: config.aiTraining,
+        ai: {
+          model: 'gpt-4',
+          maxTokens: 300,
+          temperature: 0.7
+        },
+        fallbackMessage: config.response.fallbackMessage
+      };
+
+      // Save configuration to backend
+      const response = await fetch(`${BACKEND_URL}/api/workflows`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(workflowData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save configuration');
+      }
+
+      // Call the onComplete callback with the final config
+      onComplete(config);
+    } catch (error) {
+      console.error('Error saving configuration:', error);
+      alert('Failed to save configuration. Please try again.');
+    }
+  };
+
   const renderBrandToneStep = () => (
     <div className="space-y-8">
       <div>
@@ -1512,7 +1555,7 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
                     }
                   }
                 }))}
-                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                className="h-4 w-4 rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
               />
               <label className="ml-2 block text-sm text-gray-700">
                 Enable Slack Alerts
@@ -2492,7 +2535,7 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
               if (step < 7) {
                 setStep(step + 1);
               } else {
-                onComplete(config);
+                handleComplete();
               }
             }}
             className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
