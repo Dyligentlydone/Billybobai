@@ -1,10 +1,11 @@
 console.log("VITE_BACKEND_URL (build):", import.meta.env.VITE_BACKEND_URL);
+console.log("VITE_BACKEND_URL:", import.meta.env.VITE_BACKEND_URL);
 
 import axios from 'axios';
 import { EmailConfig as ImportedEmailConfig } from '../types/email';
 import { VoiceConfig } from '../types/voice';
 
-const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+const API_URL = import.meta.env.VITE_BACKEND_URL;
 
 // Create axios instance with base URL
 const api = axios.create({

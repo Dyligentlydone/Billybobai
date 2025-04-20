@@ -5,7 +5,8 @@ interface WebhookUrls {
 }
 
 export const getWebhookUrls = (): WebhookUrls => {
-  const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+  // Use only VITE_BACKEND_URL, no fallback or alternate env var
+  const baseUrl = import.meta.env.VITE_BACKEND_URL;
   return {
     twilio: `${baseUrl}/webhooks/twilio`,
     sendgrid: `${baseUrl}/webhooks/sendgrid`,
