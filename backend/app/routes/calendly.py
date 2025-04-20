@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from ..services.calendly import CalendlyService
 from ..schemas.calendly import CalendlyConfig, BookingRequest, WebhookEvent, SMSNotificationSettings
 from ..models import Business
-from ..database import SessionLocal
+from app.db import get_session
 from sqlalchemy.orm import Session
 from typing import Optional
 import logging
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 bp = Blueprint('calendly', __name__)
 
 def get_db():
-    db = SessionLocal()
+    db = get_session()
     try:
         yield db
     finally:
