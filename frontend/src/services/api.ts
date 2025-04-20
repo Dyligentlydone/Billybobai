@@ -2,7 +2,7 @@ import axios from 'axios';
 import { EmailConfig as ImportedEmailConfig } from '../types/email';
 import { VoiceConfig } from '../types/voice';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
 // Create axios instance with base URL
 const api = axios.create({
