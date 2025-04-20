@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from models.workflow import Workflow
-from app.database import db
+from app import database
 from datetime import datetime
 
 workflow_bp = Blueprint('workflow_bp', __name__)
@@ -43,8 +43,8 @@ def create_workflow():
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow()
     )
-    db.session.add(workflow)
-    db.session.commit()
+    database.db.session.add(workflow)
+    database.db.session.commit()
     
     return jsonify({
         '_id': str(workflow.id),
@@ -67,7 +67,7 @@ def update_workflow(workflow_id):
     workflow.conditions = data.get('conditions', workflow.conditions)
     workflow.updated_at = datetime.utcnow()
     
-    db.session.commit()
+    database.db.session.commit()
     
     return jsonify({
         '_id': str(workflow.id),
@@ -82,8 +82,8 @@ def update_workflow(workflow_id):
 @workflow_bp.route('/api/workflows/<workflow_id>', methods=['DELETE'])
 def delete_workflow(workflow_id):
     workflow = Workflow.query.get_or_404(workflow_id)
-    db.session.delete(workflow)
-    db.session.commit()
+    database.db.session.delete(workflow)
+    database.db.session.commit()
     return '', 204
 
 @workflow_bp.route('/api/workflows/<workflow_id>/activate', methods=['POST'])
@@ -91,7 +91,7 @@ def activate_workflow(workflow_id):
     workflow = Workflow.query.get_or_404(workflow_id)
     workflow.status = 'active'
     workflow.updated_at = datetime.utcnow()
-    db.session.commit()
+    database.db.session.commit()
     
     return jsonify({
         '_id': str(workflow.id),

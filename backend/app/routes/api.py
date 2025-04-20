@@ -5,7 +5,7 @@ from ..services.zendesk_service import ZendeskService, TicketRequest
 from ..services.ai_service import AIService
 from flask_jwt_extended import jwt_required
 from ..models.workflow import Workflow
-from ..database import db
+from app.database import db
 from ..services.workflow_engine import WorkflowEngine
 from datetime import datetime
 import asyncio
