@@ -1,5 +1,8 @@
 import { useState } from 'react';
 
+// Instead of importing from config, define URL here for now
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://your-railway-backend.railway.app';
+
 interface BrandToneConfig {
   voiceType: 'professional' | 'friendly' | 'casual' | 'formal';
   greetings: string[];
@@ -106,6 +109,7 @@ interface MonitoringConfig {
 }
 
 interface TwilioConfig {
+  businessId: string;  // Added business ID
   accountSid: string;
   authToken: string;
   phoneNumber: string;
@@ -133,6 +137,7 @@ interface Props {
 
 const INITIAL_CONFIG: Config = {
   twilio: {
+    businessId: '',  // Added initial value
     accountSid: '',
     authToken: '',
     phoneNumber: '',
@@ -2158,18 +2163,54 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
   );
 
   const renderTwilioConfigStep = () => (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-medium text-gray-900">Twilio Configuration</h3>
+        <h2 className="text-lg font-medium text-gray-900">Twilio Configuration</h2>
         <p className="mt-1 text-sm text-gray-500">
-          Configure your Twilio account settings for SMS automation.
+          Configure your Twilio credentials and business settings.
         </p>
       </div>
 
-      {/* Core Twilio Settings */}
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-600">Account SID</label>
+      {/* Business ID field */}
+      <div>
+        <label htmlFor="businessId" className="block text-sm font-medium text-gray-700">
+          Business ID
+        </label>
+        <div className="mt-1">
+          <input
+            type="number"
+            name="businessId"
+            id="businessId"
+            value={config.twilio.businessId}
+            onChange={(e) => {
+              const value = e.target.value;
+              // Validate: only numbers, no decimals
+              if (/^\d*$/.test(value)) {
+                setConfig({
+                  ...config,
+                  twilio: {
+                    ...config.twilio,
+                    businessId: value,
+                    // Update webhook URL with new business ID
+                    webhookUrl: value ? `${BACKEND_URL}/api/sms/webhook/${value}` : ''
+                  }
+                });
+              }
+            }}
+            className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+            placeholder="Enter a unique business ID (numbers only)"
+            required
+          />
+        </div>
+        <p className="mt-2 text-sm text-gray-500">
+          Enter a unique numeric identifier for this business. This ID will be used in webhook URLs and API calls.
+        </p>
+      </div>
+
+      {/* Existing Twilio fields */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Account SID</label>
+        <div className="mt-2">
           <input
             type="password"
             value={config.twilio.accountSid}
@@ -2185,9 +2226,11 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
           />
           <p className="mt-1 text-xs text-gray-500">Find this in your Twilio Console</p>
         </div>
+      </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-600">Auth Token</label>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Auth Token</label>
+        <div className="mt-2">
           <input
             type="password"
             value={config.twilio.authToken}
@@ -2201,11 +2244,15 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
             placeholder="your_auth_token"
             className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
           />
-          <p className="mt-1 text-xs text-gray-500">Your Twilio account's auth token</p>
+          <p className="mt-1 text-xs text-gray-500">
+            Your Twilio account's auth token
+          </p>
         </div>
+      </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-600">Phone Number</label>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Phone Number</label>
+        <div className="mt-2">
           <input
             type="tel"
             value={config.twilio.phoneNumber}
@@ -2213,11 +2260,15 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
             placeholder="+1234567890 or +44123456789"
             className="block w-full rounded-md border-gray-300 shadow-sm focus:border-gold-500 focus:ring-gold-500 sm:text-sm"
           />
-          <p className="mt-1 text-xs text-gray-500">Your Twilio phone number in E.164 format (e.g., +1234567890 for US, +44123456789 for UK)</p>
+          <p className="mt-1 text-xs text-gray-500">
+            Your Twilio phone number in E.164 format (e.g., +1234567890 for US, +44123456789 for UK)
+          </p>
         </div>
+      </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-600">Messaging Service SID (Optional)</label>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Messaging Service SID (Optional)</label>
+        <div className="mt-2">
           <input
             type="text"
             value={config.twilio.messagingServiceSid}
@@ -2363,6 +2414,30 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
     }
   };
 
+  const renderSummaryStep = () => (
+    <div className="space-y-8">
+      <div>
+        <h2 className="text-lg font-medium text-gray-900">Configuration Summary</h2>
+        <p className="mt-1 text-sm text-gray-500">
+          Review your configuration before completing the setup.
+        </p>
+      </div>
+
+      <div className="bg-gray-50 p-4 rounded-md">
+        <dl className="grid grid-cols-1 gap-4">
+          <div>
+            <dt className="text-sm font-medium text-gray-500">Business ID</dt>
+            <dd className="mt-1 text-sm text-gray-900">{config.twilio.businessId}</dd>
+          </div>
+          <div>
+            <dt className="text-sm font-medium text-gray-500">Webhook URL</dt>
+            <dd className="mt-1 text-sm text-gray-900">{config.twilio.webhookUrl}</dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+  );
+
   return (
     <div className="max-w-3xl mx-auto p-6 bg-white rounded-lg shadow">
       {/* Progress bar */}
@@ -2390,7 +2465,7 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
       </div>
 
       {/* Step content */}
-      {renderStep()}
+      {step < 7 ? renderStep() : renderSummaryStep()}
 
       {/* Navigation */}
       <div className="mt-8 flex justify-between">
