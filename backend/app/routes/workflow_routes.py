@@ -7,6 +7,7 @@ import logging
 # Configure logging
 logger = logging.getLogger(__name__)
 
+# Create blueprint without URL prefix
 workflow_bp = Blueprint('workflow_bp', __name__)
 
 @workflow_bp.route('/api/workflows', methods=['GET'])

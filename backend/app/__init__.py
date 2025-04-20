@@ -51,7 +51,7 @@ def create_app():
         
         app.register_blueprint(api, url_prefix='/api')
         app.register_blueprint(webhooks, url_prefix='/webhooks')
-        # Register workflow blueprint without prefix since routes already include /api/
+        # Register workflow blueprint without prefix since routes already include full paths
         app.register_blueprint(workflow_bp)
         app.register_blueprint(calendly_bp)
         logger.info("Blueprints registered successfully")
