@@ -1,7 +1,8 @@
 import { useState } from 'react';
 
 // Instead of importing from config, define URL here for now
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://your-railway-backend.railway.app';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://billybobai-production-6713.up.railway.app';
+console.log('Using backend URL:', BACKEND_URL);
 
 interface BrandToneConfig {
   voiceType: 'professional' | 'friendly' | 'casual' | 'formal';
@@ -2383,7 +2384,7 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
                 ...prev,
                 twilio: {
                   ...prev.twilio,
-                  fallbackUrl: e.target.value
+                  fallbackUrl: `${BACKEND_URL}/api/sms/fallback`
                 }
               }))}
               placeholder="https://your-domain.com/api/sms/fallback"

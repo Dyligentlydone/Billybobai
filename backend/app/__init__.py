@@ -20,7 +20,9 @@ def create_app():
     # Allow CORS only from production frontend (add localhost for dev if needed)
     CORS(app, origins=[
         "https://billybobai-production-6713.up.railway.app",
-        "http://localhost:5173"
+        "https://billybobai-production.up.railway.app",  # Add without -6713 just in case
+        "http://localhost:5173",
+        "http://localhost:3000"
     ], supports_credentials=True)
 
     # Log environment variables (excluding sensitive ones)
