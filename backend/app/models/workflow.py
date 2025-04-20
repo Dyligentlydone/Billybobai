@@ -23,7 +23,8 @@ __all__ = [
 ]
 
 from sqlalchemy import Column, String, DateTime, JSON
-from app.database import Base
+from app.db import db
+Base = db.Model
 from datetime import datetime
 from enum import Enum
 from typing import Dict, Optional, List
