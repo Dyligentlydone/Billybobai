@@ -661,8 +661,29 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
   };
 
   const handleComplete = async () => {
+    // Validate required fields before submitting
+    const missingFields = [];
+    if (!config.twilio.businessId) missingFields.push('Business ID');
+    if (!config.twilio.phoneNumber) missingFields.push('Twilio Phone Number');
+    if (!config.twilio.accountSid) missingFields.push('Twilio Account SID');
+    if (!config.twilio.authToken) missingFields.push('Twilio Auth Token');
+    if (!config.brandTone.voiceType) missingFields.push('Brand Voice Type');
+    if (!config.aiTraining) missingFields.push('AI Training');
+    if (!config.brandTone) missingFields.push('Brand Tone');
+    if (!config.response.fallbackMessage) missingFields.push('Fallback Message');
+    if (!config.aiTraining.openAIKey) missingFields.push('OpenAI API Key');
+
+    // AI settings
+    if (!config.aiTraining || !config.aiTraining.qaPairs) missingFields.push('AI Training Q&A Pairs');
+
+    // Add more checks as needed for your backend requirements
+
+    if (missingFields.length > 0) {
+      alert(`Please fill in the following required fields before completing:\n- ${missingFields.join('\n- ')}`);
+      return;
+    }
+
     try {
-      // Prepare the workflow data using the business ID as the workflow ID
       const workflowData = {
         business_id: config.twilio.businessId,
         workflow_id: config.twilio.businessId,  // Use business ID as workflow ID
