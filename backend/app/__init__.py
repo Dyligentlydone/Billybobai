@@ -29,14 +29,18 @@ def create_app():
     logger.info("Environment:")
     safe_vars = ['FLASK_APP', 'FLASK_ENV', 'PORT', 'PYTHONPATH', 'DATABASE_URL']
     for var in safe_vars:
-        logger.info(f"{var}: {'configured' if os.getenv(var) else 'missing'}")
+        if var == 'DATABASE_URL':
+            logger.info(f"{var}: {'configured' if os.getenv(var) else 'missing'} - Value: {os.getenv(var, 'not set')[:10]}... (truncated for security)")
+        else:
+            logger.info(f"{var}: {'configured' if os.getenv(var) else 'missing'}")
 
     # Configure database
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///whys.db')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    logger.info(f"Database URI set to: {'configured' if os.getenv('DATABASE_URL') else 'sqlite:///whys.db'}")
+    logger.info(f"Database URI set to: {'configured' if os.getenv('DATABASE_URL') else 'sqlite:///whys.db'} - Full URI: {app.config['SQLALCHEMY_DATABASE_URI'][:10]}... (truncated for security)")
     
-    # Initialize database
+    # Initialize database with a global scope
+    global db
     try:
         logger.info("Initializing database...")
         try:
@@ -51,18 +55,32 @@ def create_app():
         
         # Import models to ensure they're registered
         logger.info("Importing models for database initialization...")
-        from .models.workflow import Workflow
-        logger.info("Models imported successfully")
+        try:
+            from .models.workflow import Workflow
+            logger.info("Workflow model imported successfully")
+        except ImportError as ie:
+            logger.error(f"Failed to import Workflow model: {str(ie)}")
+            import traceback
+            logger.error(traceback.format_exc())
         
         # Create tables if they don't exist
         with app.app_context():
-            db.create_all()
-        logger.info("Database tables created successfully (if not already present)")
+            try:
+                db.create_all()
+                logger.info("Database tables created successfully (if not already present)")
+                # Test database connection explicitly
+                db.engine.connect()
+                logger.info("Database connection test successful")
+            except Exception as db_conn_error:
+                logger.error(f"Failed to connect to database or create tables: {str(db_conn_error)}")
+                import traceback
+                logger.error(traceback.format_exc())
     except Exception as e:
         logger.error(f"Failed to initialize database: {str(e)}")
         import traceback
         logger.error(traceback.format_exc())
         # Don't raise the error, let the app start anyway
+        db = None  # Set db to None to avoid unbound variable issues
 
     try:
         # Register blueprints
@@ -125,9 +143,12 @@ def create_app():
 
             # Test database connection
             try:
-                with app.app_context():
-                    db.engine.connect()
-                health_status['database'] = 'connected'
+                if db is not None:
+                    with app.app_context():
+                        db.engine.connect()
+                    health_status['database'] = 'connected'
+                else:
+                    health_status['database'] = 'not initialized'
             except Exception as e:
                 health_status['database'] = f'error: {str(e)}'
                 logger.error(f"Database health check failed: {str(e)}")
