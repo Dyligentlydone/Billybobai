@@ -1,6 +1,5 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from app.models.workflow import Workflow
-from app.database import db
 from datetime import datetime
 import logging
 import uuid
@@ -11,33 +10,50 @@ logger = logging.getLogger(__name__)
 # Create blueprint without URL prefix
 workflow_bp = Blueprint('workflow_bp', __name__)
 
+def get_db():
+    """Get the database session within the app context."""
+    try:
+        from app.database import db
+        logger.info("Using db from database module")
+        return db
+    except ImportError:
+        logger.warning("database module not found, falling back to Flask-SQLAlchemy")
+        with current_app.app_context():
+            from flask_sqlalchemy import SQLAlchemy
+            db = SQLAlchemy(current_app)
+            return db
+
 @workflow_bp.route('/api/workflows', methods=['GET'])
 def get_workflows():
     logger.info("GET /api/workflows endpoint called")
-    workflows = Workflow.query.all()
-    return jsonify([{
-        '_id': str(workflow.id),
-        'name': workflow.name,
-        'status': workflow.status,
-        'actions': workflow.actions,
-        'conditions': workflow.conditions,
-        'createdAt': workflow.created_at.isoformat(),
-        'updatedAt': workflow.updated_at.isoformat()
-    } for workflow in workflows])
+    db = get_db()
+    with current_app.app_context():
+        workflows = Workflow.query.all()
+        return jsonify([{
+            '_id': str(workflow.id),
+            'name': workflow.name,
+            'status': workflow.status,
+            'actions': workflow.actions,
+            'conditions': workflow.conditions,
+            'createdAt': workflow.created_at.isoformat(),
+            'updatedAt': workflow.updated_at.isoformat()
+        } for workflow in workflows])
 
 @workflow_bp.route('/api/workflows/<workflow_id>', methods=['GET'])
 def get_workflow(workflow_id):
     logger.info(f"GET /api/workflows/{workflow_id} endpoint called")
-    workflow = Workflow.query.get_or_404(workflow_id)
-    return jsonify({
-        '_id': str(workflow.id),
-        'name': workflow.name,
-        'status': workflow.status,
-        'actions': workflow.actions,
-        'conditions': workflow.conditions,
-        'createdAt': workflow.created_at.isoformat(),
-        'updatedAt': workflow.updated_at.isoformat()
-    })
+    db = get_db()
+    with current_app.app_context():
+        workflow = Workflow.query.get_or_404(workflow_id)
+        return jsonify({
+            '_id': str(workflow.id),
+            'name': workflow.name,
+            'status': workflow.status,
+            'actions': workflow.actions,
+            'conditions': workflow.conditions,
+            'createdAt': workflow.created_at.isoformat(),
+            'updatedAt': workflow.updated_at.isoformat()
+        })
 
 @workflow_bp.route('/api/workflows', methods=['POST'])
 def create_workflow():
@@ -64,26 +80,28 @@ def create_workflow():
         # Log the workflow object before adding to session
         logger.info(f"Created workflow object: {workflow}")
         
-        try:
-            db.session.add(workflow)
-            db.session.commit()
-            logger.info(f"Workflow created with ID: {workflow.id}")
-            
-            return jsonify({
-                '_id': str(workflow.id),
-                'name': workflow.name,
-                'status': workflow.status,
-                'actions': workflow.actions,
-                'conditions': workflow.conditions,
-                'createdAt': workflow.created_at.isoformat(),
-                'updatedAt': workflow.updated_at.isoformat()
-            }), 201
-        except Exception as db_error:
-            logger.error(f"Database error: {str(db_error)}")
-            import traceback
-            logger.error(traceback.format_exc())
-            return jsonify({"error": f"Database error: {str(db_error)}"}), 500
-            
+        db = get_db()
+        with current_app.app_context():
+            try:
+                db.session.add(workflow)
+                db.session.commit()
+                logger.info(f"Workflow created with ID: {workflow.id}")
+                
+                return jsonify({
+                    '_id': str(workflow.id),
+                    'name': workflow.name,
+                    'status': workflow.status,
+                    'actions': workflow.actions,
+                    'conditions': workflow.conditions,
+                    'createdAt': workflow.created_at.isoformat(),
+                    'updatedAt': workflow.updated_at.isoformat()
+                }), 201
+            except Exception as db_error:
+                logger.error(f"Database error: {str(db_error)}")
+                import traceback
+                logger.error(traceback.format_exc())
+                return jsonify({"error": f"Database error: {str(db_error)}"}), 500
+                
     except Exception as e:
         logger.error(f"Error creating workflow: {str(e)}")
         import traceback
@@ -94,27 +112,29 @@ def create_workflow():
 def update_workflow(workflow_id):
     logger.info(f"PUT /api/workflows/{workflow_id} endpoint called")
     try:
-        workflow = Workflow.query.get_or_404(workflow_id)
-        data = request.json
-        
-        workflow.name = data.get('name', workflow.name)
-        workflow.status = data.get('status', workflow.status)
-        workflow.actions = data.get('actions', workflow.actions)
-        workflow.conditions = data.get('conditions', workflow.conditions)
-        workflow.updated_at = datetime.utcnow()
-        
-        db.session.commit()
-        logger.info(f"Workflow updated with ID: {workflow.id}")
-        
-        return jsonify({
-            '_id': str(workflow.id),
-            'name': workflow.name,
-            'status': workflow.status,
-            'actions': workflow.actions,
-            'conditions': workflow.conditions,
-            'createdAt': workflow.created_at.isoformat(),
-            'updatedAt': workflow.updated_at.isoformat()
-        })
+        db = get_db()
+        with current_app.app_context():
+            workflow = Workflow.query.get_or_404(workflow_id)
+            data = request.json
+            
+            workflow.name = data.get('name', workflow.name)
+            workflow.status = data.get('status', workflow.status)
+            workflow.actions = data.get('actions', workflow.actions)
+            workflow.conditions = data.get('conditions', workflow.conditions)
+            workflow.updated_at = datetime.utcnow()
+            
+            db.session.commit()
+            logger.info(f"Workflow updated with ID: {workflow.id}")
+            
+            return jsonify({
+                '_id': str(workflow.id),
+                'name': workflow.name,
+                'status': workflow.status,
+                'actions': workflow.actions,
+                'conditions': workflow.conditions,
+                'createdAt': workflow.created_at.isoformat(),
+                'updatedAt': workflow.updated_at.isoformat()
+            })
     except Exception as e:
         logger.error(f"Error updating workflow: {str(e)}")
         import traceback
@@ -125,11 +145,13 @@ def update_workflow(workflow_id):
 def delete_workflow(workflow_id):
     logger.info(f"DELETE /api/workflows/{workflow_id} endpoint called")
     try:
-        workflow = Workflow.query.get_or_404(workflow_id)
-        db.session.delete(workflow)
-        db.session.commit()
-        logger.info(f"Workflow deleted with ID: {workflow_id}")
-        return '', 204
+        db = get_db()
+        with current_app.app_context():
+            workflow = Workflow.query.get_or_404(workflow_id)
+            db.session.delete(workflow)
+            db.session.commit()
+            logger.info(f"Workflow deleted with ID: {workflow_id}")
+            return '', 204
     except Exception as e:
         logger.error(f"Error deleting workflow: {str(e)}")
         import traceback
@@ -140,21 +162,23 @@ def delete_workflow(workflow_id):
 def activate_workflow(workflow_id):
     logger.info(f"POST /api/workflows/{workflow_id}/activate endpoint called")
     try:
-        workflow = Workflow.query.get_or_404(workflow_id)
-        workflow.status = 'active'
-        workflow.updated_at = datetime.utcnow()
-        db.session.commit()
-        logger.info(f"Workflow activated with ID: {workflow_id}")
-        
-        return jsonify({
-            '_id': str(workflow.id),
-            'name': workflow.name,
-            'status': workflow.status,
-            'actions': workflow.actions,
-            'conditions': workflow.conditions,
-            'createdAt': workflow.created_at.isoformat(),
-            'updatedAt': workflow.updated_at.isoformat()
-        })
+        db = get_db()
+        with current_app.app_context():
+            workflow = Workflow.query.get_or_404(workflow_id)
+            workflow.status = 'active'
+            workflow.updated_at = datetime.utcnow()
+            db.session.commit()
+            logger.info(f"Workflow activated with ID: {workflow_id}")
+            
+            return jsonify({
+                '_id': str(workflow.id),
+                'name': workflow.name,
+                'status': workflow.status,
+                'actions': workflow.actions,
+                'conditions': workflow.conditions,
+                'createdAt': workflow.created_at.isoformat(),
+                'updatedAt': workflow.updated_at.isoformat()
+            })
     except Exception as e:
         logger.error(f"Error activating workflow: {str(e)}")
         import traceback
