@@ -85,17 +85,52 @@ def create_app():
     try:
         # Register blueprints
         logger.info("Registering blueprints...")
-        from .routes.api import api
-        from .routes.webhooks import webhooks
-        from .routes.workflow_routes import workflow_bp
-        from .routes.calendly import bp as calendly_bp
+        try:
+            from .routes.api import api
+            logger.info("API blueprint imported successfully")
+        except ImportError as ie:
+            logger.error(f"Failed to import API blueprint: {str(ie)}")
+            import traceback
+            logger.error(traceback.format_exc())
+
+        try:
+            from .routes.webhooks import webhooks
+            logger.info("Webhooks blueprint imported successfully")
+        except ImportError as ie:
+            logger.error(f"Failed to import Webhooks blueprint: {str(ie)}")
+            import traceback
+            logger.error(traceback.format_exc())
+
+        try:
+            from .routes.workflow_routes import workflow_bp
+            logger.info("Workflow blueprint imported successfully")
+        except ImportError as ie:
+            logger.error(f"Failed to import Workflow blueprint: {str(ie)}")
+            import traceback
+            logger.error(traceback.format_exc())
+
+        try:
+            from .routes.calendly import bp as calendly_bp
+            logger.info("Calendly blueprint imported successfully")
+        except ImportError as ie:
+            logger.error(f"Failed to import Calendly blueprint: {str(ie)}")
+            import traceback
+            logger.error(traceback.format_exc())
         
-        app.register_blueprint(api, url_prefix='/api')
-        app.register_blueprint(webhooks, url_prefix='/webhooks')
-        # Register workflow blueprint without prefix since routes already include full paths
-        app.register_blueprint(workflow_bp)
-        app.register_blueprint(calendly_bp)
-        logger.info("Blueprints registered successfully")
+        # Register available blueprints
+        if 'api' in locals():
+            app.register_blueprint(api, url_prefix='/api')
+            logger.info("API blueprint registered")
+        if 'webhooks' in locals():
+            app.register_blueprint(webhooks, url_prefix='/webhooks')
+            logger.info("Webhooks blueprint registered")
+        if 'workflow_bp' in locals():
+            # Register workflow blueprint without prefix since routes already include full paths
+            app.register_blueprint(workflow_bp)
+            logger.info("Workflow blueprint registered")
+        if 'calendly_bp' in locals():
+            app.register_blueprint(calendly_bp)
+            logger.info("Calendly blueprint registered")
         
         # Log all registered routes for debugging
         logger.info("Registered routes:")
@@ -163,6 +198,19 @@ def create_app():
                 'warning': str(e),
                 'timestamp': datetime.utcnow().isoformat()
             }), 200
+
+    # Temporary workaround for frontend URL mismatch
+    @app.route('/undefined/api/workflows', methods=['GET'])
+    def redirect_undefined_workflows_get():
+        logger.info("Received GET request to /undefined/api/workflows - redirecting to /api/workflows")
+        from flask import redirect, url_for
+        return redirect(url_for('workflow_bp.get_workflows'), code=307)
+
+    @app.route('/workflow', methods=['POST'])
+    def redirect_workflow_post():
+        logger.info("Received POST request to /workflow - redirecting to /api/workflows")
+        from flask import redirect, url_for
+        return redirect(url_for('workflow_bp.create_workflow'), code=307)
 
     logger.info("Application creation completed successfully")
     return app
