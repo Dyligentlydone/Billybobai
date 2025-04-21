@@ -62,7 +62,13 @@ def create_app():
             logger.error(f"Failed to import Workflow model: {str(ie)}")
             import traceback
             logger.error(traceback.format_exc())
-        
+
+        try:
+            from .models.sms_settings import SMSNotificationSettings
+            logger.info("SMSNotificationSettings model imported successfully")
+        except ImportError as e:
+            logger.error(f"Failed to import SMSNotificationSettings: {str(e)}")
+
         # Create tables if they don't exist
         with app.app_context():
             try:
@@ -83,55 +89,43 @@ def create_app():
         db = None  # Set db to None to avoid unbound variable issues
 
     try:
-        # Register blueprints
-        logger.info("Registering blueprints...")
-        try:
-            from .routes.api import api
-            logger.info("API blueprint imported successfully")
-        except ImportError as ie:
-            logger.error(f"Failed to import API blueprint: {str(ie)}")
-            import traceback
-            logger.error(traceback.format_exc())
+        # Register blueprints with error handling for missing dependencies
+        def register_blueprints_with_error_handling(app):
+            try:
+                from .routes import workflow_routes
+                app.register_blueprint(workflow_routes.workflow_bp)
+                logger.info("Workflow blueprint registered successfully")
+            except Exception as e:
+                logger.error(f"Failed to register workflow blueprint: {str(e)}")
 
-        try:
-            from .routes.webhooks import webhooks
-            logger.info("Webhooks blueprint imported successfully")
-        except ImportError as ie:
-            logger.error(f"Failed to import Webhooks blueprint: {str(ie)}")
-            import traceback
-            logger.error(traceback.format_exc())
+            try:
+                from .routes import calendly_routes
+                app.register_blueprint(calendly_routes.calendly_bp)
+                logger.info("Calendly blueprint registered successfully")
+            except Exception as e:
+                logger.error(f"Failed to register Calendly blueprint: {str(e)}")
 
-        try:
-            from .routes.workflow_routes import workflow_bp
-            logger.info("Workflow blueprint imported successfully")
-        except ImportError as ie:
-            logger.error(f"Failed to import Workflow blueprint: {str(ie)}")
-            import traceback
-            logger.error(traceback.format_exc())
+            try:
+                from .routes.api import api as api_blueprint
+                app.register_blueprint(api_blueprint, url_prefix='/api')
+                logger.info("API blueprint registered successfully at /api")
+            except Exception as e:
+                logger.error(f"Failed to register API blueprint: {str(e)}")
 
-        try:
-            from .routes.calendly import bp as calendly_bp
-            logger.info("Calendly blueprint imported successfully")
-        except ImportError as ie:
-            logger.error(f"Failed to import Calendly blueprint: {str(ie)}")
-            import traceback
-            logger.error(traceback.format_exc())
-        
-        # Register available blueprints
-        if 'api' in locals():
-            app.register_blueprint(api, url_prefix='/api')
-            logger.info("API blueprint registered")
-        if 'webhooks' in locals():
-            app.register_blueprint(webhooks, url_prefix='/webhooks')
-            logger.info("Webhooks blueprint registered")
-        if 'workflow_bp' in locals():
-            # Register workflow blueprint without prefix since routes already include full paths
-            app.register_blueprint(workflow_bp)
-            logger.info("Workflow blueprint registered")
-        if 'calendly_bp' in locals():
-            app.register_blueprint(calendly_bp)
-            logger.info("Calendly blueprint registered")
-        
+            # Add other blueprints here as needed
+
+        register_blueprints_with_error_handling(app)
+
+        # Global error handler for NameError to catch undefined variables like SMSNotificationSettings
+        @app.errorhandler(NameError)
+        def handle_name_error(error):
+            logger.error(f"NameError occurred: {str(error)}")
+            return jsonify({
+                "error": "Internal server error due to undefined resource",
+                "message": str(error),
+                "details": "This is likely due to a missing or undefined class/object. Please contact support."
+            }), 500
+
         # Log all registered routes for debugging
         logger.info("Registered routes:")
         for rule in app.url_map.iter_rules():
