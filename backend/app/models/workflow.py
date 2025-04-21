@@ -29,6 +29,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Dict, Optional, List
 from pydantic import BaseModel
+import uuid
 
 class WorkflowStatus(str, Enum):
     DRAFT = 'draft'
@@ -38,12 +39,14 @@ class WorkflowStatus(str, Enum):
 class Workflow(Base):
     __tablename__ = 'workflows'
 
-    id = Column(String(255), primary_key=True)
+    id = Column(String(255), primary_key=True, default=lambda: str(uuid.uuid4()))
     name = Column(String(255), nullable=False)
     status = Column(String(50), default=WorkflowStatus.DRAFT)
     client_id = Column(String(255))
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    actions = Column(JSON, default={})
+    conditions = Column(JSON, default={})
     nodes = Column(JSON, default=[])
     edges = Column(JSON, default=[])
     executions = Column(JSON, default={})

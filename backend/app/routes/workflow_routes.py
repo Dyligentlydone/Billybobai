@@ -3,6 +3,7 @@ from app.models.workflow import Workflow
 from app import db
 from datetime import datetime
 import logging
+import uuid
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -45,7 +46,12 @@ def create_workflow():
         data = request.json
         logger.info(f"Received workflow data: {data}")
         
+        # Generate a UUID for the workflow
+        workflow_id = str(uuid.uuid4())
+        
+        # Extract data from the request
         workflow = Workflow(
+            id=workflow_id,
             name=data.get('name', 'New Workflow'),
             status='draft',
             actions=data.get('actions', {}),
@@ -54,19 +60,30 @@ def create_workflow():
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow()
         )
-        db.session.add(workflow)
-        db.session.commit()
-        logger.info(f"Workflow created with ID: {workflow.id}")
         
-        return jsonify({
-            '_id': str(workflow.id),
-            'name': workflow.name,
-            'status': workflow.status,
-            'actions': workflow.actions,
-            'conditions': workflow.conditions,
-            'createdAt': workflow.created_at.isoformat(),
-            'updatedAt': workflow.updated_at.isoformat()
-        }), 201
+        # Log the workflow object before adding to session
+        logger.info(f"Created workflow object: {workflow}")
+        
+        try:
+            db.session.add(workflow)
+            db.session.commit()
+            logger.info(f"Workflow created with ID: {workflow.id}")
+            
+            return jsonify({
+                '_id': str(workflow.id),
+                'name': workflow.name,
+                'status': workflow.status,
+                'actions': workflow.actions,
+                'conditions': workflow.conditions,
+                'createdAt': workflow.created_at.isoformat(),
+                'updatedAt': workflow.updated_at.isoformat()
+            }), 201
+        except Exception as db_error:
+            logger.error(f"Database error: {str(db_error)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return jsonify({"error": f"Database error: {str(db_error)}"}), 500
+            
     except Exception as e:
         logger.error(f"Error creating workflow: {str(e)}")
         import traceback

@@ -686,12 +686,14 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
 
     try {
       const workflowData = {
-        business_id: config.twilio.businessId,
-        workflow_id: config.twilio.businessId,  // Use business ID as workflow ID
+        clientId: config.twilio.businessId,
         name: `SMS Automation ${config.twilio.businessId}`,
-        type: 'sms',
+        status: 'draft',
         actions: {
           sms: config
+        },
+        conditions: {
+          trigger: 'sms_received'
         },
         twilio: config.twilio,
         brandTone: config.brandTone,
@@ -704,7 +706,9 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
         fallbackMessage: config.response.fallbackMessage
       };
 
-      // Save configuration to backend
+      console.log('Saving workflow to:', `${BACKEND_URL}/api/workflows`);
+      console.log('Workflow data:', JSON.stringify(workflowData, null, 2));
+      
       const response = await fetch(`${BACKEND_URL}/api/workflows`, {
         method: 'POST',
         headers: {
@@ -712,16 +716,23 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
         },
         body: JSON.stringify(workflowData),
       });
-
+      
+      console.log('Response status:', response.status);
+      
       if (!response.ok) {
-        throw new Error('Failed to save configuration');
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        throw new Error(`Failed to save configuration: ${response.status} ${errorText}`);
       }
+      
+      const responseData = await response.json();
+      console.log('Success response:', responseData);
 
       // Call the onComplete callback with the final config
       onComplete(config);
     } catch (error) {
       console.error('Error saving configuration:', error);
-      alert('Failed to save configuration. Please try again.');
+      alert('Failed to save configuration. Please try again. Error: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
 
