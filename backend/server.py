@@ -1,7 +1,7 @@
-from flask import Flask
+from app import create_app
 import os
 
-app = Flask(__name__)
+app = create_app()
 
 @app.route('/')
 @app.route('/health')
