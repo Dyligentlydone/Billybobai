@@ -16,7 +16,7 @@ interface Workflow {
   updatedAt: string;
 }
 
-const API_URL = import.meta.env.VITE_BACKEND_URL;
+const API_URL = import.meta.env.VITE_BACKEND_URL || 'https://billybobai-production.up.railway.app';
 
 const Workflows: React.FC = () => {
   const [selectedWorkflow, setSelectedWorkflow] = useState<string | null>(null);
