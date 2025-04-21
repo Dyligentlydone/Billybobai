@@ -709,10 +709,16 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
       console.log('Saving workflow to:', `${BACKEND_URL}/api/workflows`);
       console.log('Workflow data:', JSON.stringify(workflowData, null, 2));
       
-      const response = await fetch(`${BACKEND_URL}/api/workflows`, {
+      // Add a timestamp to avoid caching issues
+      const timestamp = new Date().getTime();
+      const url = `${BACKEND_URL}/api/workflows?t=${timestamp}`;
+      console.log('Using URL with timestamp:', url);
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
         body: JSON.stringify(workflowData),
       });
@@ -722,7 +728,7 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
       if (!response.ok) {
         const errorText = await response.text();
         console.error('Error response:', errorText);
-        throw new Error(`Failed to save configuration: ${response.status} ${errorText}`);
+        throw new Error(`Failed to save configuration: ${response.status} ${errorText.substring(0, 200)}`);
       }
       
       const responseData = await response.json();
