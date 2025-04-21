@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from ..services.calendly import CalendlyService
-from ..schemas.calendly import CalendlyConfig, BookingRequest, WebhookEvent, SMSNotificationSettings
+from ..schemas.calendly import CalendlyConfig, BookingRequest, WebhookEvent, SMSNotificationSettings as SMSSchema
 from ..models import Business
 from app.db import get_session
 from sqlalchemy.orm import Session
@@ -41,7 +41,7 @@ async def setup_sms_workflow():
             return jsonify({"error": "Calendly not configured"}), 404
 
         # Get SMS notification settings from request
-        settings = SMSNotificationSettings(**request.json)
+        settings = SMSSchema(**request.json)
         
         # Update business config with new settings
         business = db.query(Business).get(business_id)
