@@ -7,7 +7,7 @@ import json
 from .twilio_service import TwilioService
 from .sendgrid_service import SendGridService
 from .zendesk_service import ZendeskService
-from ..models.workflow import WorkflowExecution, NodeExecution, ExecutionStatus
+from ..models.workflow import WorkflowExecution
 
 class NodeType(Enum):
     TWILIO = "twilio"
@@ -25,7 +25,7 @@ class WorkflowEngine:
         """Execute a workflow with the given input data."""
         execution = WorkflowExecution(
             workflow_id=workflow_id,
-            status=ExecutionStatus.RUNNING,
+            status="RUNNING",
             start_time=datetime.utcnow(),
             input_data=input_data,
             node_executions={},
@@ -40,11 +40,11 @@ class WorkflowEngine:
             for node in start_nodes:
                 await self._execute_node(node, workflow_data, execution)
                 
-            execution.status = ExecutionStatus.COMPLETED
+            execution.status = "COMPLETED"
             execution.end_time = datetime.utcnow()
             
         except Exception as e:
-            execution.status = ExecutionStatus.FAILED
+            execution.status = "FAILED"
             execution.end_time = datetime.utcnow()
             execution.error = str(e)
             
@@ -56,11 +56,11 @@ class WorkflowEngine:
         node_type = NodeType(node["type"])
         
         # Create node execution record
-        node_execution = NodeExecution(
-            node_id=node_id,
-            status=ExecutionStatus.RUNNING,
-            start_time=datetime.utcnow()
-        )
+        node_execution = {
+            "node_id": node_id,
+            "status": "RUNNING",
+            "start_time": datetime.utcnow()
+        }
         execution.node_executions[node_id] = node_execution
         
         try:
@@ -71,9 +71,9 @@ class WorkflowEngine:
             execution.variables[f"node_{node_id}_result"] = result
             
             # Mark node as completed
-            node_execution.status = ExecutionStatus.COMPLETED
-            node_execution.end_time = datetime.utcnow()
-            node_execution.output = result
+            node_execution["status"] = "COMPLETED"
+            node_execution["end_time"] = datetime.utcnow()
+            node_execution["output"] = result
             
             # Find and execute next nodes
             next_nodes = self._get_next_nodes(node_id, workflow_data)
@@ -86,9 +86,9 @@ class WorkflowEngine:
                     await self._execute_node(next_node, workflow_data, execution)
                     
         except Exception as e:
-            node_execution.status = ExecutionStatus.FAILED
-            node_execution.end_time = datetime.utcnow()
-            node_execution.error = str(e)
+            node_execution["status"] = "FAILED"
+            node_execution["end_time"] = datetime.utcnow()
+            node_execution["error"] = str(e)
             
             # Find error handlers
             error_handlers = self._get_error_handlers(node_id, workflow_data)

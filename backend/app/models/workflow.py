@@ -5,7 +5,7 @@ from sqlalchemy import Column, String, DateTime, JSON
 from app.database import db
 from datetime import datetime
 from enum import Enum
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Any
 from pydantic import BaseModel
 import uuid
 
@@ -13,6 +13,11 @@ class WorkflowStatus(str, Enum):
     DRAFT = 'draft'
     ACTIVE = 'active'
     ARCHIVED = 'archived'
+
+class ExecutionStatus(str, Enum):
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
 
 class Workflow(db.Model):
     __tablename__ = 'workflows'
@@ -43,6 +48,13 @@ class WorkflowEdge(BaseModel):
     source: str
     target: str
     animated: bool = False
+
+class NodeExecution(BaseModel):
+    node_id: str
+    status: ExecutionStatus
+    start_time: datetime
+    end_time: Optional[datetime] = None
+    output: Optional[Any] = None
 
 class WorkflowExecution(BaseModel):
     id: str
