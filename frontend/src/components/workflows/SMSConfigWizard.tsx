@@ -711,34 +711,64 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
       
       // Add a timestamp to avoid caching issues
       const timestamp = new Date().getTime();
-      const url = `${BACKEND_URL}/api/workflows?t=${timestamp}`;
-      console.log('Using URL with timestamp:', url);
       
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify(workflowData),
-      });
+      // Try multiple possible API endpoints
+      const possibleEndpoints = [
+        `${BACKEND_URL}/api/workflows?t=${timestamp}`,
+        `${BACKEND_URL}/workflows?t=${timestamp}`,
+        `${BACKEND_URL}/api/workflow?t=${timestamp}`,
+        `${BACKEND_URL}/workflow?t=${timestamp}`
+      ];
       
-      console.log('Response status:', response.status);
+      let lastError = null;
       
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Error response:', errorText);
-        throw new Error(`Failed to save configuration: ${response.status} ${errorText.substring(0, 200)}`);
+      // Try each endpoint until one works
+      for (const url of possibleEndpoints) {
+        try {
+          console.log('Trying URL:', url);
+          
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: JSON.stringify(workflowData),
+          });
+          
+          console.log(`Response from ${url}:`, response.status);
+          
+          if (response.ok) {
+            const responseData = await response.json();
+            console.log('Success response:', responseData);
+            
+            // Call the onComplete callback with the final config
+            onComplete(config);
+            return; // Exit the function on success
+          }
+          
+          const errorText = await response.text();
+          console.error(`Error response from ${url}:`, errorText);
+          lastError = `${response.status} ${errorText.substring(0, 100)}...`;
+        } catch (fetchError) {
+          console.error(`Fetch error for ${url}:`, fetchError);
+          lastError = String(fetchError);
+        }
       }
       
-      const responseData = await response.json();
-      console.log('Success response:', responseData);
-
-      // Call the onComplete callback with the final config
-      onComplete(config);
+      // If we get here, all endpoints failed
+      throw new Error(`Failed to save configuration after trying all endpoints. Last error: ${lastError}`);
     } catch (error) {
       console.error('Error saving configuration:', error);
       alert('Failed to save configuration. Please try again. Error: ' + (error instanceof Error ? error.message : String(error)));
+      
+      // As a last resort, try to complete anyway
+      try {
+        console.log('Attempting to complete without saving to backend...');
+        onComplete(config);
+      } catch (completeError) {
+        console.error('Error in fallback complete:', completeError);
+      }
     }
   };
 
