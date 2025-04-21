@@ -1,30 +1,8 @@
 """
-This module is deprecated. Import from models.workflow or models.workflow_schemas instead.
-This file exists only for backward compatibility.
+This module defines the Workflow model and related schemas.
 """
-from models.workflow import Workflow, WorkflowStatus
-from models.workflow_schemas import (
-    ExecutionStatus,
-    NodeExecution,
-    WorkflowExecutionSchema as WorkflowExecution,
-    WorkflowNode,
-    WorkflowEdge
-)
-
-# Re-export for backward compatibility
-__all__ = [
-    'Workflow',
-    'WorkflowStatus',
-    'ExecutionStatus',
-    'NodeExecution',
-    'WorkflowExecution',
-    'WorkflowNode',
-    'WorkflowEdge'
-]
-
 from sqlalchemy import Column, String, DateTime, JSON
-from app.db import db
-Base = db.Model
+from app.database import db
 from datetime import datetime
 from enum import Enum
 from typing import Dict, Optional, List
@@ -36,7 +14,7 @@ class WorkflowStatus(str, Enum):
     ACTIVE = 'active'
     ARCHIVED = 'archived'
 
-class Workflow(Base):
+class Workflow(db.Model):
     __tablename__ = 'workflows'
 
     id = Column(String(255), primary_key=True, default=lambda: str(uuid.uuid4()))

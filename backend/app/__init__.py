@@ -31,14 +31,19 @@ def create_app():
     for var in safe_vars:
         logger.info(f"{var}: {os.getenv(var)}")
 
+    # Configure database
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///whys.db')
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    
+    # Initialize database
     try:
-        # Initialize database (if needed, otherwise rely on Alembic)
-        from .models import Base, engine
-        logger.info("Creating all tables with SQLAlchemy Base.metadata.create_all...")
-        Base.metadata.create_all(bind=engine)
-        logger.info("Database tables created successfully (if not already present)")
+        from .database import init_db
+        db = init_db(app)
+        logger.info("Database initialized successfully")
     except Exception as e:
         logger.error(f"Failed to initialize database: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
         # Don't raise the error, let the app start anyway
 
     try:
@@ -88,8 +93,9 @@ def create_app():
 
             # Test database connection
             try:
-                from .models import engine
-                engine.connect()
+                from .database import db
+                with app.app_context():
+                    db.engine.connect()
                 health_status['database'] = 'connected'
             except Exception as e:
                 health_status['database'] = f'error: {str(e)}'

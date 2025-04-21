@@ -6,7 +6,7 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 import os
 import logging
-import uuid
+import sys
 from datetime import datetime
 import json
 
@@ -25,38 +25,33 @@ CORS(app, origins=[
     "http://localhost:3000"
 ], supports_credentials=True)
 
-# Import database and models
+# Configure database
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///whys.db')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Initialize database
 try:
-    from app.db import db
-    from app.models.workflow import Workflow
-    logger.info("Successfully imported database and models")
+    from app.database import init_db
+    db = init_db(app)
+    logger.info("Database initialized successfully")
 except Exception as e:
-    logger.error(f"Error importing database and models: {str(e)}")
-    # Create fallback models if import fails
-    from flask_sqlalchemy import SQLAlchemy
-    db = SQLAlchemy(app)
-    
-    class Workflow(db.Model):
-        __tablename__ = 'workflows'
-        id = db.Column(db.String(255), primary_key=True)
-        name = db.Column(db.String(255), nullable=False)
-        status = db.Column(db.String(50), default='draft')
-        client_id = db.Column(db.String(255))
-        created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-        updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
-        actions = db.Column(db.JSON, default={})
-        conditions = db.Column(db.JSON, default={})
+    logger.error(f"Error initializing database: {str(e)}")
+    import traceback
+    logger.error(traceback.format_exc())
 
 # Import the rest of the application
 try:
     from app import create_app
     main_app = create_app()
     # Register all blueprints from main_app to this app
-    for blueprint in main_app.blueprints.values():
-        app.register_blueprint(blueprint)
+    for blueprint_name, blueprint in main_app.blueprints.items():
+        if blueprint_name not in app.blueprints:
+            app.register_blueprint(blueprint)
     logger.info("Successfully imported and registered blueprints from app package")
 except Exception as e:
     logger.error(f"Error importing app package: {str(e)}")
+    import traceback
+    logger.error(traceback.format_exc())
 
 # Define critical routes directly to ensure they're available
 @app.route('/health')
@@ -72,15 +67,17 @@ def health():
     
     return jsonify({
         'status': 'healthy',
-        'timestamp': datetime.utcnow().isoformat(),
+        'timestamp': str(datetime.utcnow()),
         'routes': routes
     })
 
+# Direct workflow API routes to ensure they're always available
 @app.route('/api/workflows', methods=['GET'])
 def get_workflows():
     """Get all workflows."""
-    logger.info("GET /api/workflows endpoint called directly")
+    logger.info("GET /api/workflows endpoint called directly in app.py")
     try:
+        from app.models.workflow import Workflow
         workflows = Workflow.query.all()
         return jsonify([{
             '_id': str(workflow.id),
@@ -92,47 +89,53 @@ def get_workflows():
             'updatedAt': workflow.updated_at.isoformat()
         } for workflow in workflows])
     except Exception as e:
-        logger.error(f"Error getting workflows: {str(e)}")
+        logger.error(f"Error in get_workflows: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/workflows', methods=['POST'])
 def create_workflow():
     """Create a new workflow."""
-    logger.info("POST /api/workflows endpoint called directly")
+    logger.info("POST /api/workflows endpoint called directly in app.py")
     try:
-        # Log the request details
-        logger.info(f"Request headers: {dict(request.headers)}")
-        logger.info(f"Request method: {request.method}")
-        logger.info(f"Request path: {request.path}")
+        from app.models.workflow import Workflow
+        import uuid
         
-        # Get the request data
+        # Log request details for debugging
+        logger.info(f"Request headers: {dict(request.headers)}")
+        logger.info(f"Request content type: {request.content_type}")
+        
+        # Get JSON data from request
         data = request.json
-        logger.info(f"Received workflow data: {data}")
+        if not data:
+            logger.error("No JSON data in request")
+            return jsonify({"error": "No data provided"}), 400
+            
+        logger.info(f"Received workflow data: {json.dumps(data)}")
         
         # Generate a UUID for the workflow
         workflow_id = str(uuid.uuid4())
+        logger.info(f"Generated workflow ID: {workflow_id}")
         
-        # Create the workflow
+        # Create new workflow
         workflow = Workflow(
             id=workflow_id,
-            name=data.get('name', 'New Workflow'),
-            status='draft',
+            name=data.get('name', 'Untitled Workflow'),
+            status=data.get('status', 'draft'),
+            client_id=data.get('business_id', data.get('client_id')),
             actions=data.get('actions', {}),
             conditions=data.get('conditions', {}),
-            client_id=data.get('business_id'),  # Map business_id from frontend to client_id in database
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
+            nodes=data.get('nodes', []),
+            edges=data.get('edges', [])
         )
         
-        # Log the workflow object
-        logger.info(f"Created workflow object: {workflow}")
-        
-        # Save the workflow to the database
+        # Add to database
         db.session.add(workflow)
         db.session.commit()
-        logger.info(f"Workflow created with ID: {workflow.id}")
+        logger.info(f"Workflow created successfully with ID: {workflow_id}")
         
-        # Return the workflow
+        # Return the created workflow
         return jsonify({
             '_id': str(workflow.id),
             'name': workflow.name,
@@ -143,7 +146,7 @@ def create_workflow():
             'updatedAt': workflow.updated_at.isoformat()
         }), 201
     except Exception as e:
-        logger.error(f"Error creating workflow: {str(e)}")
+        logger.error(f"Error in create_workflow: {str(e)}")
         import traceback
         logger.error(traceback.format_exc())
         return jsonify({"error": str(e)}), 500

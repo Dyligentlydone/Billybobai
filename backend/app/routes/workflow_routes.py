@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from app.models.workflow import Workflow
-from app import db
+from app.database import db
 from datetime import datetime
 import logging
 import uuid
