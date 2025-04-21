@@ -65,14 +65,29 @@ def create_workflow():
         # Generate a UUID for the workflow
         workflow_id = str(uuid.uuid4())
         
-        # Extract data from the request
+        # Extract data from the request, specifically handling SMS configurations
+        config = data.get('config', {})
+        twilio_config = config.get('twilio', {})
+        actions = data.get('actions', {})
+        if not actions and config:
+            # Structure actions based on SMSConfigWizard data
+            actions = {
+                'twilio': twilio_config,
+                'brandTone': config.get('brandTone', {}),
+                'aiTraining': config.get('aiTraining', {}),
+                'context': config.get('context', {}),
+                'response': config.get('response', {}),
+                'monitoring': config.get('monitoring', {}),
+                'systemIntegration': config.get('systemIntegration', {})
+            }
+        
         workflow = Workflow(
             id=workflow_id,
-            name=data.get('name', 'New Workflow'),
-            status='draft',
-            actions=data.get('actions', {}),
+            name=data.get('name', 'SMS Automation Workflow'),
+            status=data.get('status', 'draft'),
+            actions=actions,
             conditions=data.get('conditions', {}),
-            client_id=data.get('business_id'),  # Map business_id from frontend to client_id in database for consistency
+            client_id=data.get('business_id'),  # Map business_id from frontend to client_id in database
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow()
         )
@@ -119,7 +134,26 @@ def update_workflow(workflow_id):
             
             workflow.name = data.get('name', workflow.name)
             workflow.status = data.get('status', workflow.status)
-            workflow.actions = data.get('actions', workflow.actions)
+            
+            # Handle SMS configuration updates
+            config = data.get('config', {})
+            if config:
+                twilio_config = config.get('twilio', {})
+                actions = data.get('actions', {})
+                if not actions:
+                    actions = {
+                        'twilio': twilio_config,
+                        'brandTone': config.get('brandTone', {}),
+                        'aiTraining': config.get('aiTraining', {}),
+                        'context': config.get('context', {}),
+                        'response': config.get('response', {}),
+                        'monitoring': config.get('monitoring', {}),
+                        'systemIntegration': config.get('systemIntegration', {})
+                    }
+                workflow.actions = actions
+            else:
+                workflow.actions = data.get('actions', workflow.actions)
+            
             workflow.conditions = data.get('conditions', workflow.conditions)
             workflow.updated_at = datetime.utcnow()
             
