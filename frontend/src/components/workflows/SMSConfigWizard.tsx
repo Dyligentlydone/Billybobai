@@ -686,7 +686,7 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
 
     try {
       const workflowData = {
-        clientId: config.twilio.businessId,
+        business_id: config.twilio.businessId,
         name: `SMS Automation ${config.twilio.businessId}`,
         status: 'draft',
         actions: {
