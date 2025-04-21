@@ -13,6 +13,7 @@ import os
 from ..services.email_thread_service import EmailThreadService
 from ..services.business_service import BusinessService
 from ..models.email import InboundEmail, InboundEmailModel
+from app.schemas.workflow import WorkflowConfig
 
 api = Blueprint('api', __name__)
 
@@ -234,3 +235,33 @@ async def get_workflow_execution(workflow_id, execution_id):
         return jsonify(execution)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@api.route('/workflows', methods=['POST'])
+def create_workflow():
+    try:
+        data = request.get_json()
+        config = WorkflowConfig(**data)
+        workflow = Workflow(
+            name=data.get('name', 'Untitled Workflow'),
+            status=data.get('status', 'draft'),
+            client_id=data.get('client_id'),
+            config=config.dict()
+        )
+        db.session.add(workflow)
+        db.session.commit()
+        return jsonify({'id': workflow.id, 'name': workflow.name, 'status': workflow.status, 'config': workflow.config}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@api.route('/workflows', methods=['GET'])
+def get_workflows():
+    workflows = Workflow.query.all()
+    results = [
+        {
+            'id': w.id,
+            'name': w.name,
+            'status': w.status,
+            'config': w.config
+        } for w in workflows
+    ]
+    return jsonify(results)

@@ -33,6 +33,7 @@ class Workflow(db.Model):
     nodes = Column(JSON, default=[])
     edges = Column(JSON, default=[])
     executions = Column(JSON, default={})
+    config = Column(JSON, nullable=True)
 
     def __repr__(self):
         return f'<Workflow {self.name}>'
