@@ -61,6 +61,7 @@ def create_workflow():
     try:
         data = request.json
         logger.info(f"Received workflow data: {data}")
+        logger.info(f"Attempting to save SMS configuration from SMSConfigWizard")
         
         # Generate a UUID for the workflow
         workflow_id = str(uuid.uuid4())
@@ -101,6 +102,7 @@ def create_workflow():
                 db.session.add(workflow)
                 db.session.commit()
                 logger.info(f"Workflow created with ID: {workflow.id}")
+                logger.info(f"SMS configuration successfully saved for workflow ID: {workflow.id}")
                 
                 return jsonify({
                     '_id': str(workflow.id),
@@ -112,10 +114,11 @@ def create_workflow():
                     'updatedAt': workflow.updated_at.isoformat()
                 }), 201
             except Exception as db_error:
-                logger.error(f"Database error: {str(db_error)}")
+                logger.error(f"Database error while saving workflow: {str(db_error)}")
                 import traceback
                 logger.error(traceback.format_exc())
-                return jsonify({"error": f"Database error: {str(db_error)}"}), 500
+                db.session.rollback()
+                return jsonify({"error": str(db_error)}), 500
                 
     except Exception as e:
         logger.error(f"Error creating workflow: {str(e)}")
@@ -131,6 +134,8 @@ def update_workflow(workflow_id):
         with current_app.app_context():
             workflow = Workflow.query.get_or_404(workflow_id)
             data = request.json
+            logger.info(f"Received update data for workflow {workflow_id}: {data}")
+            logger.info(f"Attempting to update SMS configuration for workflow ID: {workflow_id}")
             
             workflow.name = data.get('name', workflow.name)
             workflow.status = data.get('status', workflow.status)
@@ -159,6 +164,7 @@ def update_workflow(workflow_id):
             
             db.session.commit()
             logger.info(f"Workflow updated with ID: {workflow.id}")
+            logger.info(f"SMS configuration successfully updated for workflow ID: {workflow.id}")
             
             return jsonify({
                 '_id': str(workflow.id),
