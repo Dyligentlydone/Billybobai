@@ -204,12 +204,15 @@ def create_app():
     def redirect_undefined_workflows_get():
         logger.info(f"Received GET request to /undefined/api/workflows - Full URL: {request.url}")
         logger.info(f"Request headers: {dict(request.headers)}")
-        from flask import redirect, url_for
+        from flask import redirect, url_for, Response
         if 'workflow_bp.get_workflows' in app.view_functions:
+            logger.info("Redirecting to /api/workflows")
+            # Try a direct redirect
             return redirect(url_for('workflow_bp.get_workflows'), code=307)
         else:
             logger.error("Workflow blueprint not available for redirect")
-            return jsonify({"error": "Workflow endpoint not available"}), 503
+            # Direct response if redirect fails
+            return jsonify({"error": "Workflow endpoint not available, direct response from /undefined/api/workflows"}), 503
 
     @app.route('/workflow', methods=['POST'])
     def redirect_workflow_post():
@@ -218,10 +221,11 @@ def create_app():
         logger.info(f"Request body: {request.get_data(as_text=True)[:1000]}... (truncated if longer)")
         from flask import redirect, url_for
         if 'workflow_bp.create_workflow' in app.view_functions:
+            logger.info("Redirecting to /api/workflows for POST")
             return redirect(url_for('workflow_bp.create_workflow'), code=307)
         else:
             logger.error("Workflow blueprint not available for redirect")
-            return jsonify({"error": "Workflow endpoint not available"}), 503
+            return jsonify({"error": "Workflow endpoint not available for POST"}), 503
 
     # Catch-all for any other /undefined/* or /workflow/* paths
     @app.route('/undefined/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE'])
@@ -230,7 +234,12 @@ def create_app():
         logger.info(f"Request headers: {dict(request.headers)}")
         if request.method in ['POST', 'PUT']:
             logger.info(f"Request body: {request.get_data(as_text=True)[:1000]}... (truncated if longer)")
-        return jsonify({"error": "Invalid path, redirected from undefined", "path": f"/undefined/{path}"}), 404
+        # Direct response to confirm the request is reaching the backend
+        return jsonify({
+            "error": "Invalid path detected. Likely a frontend URL mismatch.",
+            "path": f"/undefined/{path}",
+            "message": "This is a temporary response from the backend. Please update frontend to use /api/workflows."
+        }), 404
 
     @app.route('/workflow/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE'])
     def catch_workflow_path(path):
@@ -238,7 +247,11 @@ def create_app():
         logger.info(f"Request headers: {dict(request.headers)}")
         if request.method in ['POST', 'PUT']:
             logger.info(f"Request body: {request.get_data(as_text=True)[:1000]}... (truncated if longer)")
-        return jsonify({"error": "Invalid workflow path, consider using /api/workflows", "path": f"/workflow/{path}"}), 404
+        return jsonify({
+            "error": "Invalid workflow path detected. Likely a frontend URL mismatch.",
+            "path": f"/workflow/{path}",
+            "message": "This is a temporary response from the backend. Please update frontend to use /api/workflows."
+        }), 404
 
     logger.info("Application creation completed successfully")
     return app
