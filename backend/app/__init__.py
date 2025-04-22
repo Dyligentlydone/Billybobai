@@ -43,6 +43,10 @@ def create_app():
     from app.db import db
     db.init_app(app)
     logger.info("Database initialized using canonical db instance from app.db")
+    
+    # Initialize Flask-Migrate
+    migrate = Migrate(app, db)
+    logger.info("Flask-Migrate initialized for database migrations")
 
     # Import models to ensure they're registered
     logger.info("Importing models for database initialization...")
