@@ -70,7 +70,28 @@ def create_app():
                 # Execute SQL to guarantee columns exist for all relevant tables
                 logger.info("Checking and updating database schema for all tables...")
 
-                # Businesses table
+                # Check if the businesses table exists first
+                db.session.execute(text("""
+                    DO $$
+                    BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1 
+                            FROM information_schema.tables 
+                            WHERE table_name = 'businesses'
+                        ) THEN
+                            CREATE TABLE businesses (
+                                id VARCHAR(255) PRIMARY KEY,
+                                name VARCHAR(255) NOT NULL,
+                                description VARCHAR(1000)
+                            );
+                            RAISE NOTICE 'Created businesses table with description column';
+                        END IF;
+                    END $$;
+                """))
+                db.session.commit()
+                logger.info("Checked/created businesses table")
+
+                # Businesses table - ensure description column exists
                 db.session.execute(text("""
                     DO $$
                     BEGIN
@@ -87,6 +108,8 @@ def create_app():
                         END IF;
                     END $$;
                 """))
+                db.session.commit()
+                logger.info("Updated businesses table schema if needed")
 
                 # Workflows table - ensure all columns exist
                 db.session.execute(text("""
@@ -112,6 +135,8 @@ def create_app():
                         END IF;
                     END $$;
                 """))
+                db.session.commit()
+                logger.info("Updated workflows table schema if needed")
 
                 # Business_configs table - ensure JSON columns exist
                 db.session.execute(text("""
@@ -155,6 +180,8 @@ def create_app():
                         END IF;
                     END $$;
                 """))
+                db.session.commit()
+                logger.info("Updated business_configs table schema if needed")
 
                 db.session.commit()
                 logger.info("Database schema check and update completed for all tables")
