@@ -51,10 +51,10 @@ def create_app():
     # Import models to ensure they're registered
     logger.info("Importing models for database initialization...")
     try:
-        from app.models import Business, Workflow, SMSNotificationSettings
-        logger.info("Business, Workflow, and SMSNotificationSettings models imported successfully from app.models.__init__")
+        from app.models import Business, Workflow
+        logger.info("Business and Workflow models imported successfully from app.models.__init__")
     except ImportError as ie:
-        logger.error(f"Failed to import Business/Workflow/SMSNotificationSettings models: {str(ie)}")
+        logger.error(f"Failed to import models: {str(ie)}")
         import traceback
         logger.error(traceback.format_exc())
 
@@ -67,6 +67,7 @@ def create_app():
             # Add description column to businesses table if it doesn't exist
             try:
                 from sqlalchemy import text
+                # Execute the SQL directly to guarantee the column exists
                 db.session.execute(text("""
                     DO $$
                     BEGIN
@@ -78,6 +79,8 @@ def create_app():
                         ) THEN
                             ALTER TABLE businesses ADD COLUMN description VARCHAR(1000);
                             RAISE NOTICE 'Added description column to businesses table';
+                        ELSE
+                            RAISE NOTICE 'Description column already exists in businesses table';
                         END IF;
                     END $$;
                 """))

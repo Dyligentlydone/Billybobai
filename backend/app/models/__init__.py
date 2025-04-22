@@ -4,15 +4,16 @@ Models package for the application.
 # Only import db from app.db
 from app.db import db
 
-# Import all models after db is defined
-from .business import Business, BusinessConfig  # noqa
-from .workflow import Workflow, WorkflowExecution, WorkflowNode, WorkflowEdge  # noqa
+# Import models
+from app.models.business import Business, BusinessConfig
+from app.models.workflow import Workflow, WorkflowNode, WorkflowEdge, WorkflowExecution
 
+# Define all models that should be available when importing from app.models
 __all__ = [
+    'Business', 
+    'BusinessConfig',
     'Workflow',
-    'WorkflowExecution',
     'WorkflowNode',
     'WorkflowEdge',
-    'Business',
-    'BusinessConfig'
+    'WorkflowExecution'
 ]
