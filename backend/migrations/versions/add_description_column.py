@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'add_description_column'
-down_revision = None
+down_revision = '5cccc854ed5b'  # Connect to the previous migration
 branch_labels = None
 depends_on = None
 

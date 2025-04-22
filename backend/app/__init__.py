@@ -66,122 +66,118 @@ def create_app():
             
             # Add description column to businesses table if it doesn't exist
             try:
-                from sqlalchemy import text
-                # Execute SQL to guarantee columns exist for all relevant tables
-                logger.info("Checking and updating database schema for all tables...")
+                from sqlalchemy import text, inspect
+                # Check database dialect to use appropriate syntax
+                dialect = db.engine.dialect.name
+                logger.info(f"Detected database dialect: {dialect}")
+                
+                if dialect == 'sqlite':
+                    # SQLite doesn't support DO blocks, use direct SQL instead
+                    # Check if businesses table exists
+                    try:
+                        inspector = inspect(db.engine)
+                        if 'businesses' not in inspector.get_table_names():
+                            db.session.execute(text("""
+                                CREATE TABLE IF NOT EXISTS businesses (
+                                    id VARCHAR(255) PRIMARY KEY,
+                                    name VARCHAR(255) NOT NULL,
+                                    description VARCHAR(1000)
+                                );
+                            """))
+                            db.session.commit()
+                            logger.info("Created businesses table with description column")
+                        
+                        # Check if description column exists in businesses table
+                        columns = [col['name'] for col in inspector.get_columns('businesses')]
+                        if 'description' not in columns:
+                            db.session.execute(text('ALTER TABLE businesses ADD COLUMN description VARCHAR(1000);'))
+                            db.session.commit()
+                            logger.info("Added description column to businesses table")
+                        
+                        # Check for other columns in workflows table
+                        if 'workflows' in inspector.get_table_names():
+                            columns = [col['name'] for col in inspector.get_columns('workflows')]
+                            if 'actions' not in columns:
+                                db.session.execute(text('ALTER TABLE workflows ADD COLUMN actions JSON;'))
+                                db.session.commit()
+                                logger.info("Added actions column to workflows table")
+                            if 'conditions' not in columns:
+                                db.session.execute(text('ALTER TABLE workflows ADD COLUMN conditions JSON;'))
+                                db.session.commit()
+                                logger.info("Added conditions column to workflows table")
+                    except Exception as e:
+                        logger.error(f"SQLite schema update error: {str(e)}")
+                        import traceback
+                        logger.error(traceback.format_exc())
+                else:
+                    # PostgreSQL - use DO blocks as before
+                    # Check if the businesses table exists first
+                    db.session.execute(text("""
+                        DO $$
+                        BEGIN
+                            IF NOT EXISTS (
+                                SELECT 1 
+                                FROM information_schema.tables 
+                                WHERE table_name = 'businesses'
+                            ) THEN
+                                CREATE TABLE businesses (
+                                    id VARCHAR(255) PRIMARY KEY,
+                                    name VARCHAR(255) NOT NULL,
+                                    description VARCHAR(1000)
+                                );
+                                RAISE NOTICE 'Created businesses table with description column';
+                            END IF;
+                        END $$;
+                    """))
+                    db.session.commit()
+                    logger.info("Checked/created businesses table")
 
-                # Check if the businesses table exists first
-                db.session.execute(text("""
-                    DO $$
-                    BEGIN
-                        IF NOT EXISTS (
-                            SELECT 1 
-                            FROM information_schema.tables 
-                            WHERE table_name = 'businesses'
-                        ) THEN
-                            CREATE TABLE businesses (
-                                id VARCHAR(255) PRIMARY KEY,
-                                name VARCHAR(255) NOT NULL,
-                                description VARCHAR(1000)
-                            );
-                            RAISE NOTICE 'Created businesses table with description column';
-                        END IF;
-                    END $$;
-                """))
-                db.session.commit()
-                logger.info("Checked/created businesses table")
+                    # Businesses table - ensure description column exists
+                    db.session.execute(text("""
+                        DO $$
+                        BEGIN
+                            IF NOT EXISTS (
+                                SELECT 1 
+                                FROM information_schema.columns 
+                                WHERE table_name = 'businesses' 
+                                AND column_name = 'description'
+                            ) THEN
+                                ALTER TABLE businesses ADD COLUMN description VARCHAR(1000);
+                                RAISE NOTICE 'Added description column to businesses table';
+                            ELSE
+                                RAISE NOTICE 'Description column already exists in businesses table';
+                            END IF;
+                        END $$;
+                    """))
+                    db.session.commit()
+                    logger.info("Updated businesses table schema if needed")
 
-                # Businesses table - ensure description column exists
-                db.session.execute(text("""
-                    DO $$
-                    BEGIN
-                        IF NOT EXISTS (
-                            SELECT 1 
-                            FROM information_schema.columns 
-                            WHERE table_name = 'businesses' 
-                            AND column_name = 'description'
-                        ) THEN
-                            ALTER TABLE businesses ADD COLUMN description VARCHAR(1000);
-                            RAISE NOTICE 'Added description column to businesses table';
-                        ELSE
-                            RAISE NOTICE 'Description column already exists in businesses table';
-                        END IF;
-                    END $$;
-                """))
-                db.session.commit()
-                logger.info("Updated businesses table schema if needed")
-
-                # Workflows table - ensure all columns exist
-                db.session.execute(text("""
-                    DO $$
-                    BEGIN
-                        IF NOT EXISTS (
-                            SELECT 1 
-                            FROM information_schema.columns 
-                            WHERE table_name = 'workflows' 
-                            AND column_name = 'actions'
-                        ) THEN
-                            ALTER TABLE workflows ADD COLUMN actions JSONB;
-                            RAISE NOTICE 'Added actions column to workflows table';
-                        END IF;
-                        IF NOT EXISTS (
-                            SELECT 1 
-                            FROM information_schema.columns 
-                            WHERE table_name = 'workflows' 
-                            AND column_name = 'conditions'
-                        ) THEN
-                            ALTER TABLE workflows ADD COLUMN conditions JSONB;
-                            RAISE NOTICE 'Added conditions column to workflows table';
-                        END IF;
-                    END $$;
-                """))
-                db.session.commit()
-                logger.info("Updated workflows table schema if needed")
-
-                # Business_configs table - ensure JSON columns exist
-                db.session.execute(text("""
-                    DO $$
-                    BEGIN
-                        IF NOT EXISTS (
-                            SELECT 1 
-                            FROM information_schema.columns 
-                            WHERE table_name = 'business_configs' 
-                            AND column_name = 'ai_settings'
-                        ) THEN
-                            ALTER TABLE business_configs ADD COLUMN ai_settings JSONB;
-                            RAISE NOTICE 'Added ai_settings column to business_configs table';
-                        END IF;
-                        IF NOT EXISTS (
-                            SELECT 1 
-                            FROM information_schema.columns 
-                            WHERE table_name = 'business_configs' 
-                            AND column_name = 'business_hours'
-                        ) THEN
-                            ALTER TABLE business_configs ADD COLUMN business_hours JSONB;
-                            RAISE NOTICE 'Added business_hours column to business_configs table';
-                        END IF;
-                        IF NOT EXISTS (
-                            SELECT 1 
-                            FROM information_schema.columns 
-                            WHERE table_name = 'business_configs' 
-                            AND column_name = 'calendly_settings'
-                        ) THEN
-                            ALTER TABLE business_configs ADD COLUMN calendly_settings JSONB;
-                            RAISE NOTICE 'Added calendly_settings column to business_configs table';
-                        END IF;
-                        IF NOT EXISTS (
-                            SELECT 1 
-                            FROM information_schema.columns 
-                            WHERE table_name = 'business_configs' 
-                            AND column_name = 'twilio_settings'
-                        ) THEN
-                            ALTER TABLE business_configs ADD COLUMN twilio_settings JSONB;
-                            RAISE NOTICE 'Added twilio_settings column to business_configs table';
-                        END IF;
-                    END $$;
-                """))
-                db.session.commit()
-                logger.info("Updated business_configs table schema if needed")
+                    # Workflows table - ensure all columns exist
+                    db.session.execute(text("""
+                        DO $$
+                        BEGIN
+                            IF NOT EXISTS (
+                                SELECT 1 
+                                FROM information_schema.columns 
+                                WHERE table_name = 'workflows' 
+                                AND column_name = 'actions'
+                            ) THEN
+                                ALTER TABLE workflows ADD COLUMN actions JSONB;
+                                RAISE NOTICE 'Added actions column to workflows table';
+                            END IF;
+                            IF NOT EXISTS (
+                                SELECT 1 
+                                FROM information_schema.columns 
+                                WHERE table_name = 'workflows' 
+                                AND column_name = 'conditions'
+                            ) THEN
+                                ALTER TABLE workflows ADD COLUMN conditions JSONB;
+                                RAISE NOTICE 'Added conditions column to workflows table';
+                            END IF;
+                        END $$;
+                    """))
+                    db.session.commit()
+                    logger.info("Updated workflows table schema if needed")
 
                 db.session.commit()
                 logger.info("Database schema check and update completed for all tables")
