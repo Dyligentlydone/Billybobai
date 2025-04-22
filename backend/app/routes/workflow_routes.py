@@ -102,6 +102,8 @@ def create_workflow():
             if business_id is not None:
                 try:
                     business_id = int(business_id)
+                    # Convert back to string since database expects VARCHAR
+                    business_id = str(business_id)
                     existing_business = Business.query.filter_by(id=business_id).first()
                     if not existing_business:
                         # Use a default name if not provided
@@ -110,7 +112,7 @@ def create_workflow():
                         db.session.add(new_business)
                         db.session.commit()
                 except (ValueError, TypeError):
-                    logger.error(f"Invalid business_id format: {business_id}. Must be an integer.")
+                    logger.error(f"Invalid business_id format: {business_id}. Must be a valid integer.")
                     return jsonify({"error": "Business ID must be a valid integer"}), 400
         
         workflow = Workflow(
