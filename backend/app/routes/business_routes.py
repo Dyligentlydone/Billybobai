@@ -72,7 +72,8 @@ def create_business():
         business = Business(
             id=str(data['id']),  # Ensure ID is stored as string
             name=data['name'],
-            description=data.get('description', f"Business {data['id']}")
+            description=data.get('description', f"Business {data['id']}"),
+            domain=data.get('domain', f"business-{data['id']}.com")  # Add default domain
         )
         
         db.session.add(business)

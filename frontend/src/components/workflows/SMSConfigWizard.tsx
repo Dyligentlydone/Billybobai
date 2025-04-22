@@ -766,7 +766,19 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
       // As a last resort, try to complete anyway
       try {
         console.log('Attempting to complete without saving to backend...');
-        onComplete(config);
+        // Ensure we have a valid config with all required fields for the onComplete callback
+        const safeConfig = {
+          ...config,
+          twilio: {
+            ...config.twilio,
+            phoneNumber: config.twilio?.phoneNumber || '',
+            accountSid: config.twilio?.accountSid || '',
+            authToken: config.twilio?.authToken || '',
+            businessId: config.twilio?.businessId || 0,
+            webhookUrl: config.twilio?.webhookUrl || ''
+          }
+        };
+        onComplete(safeConfig);
       } catch (completeError) {
         console.error('Error in fallback complete:', completeError);
       }
