@@ -79,7 +79,7 @@ def create_app():
                         if 'businesses' not in inspector.get_table_names():
                             db.session.execute(text("""
                                 CREATE TABLE IF NOT EXISTS businesses (
-                                    id VARCHAR(255) PRIMARY KEY,
+                                    id INTEGER PRIMARY KEY,
                                     name VARCHAR(255) NOT NULL,
                                     description VARCHAR(1000),
                                     domain VARCHAR(255) NOT NULL DEFAULT 'default-domain.com'

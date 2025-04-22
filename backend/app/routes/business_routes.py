@@ -62,18 +62,25 @@ def create_business():
             logger.error("Missing required fields: id and name")
             return jsonify({"error": "Missing required fields: id and name"}), 400
             
+        # Make sure ID is an integer
+        try:
+            business_id = int(data['id'])
+        except (ValueError, TypeError):
+            logger.error(f"Invalid business_id format: {data['id']}. Must be a valid integer.")
+            return jsonify({"error": "Business ID must be a valid integer"}), 400
+                
         # Check if business already exists
-        existing_business = Business.query.filter_by(id=data['id']).first()
+        existing_business = Business.query.filter_by(id=business_id).first()
         if existing_business:
-            logger.warning(f"Business with ID {data['id']} already exists")
+            logger.warning(f"Business with ID {business_id} already exists")
             return jsonify({"error": "Business with this ID already exists"}), 409
             
         # Create new business
         business = Business(
-            id=data['id'],  # Keep ID handling consistent
+            id=business_id,  # Store as Integer
             name=data['name'],
-            description=data.get('description', f"Business {data['id']}"),
-            domain=data.get('domain', f"business-{data['id']}.com")  # Add default domain
+            description=data.get('description', f"Business {business_id}"),
+            domain=data.get('domain', f"business-{business_id}.com")  # Add default domain
         )
         
         db.session.add(business)

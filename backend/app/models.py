@@ -7,7 +7,7 @@ Base = declarative_base()
 class Business(Base):
     __tablename__ = 'businesses'
 
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True)  # Changed back to Integer for consistency
     name = Column(String, nullable=False)
     description = Column(String(1000), nullable=True)
     domain = Column(String(255), nullable=False)
