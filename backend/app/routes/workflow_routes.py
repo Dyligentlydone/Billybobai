@@ -64,6 +64,14 @@ def create_workflow():
         logger.info(f"Received workflow data: {data}")
         logger.info(f"Attempting to save SMS configuration from SMSConfigWizard")
         
+        # Validate required fields for SMS workflow
+        if data.get('workflow_type') == 'sms_automation':
+            config = data.get('config', {})
+            twilio_config = config.get('twilio', {})
+            if not twilio_config or 'accountSid' not in twilio_config or 'authToken' not in twilio_config:
+                logger.error("Missing required Twilio configuration for SMS workflow")
+                return jsonify({"error": "Missing required Twilio configuration for SMS workflow"}), 400
+        
         # Generate a UUID for the workflow
         workflow_id = str(uuid.uuid4())
         

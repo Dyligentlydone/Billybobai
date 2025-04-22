@@ -2,8 +2,8 @@ from flask import Blueprint, request, jsonify
 from twilio.twiml.messaging_response import MessagingResponse
 from services.sms_processor import SMSProcessor
 from services.opt_out_handler import OptOutHandler
-from database import get_db
-from models.workflow import Workflow
+from app.db import db
+from app.models.workflow import Workflow
 from utils.message_quality import MessageQualityAnalyzer
 from utils.cost_tracking import CostTracker
 import logging
@@ -26,10 +26,10 @@ def get_sms_processor(workflow_id: str) -> SMSProcessor:
             
             # Create processor with workflow-specific configuration
             processor_cache[workflow_id] = SMSProcessor(
-                business_id=workflow.client_id,
+                business_id=workflow.business_id,
                 workflow_id=workflow_id,
                 workflow_name=workflow.name,
-                config=workflow.actions.get('sms', {}),
+                config=workflow.actions.get('twilio', {}),
                 quality_analyzer=quality_analyzer,
                 cost_tracker=cost_tracker
             )
@@ -43,7 +43,6 @@ def get_sms_processor(workflow_id: str) -> SMSProcessor:
 
 def get_opt_out_handler():
     """Get an OptOutHandler instance"""
-    db = get_db()
     return OptOutHandler(db)
 
 @sms_bp.route('/api/sms/webhook/<workflow_id>', methods=['POST'])

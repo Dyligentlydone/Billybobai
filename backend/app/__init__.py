@@ -67,7 +67,10 @@ def create_app():
             # Add description column to businesses table if it doesn't exist
             try:
                 from sqlalchemy import text
-                # Execute the SQL directly to guarantee the column exists
+                # Execute SQL to guarantee columns exist for all relevant tables
+                logger.info("Checking and updating database schema for all tables...")
+
+                # Businesses table
                 db.session.execute(text("""
                     DO $$
                     BEGIN
@@ -84,10 +87,79 @@ def create_app():
                         END IF;
                     END $$;
                 """))
+
+                # Workflows table - ensure all columns exist
+                db.session.execute(text("""
+                    DO $$
+                    BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1 
+                            FROM information_schema.columns 
+                            WHERE table_name = 'workflows' 
+                            AND column_name = 'actions'
+                        ) THEN
+                            ALTER TABLE workflows ADD COLUMN actions JSONB;
+                            RAISE NOTICE 'Added actions column to workflows table';
+                        END IF;
+                        IF NOT EXISTS (
+                            SELECT 1 
+                            FROM information_schema.columns 
+                            WHERE table_name = 'workflows' 
+                            AND column_name = 'conditions'
+                        ) THEN
+                            ALTER TABLE workflows ADD COLUMN conditions JSONB;
+                            RAISE NOTICE 'Added conditions column to workflows table';
+                        END IF;
+                    END $$;
+                """))
+
+                # Business_configs table - ensure JSON columns exist
+                db.session.execute(text("""
+                    DO $$
+                    BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1 
+                            FROM information_schema.columns 
+                            WHERE table_name = 'business_configs' 
+                            AND column_name = 'ai_settings'
+                        ) THEN
+                            ALTER TABLE business_configs ADD COLUMN ai_settings JSONB;
+                            RAISE NOTICE 'Added ai_settings column to business_configs table';
+                        END IF;
+                        IF NOT EXISTS (
+                            SELECT 1 
+                            FROM information_schema.columns 
+                            WHERE table_name = 'business_configs' 
+                            AND column_name = 'business_hours'
+                        ) THEN
+                            ALTER TABLE business_configs ADD COLUMN business_hours JSONB;
+                            RAISE NOTICE 'Added business_hours column to business_configs table';
+                        END IF;
+                        IF NOT EXISTS (
+                            SELECT 1 
+                            FROM information_schema.columns 
+                            WHERE table_name = 'business_configs' 
+                            AND column_name = 'calendly_settings'
+                        ) THEN
+                            ALTER TABLE business_configs ADD COLUMN calendly_settings JSONB;
+                            RAISE NOTICE 'Added calendly_settings column to business_configs table';
+                        END IF;
+                        IF NOT EXISTS (
+                            SELECT 1 
+                            FROM information_schema.columns 
+                            WHERE table_name = 'business_configs' 
+                            AND column_name = 'twilio_settings'
+                        ) THEN
+                            ALTER TABLE business_configs ADD COLUMN twilio_settings JSONB;
+                            RAISE NOTICE 'Added twilio_settings column to business_configs table';
+                        END IF;
+                    END $$;
+                """))
+
                 db.session.commit()
-                logger.info("Checked and added description column to businesses table if needed")
+                logger.info("Database schema check and update completed for all tables")
             except Exception as column_error:
-                logger.error(f"Failed to add description column: {str(column_error)}")
+                logger.error(f"Failed to update database schema: {str(column_error)}")
                 import traceback
                 logger.error(traceback.format_exc())
             
