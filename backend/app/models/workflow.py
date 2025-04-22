@@ -23,7 +23,7 @@ class Workflow(db.Model):
     id = db.Column(db.String(255), primary_key=True, default=lambda: str(uuid.uuid4()))
     name = db.Column(db.String(255), nullable=False)
     status = db.Column(db.String(50), default=WorkflowStatus.DRAFT)
-    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id'))  
+    business_id = db.Column(db.String(255), db.ForeignKey('businesses.id'))  
     business = db.relationship("Business", back_populates="workflows")
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)

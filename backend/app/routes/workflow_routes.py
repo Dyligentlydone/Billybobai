@@ -98,31 +98,28 @@ def create_workflow():
         db = get_db()
         with current_app.app_context():
             business_id = data.get('business_id')
-            # Ensure business_id is an integer
-            if business_id is not None:
-                try:
-                    # Simple conversion to int - the ID is and should be a number
-                    business_id = int(business_id)
-                    # Cast to string for database lookup - PostgreSQL has the column as VARCHAR
+            try:
+                # Frontend passes businessId as a number - convert to string for database
+                if business_id is not None:
+                    # Always convert to string for database operations
                     business_id_str = str(business_id)
-                    # Use the string version for the query since the database column is VARCHAR
                     existing_business = Business.query.filter_by(id=business_id_str).first()
                     if not existing_business:
                         # Use a default name if not provided
                         business_name = data.get('business_name', f'Business {business_id}')
-                        # Create new business with correct ID format
+                        # Create new business with ID as string
                         new_business = Business(
-                            id=business_id_str,  # ID should be just the number
-                            name=business_name,  # Name is where we put "Business X"
-                            description="Created automatically by SMSConfigWizard",  # Add a description
-                            domain=f"business-{business_id}.com"  # Add domain with default value
+                            id=business_id_str,  # Use string ID for database
+                            name=business_name,
+                            description="Created automatically by SMSConfigWizard",
+                            domain=f"business-{business_id}.com"
                         )
                         db.session.add(new_business)
                         db.session.commit()
-                        logger.info(f"Created new business with ID: {business_id} and name: {business_name}")
-                except (ValueError, TypeError):
-                    logger.error(f"Invalid business_id format: {business_id}. Must be a valid integer.")
-                    return jsonify({"error": "Business ID must be a valid integer"}), 400
+                        logger.info(f"Created new business with ID: {business_id_str} and name: {business_name}")
+            except (ValueError, TypeError):
+                logger.error(f"Invalid business_id format: {business_id}. Must be a valid integer.")
+                return jsonify({"error": "Business ID must be a valid integer"}), 400
         
         workflow = Workflow(
             id=workflow_id,
@@ -130,7 +127,7 @@ def create_workflow():
             status=status,
             actions=actions,
             conditions=data.get('conditions', {}),
-            business_id=business_id_str,  # Use the already validated business_id 
+            business_id=str(data.get('business_id')),  # Use string business ID for database
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow()
         )
