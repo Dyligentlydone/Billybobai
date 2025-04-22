@@ -1,13 +1,10 @@
 """
 This module defines the Workflow model and related schemas.
 """
-from sqlalchemy import Column, String, DateTime, JSON, Integer, ForeignKey
-from sqlalchemy.orm import relationship
-from app.database import db
+from app.db import db
 from datetime import datetime
 from enum import Enum
 from typing import Dict, Optional, List, Any
-from pydantic import BaseModel
 import uuid
 
 class WorkflowStatus(str, Enum):
@@ -23,46 +20,55 @@ class ExecutionStatus(str, Enum):
 class Workflow(db.Model):
     __tablename__ = 'workflows'
 
-    id = Column(String(255), primary_key=True, default=lambda: str(uuid.uuid4()))
-    name = Column(String(255), nullable=False)
-    status = Column(String(50), default=WorkflowStatus.DRAFT)
-    business_id = Column(Integer, ForeignKey('businesses.id'))  # Ensure type matches Business.id
-    business = relationship("Business", back_populates="workflows")
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
-    actions = Column(JSON, default={})
-    conditions = Column(JSON, default={})
-    nodes = Column(JSON, default=[])
-    edges = Column(JSON, default=[])
-    executions = Column(JSON, default={})
-    config = Column(JSON, nullable=True)
+    id = db.Column(db.String(255), primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = db.Column(db.String(255), nullable=False)
+    status = db.Column(db.String(50), default=WorkflowStatus.DRAFT)
+    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id'))  
+    business = db.relationship("Business", back_populates="workflows")
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    actions = db.Column(db.JSON, default={})
+    conditions = db.Column(db.JSON, default={})
+    nodes = db.Column(db.JSON, default=[])
+    edges = db.Column(db.JSON, default=[])
+    executions = db.Column(db.JSON, default={})
+    config = db.Column(db.JSON, nullable=True)
 
     def __repr__(self):
         return f'<Workflow {self.name}>'
 
-class WorkflowNode(BaseModel):
-    id: str
-    type: str
-    data: Dict
-    position: Dict[str, int]
+class WorkflowNode(db.Model):
+    __tablename__ = 'workflow_nodes'
 
-class WorkflowEdge(BaseModel):
-    id: str
-    source: str
-    target: str
-    animated: bool = False
+    id = db.Column(db.String(255), primary_key=True, default=lambda: str(uuid.uuid4()))
+    type = db.Column(db.String(255), nullable=False)
+    data = db.Column(db.JSON, nullable=False)
+    position = db.Column(db.JSON, nullable=False)
 
-class NodeExecution(BaseModel):
-    node_id: str
-    status: ExecutionStatus
-    start_time: datetime
-    end_time: Optional[datetime] = None
-    output: Optional[Any] = None
+class WorkflowEdge(db.Model):
+    __tablename__ = 'workflow_edges'
 
-class WorkflowExecution(BaseModel):
-    id: str
-    workflow_id: str
-    status: str
-    started_at: datetime
-    completed_at: Optional[datetime]
-    node_executions: List[Dict]
+    id = db.Column(db.String(255), primary_key=True, default=lambda: str(uuid.uuid4()))
+    source = db.Column(db.String(255), nullable=False)
+    target = db.Column(db.String(255), nullable=False)
+    animated = db.Column(db.Boolean, default=False)
+
+class NodeExecution(db.Model):
+    __tablename__ = 'node_executions'
+
+    id = db.Column(db.String(255), primary_key=True, default=lambda: str(uuid.uuid4()))
+    node_id = db.Column(db.String(255), nullable=False)
+    status = db.Column(db.String(50), nullable=False)
+    start_time = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    end_time = db.Column(db.DateTime, nullable=True)
+    output = db.Column(db.JSON, nullable=True)
+
+class WorkflowExecution(db.Model):
+    __tablename__ = 'workflow_executions'
+
+    id = db.Column(db.String(255), primary_key=True, default=lambda: str(uuid.uuid4()))
+    workflow_id = db.Column(db.String(255), nullable=False)
+    status = db.Column(db.String(50), nullable=False)
+    started_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    completed_at = db.Column(db.DateTime, nullable=True)
+    node_executions = db.Column(db.JSON, nullable=False)

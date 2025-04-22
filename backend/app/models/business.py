@@ -1,40 +1,37 @@
-from sqlalchemy import Column, Integer, String, JSON, ForeignKey
-from sqlalchemy.orm import relationship
 from app.db import db
-Base = db.Model
 
-class Business(Base):
+class Business(db.Model):
     __tablename__ = 'businesses'
 
-    id = Column(Integer, primary_key=True)
-    name = Column(String(255), nullable=False)
-    description = Column(String(1000))
-    workflows = relationship("Workflow", back_populates="business")
-    config = relationship("BusinessConfig", back_populates="business", uselist=False)
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.String(1000))
+    workflows = db.relationship("Workflow", back_populates="business")
+    config = db.relationship("BusinessConfig", back_populates="business", uselist=False)
 
-class BusinessConfig(Base):
+class BusinessConfig(db.Model):
     __tablename__ = 'business_configs'
 
-    id = Column(Integer, primary_key=True)
-    business_id = Column(Integer, ForeignKey('businesses.id'), nullable=False)
-    business = relationship("Business", back_populates="config")
+    id = db.Column(db.Integer, primary_key=True)
+    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id'), nullable=False)
+    business = db.relationship("Business", back_populates="config")
     
     # Brand voice settings
-    tone = Column(String(50), default='professional')  # professional, casual, friendly, etc.
-    language = Column(String(10), default='en')  # en, es, fr, etc.
+    tone = db.Column(db.String(50), default='professional')  # professional, casual, friendly, etc.
+    language = db.Column(db.String(10), default='en')  # en, es, fr, etc.
     
     # AI configuration
-    ai_settings = Column(JSON, default={})  # temperature, max_tokens, etc.
-    custom_instructions = Column(String(2000))  # Additional AI instructions
+    ai_settings = db.Column(db.JSON, default={})  # temperature, max_tokens, etc.
+    custom_instructions = db.Column(db.String(2000))  # Additional AI instructions
     
     # Response templates
-    greeting_template = Column(String(500))
-    fallback_message = Column(String(500))
+    greeting_template = db.Column(db.String(500))
+    fallback_message = db.Column(db.String(500))
     
     # Business hours
-    business_hours = Column(JSON, default={})  # Format: {"mon": {"start": "09:00", "end": "17:00"}, ...}
-    timezone = Column(String(50), default='UTC')
+    business_hours = db.Column(db.JSON, default={})  # Format: {"mon": {"start": "09:00", "end": "17:00"}, ...}
+    timezone = db.Column(db.String(50), default='UTC')
     
     # Integration settings
-    calendly_settings = Column(JSON, nullable=True)  # Calendly integration settings
-    twilio_settings = Column(JSON, nullable=True)  # Twilio specific settings
+    calendly_settings = db.Column(db.JSON, nullable=True)  # Calendly integration settings
+    twilio_settings = db.Column(db.JSON, nullable=True)  # Twilio specific settings

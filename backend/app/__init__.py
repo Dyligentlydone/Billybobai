@@ -56,17 +56,12 @@ def create_app():
         # Import models to ensure they're registered
         logger.info("Importing models for database initialization...")
         try:
-            from app.models import Business, Workflow
-            logger.info("Business and Workflow models imported successfully from app.models.__init__")
+            from app.models import Business, Workflow, SMSNotificationSettings
+            logger.info("Business, Workflow, and SMSNotificationSettings models imported successfully from app.models.__init__")
         except ImportError as ie:
-            logger.error(f"Failed to import Business/Workflow models: {str(ie)}")
+            logger.error(f"Failed to import Business/Workflow/SMSNotificationSettings models: {str(ie)}")
             import traceback
             logger.error(traceback.format_exc())
-        try:
-            from .models.sms_settings import SMSNotificationSettings
-            logger.info("SMSNotificationSettings model imported successfully")
-        except ImportError as e:
-            logger.error(f"Failed to import SMSNotificationSettings: {str(e)}")
 
         # Create tables if they don't exist
         with app.app_context():

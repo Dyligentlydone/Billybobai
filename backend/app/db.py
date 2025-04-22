@@ -1,6 +1,3 @@
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
 from flask_sqlalchemy import SQLAlchemy
 import os
 
@@ -8,30 +5,5 @@ db = SQLAlchemy()
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./app.db")
 
-engine = create_engine(
-    DATABASE_URL,
-    echo=True
-)
-
-Session = sessionmaker(bind=engine)
-
-def init_db():
-    Base = db.Model
-    # Import models here to ensure they're registered with SQLAlchemy
-    from .models import Business, BusinessConfig
-    from .models.workflow import Workflow, WorkflowExecution, WorkflowNode, WorkflowEdge
-    
-    # Create all tables
-    Base.metadata.create_all(bind=engine)
-    return Base
-
-def get_session():
-    session = Session()
-    try:
-        yield session
-    finally:
-        session.close()
-
-# Database dependency
-def get_db():
-    return get_session()
+# No custom engine/session; let Flask-SQLAlchemy handle it
+# All models should import db from here
