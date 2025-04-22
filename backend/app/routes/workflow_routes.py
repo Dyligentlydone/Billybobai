@@ -112,7 +112,8 @@ def create_workflow():
                         new_business = Business(
                             id=business_id,  # ID should be just the number as string
                             name=business_name,  # Name is where we put "Business X"
-                            description="Created automatically by SMSConfigWizard"  # Add a description
+                            description="Created automatically by SMSConfigWizard",  # Add a description
+                            domain=f"business-{business_id}.com"  # Add domain with default value
                         )
                         db.session.add(new_business)
                         db.session.commit()
