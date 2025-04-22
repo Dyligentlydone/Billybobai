@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify, current_app
 from app.models.workflow import Workflow
+from app.models.business import Business
 from datetime import datetime
 import logging
 import uuid
@@ -84,6 +85,20 @@ def create_workflow():
         
         status = data.get('status', 'DRAFT')
         status = status.upper() if isinstance(status, str) else 'DRAFT'
+        
+        # Ensure the business exists before creating the workflow
+        db = get_db()
+        with current_app.app_context():
+            business_id = data.get('business_id')
+            if business_id is not None:
+                existing_business = Business.query.filter_by(id=business_id).first()
+                if not existing_business:
+                    # Use a default name if not provided
+                    business_name = data.get('business_name', f'Business {business_id}')
+                    new_business = Business(id=business_id, name=business_name)
+                    db.session.add(new_business)
+                    db.session.commit()
+        
         workflow = Workflow(
             id=workflow_id,
             name=data.get('name', 'SMS Automation Workflow'),
