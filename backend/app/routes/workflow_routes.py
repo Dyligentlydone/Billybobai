@@ -108,9 +108,15 @@ def create_workflow():
                     if not existing_business:
                         # Use a default name if not provided
                         business_name = data.get('business_name', f'Business {business_id}')
-                        new_business = Business(id=business_id, name=business_name)
+                        # Create new business with correct ID format
+                        new_business = Business(
+                            id=business_id,  # ID should be just the number as string
+                            name=business_name,  # Name is where we put "Business X"
+                            description="Created automatically by SMSConfigWizard"  # Add a description
+                        )
                         db.session.add(new_business)
                         db.session.commit()
+                        logger.info(f"Created new business with ID: {business_id} and name: {business_name}")
                 except (ValueError, TypeError):
                     logger.error(f"Invalid business_id format: {business_id}. Must be a valid integer.")
                     return jsonify({"error": "Business ID must be a valid integer"}), 400
