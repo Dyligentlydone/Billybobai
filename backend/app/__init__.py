@@ -193,6 +193,24 @@ def create_app():
             # Test database connection explicitly
             db.engine.connect()
             logger.info("Database connection test successful")
+            
+            # Log database details for debugging
+            try:
+                engine_url = db.engine.url
+                logger.info(f"Connected to database: dialect={engine_url.drivername}, host={engine_url.host}, database={engine_url.database}")
+                
+                # Test a simple query
+                from sqlalchemy import text
+                result = db.session.execute(text("SELECT 1")).fetchone()
+                logger.info(f"Simple query test result: {result}")
+                
+                # List all tables
+                inspector = db.inspect(db.engine)
+                all_tables = inspector.get_table_names()
+                logger.info(f"Database tables: {all_tables}")
+            except Exception as e:
+                logger.error(f"Error getting database details: {e}")
+            
         except Exception as db_conn_error:
             logger.error(f"Failed to connect to database or create tables: {str(db_conn_error)}")
             import traceback
