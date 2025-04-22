@@ -241,9 +241,11 @@ def create_workflow():
     try:
         data = request.get_json()
         config = WorkflowConfig(**data)
+        status = data.get('status', 'DRAFT')
+        status = status.upper() if isinstance(status, str) else 'DRAFT'
         workflow = Workflow(
             name=data.get('name', 'Untitled Workflow'),
-            status=data.get('status', 'draft'),
+            status=status,
             business_id=data.get('business_id'),
             config=config.dict()
         )

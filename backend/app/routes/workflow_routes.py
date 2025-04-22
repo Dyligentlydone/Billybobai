@@ -82,10 +82,12 @@ def create_workflow():
                 'systemIntegration': config.get('systemIntegration', {})
             }
         
+        status = data.get('status', 'DRAFT')
+        status = status.upper() if isinstance(status, str) else 'DRAFT'
         workflow = Workflow(
             id=workflow_id,
             name=data.get('name', 'SMS Automation Workflow'),
-            status=data.get('status', 'draft'),
+            status=status,
             actions=actions,
             conditions=data.get('conditions', {}),
             business_id=data.get('business_id'),  
