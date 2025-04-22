@@ -110,7 +110,7 @@ interface MonitoringConfig {
 }
 
 interface TwilioConfig {
-  businessId: string;  // Added business ID
+  businessId: number;  // Changed from string to number
   accountSid: string;
   authToken: string;
   phoneNumber: string;
@@ -138,7 +138,7 @@ interface Props {
 
 const INITIAL_CONFIG: Config = {
   twilio: {
-    businessId: '',  // Added initial value
+    businessId: 0,  // Changed initial value to number
     accountSid: '',
     authToken: '',
     phoneNumber: '',
@@ -685,8 +685,15 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
     }
 
     try {
+      // Ensure business_id is passed as a number
+      const businessId = parseInt(String(config.twilio.businessId), 10);
+      
+      if (isNaN(businessId)) {
+        throw new Error('Business ID must be a valid number');
+      }
+      
       const workflowData = {
-        business_id: config.twilio.businessId,
+        business_id: businessId,  // Explicitly converted to number
         name: `SMS Automation ${config.twilio.businessId}`,
         status: 'draft',
         actions: {
@@ -2280,22 +2287,16 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
             type="number"
             name="businessId"
             id="businessId"
-            value={config.twilio.businessId}
-            onChange={(e) => {
-              const value = e.target.value;
-              // Validate: only numbers, no decimals
-              if (/^\d*$/.test(value)) {
-                setConfig({
-                  ...config,
-                  twilio: {
-                    ...config.twilio,
-                    businessId: value,
-                    // Update webhook URL with new business ID
-                    webhookUrl: value ? `${BACKEND_URL}/api/sms/webhook/${value}` : ''
-                  }
-                });
+            value={config.twilio.businessId || ''}
+            onChange={(e) => setConfig(prev => ({
+              ...prev,
+              twilio: {
+                ...prev.twilio,
+                businessId: parseInt(e.target.value, 10) || 0,
+                // Update webhook URL when business ID changes
+                webhookUrl: e.target.value ? `${BACKEND_URL}/api/sms/webhook/${e.target.value}` : ''
               }
-            }}
+            }))}
             className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
             placeholder="Enter a unique business ID (numbers only)"
             required

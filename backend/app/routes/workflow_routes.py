@@ -98,14 +98,20 @@ def create_workflow():
         db = get_db()
         with current_app.app_context():
             business_id = data.get('business_id')
+            # Ensure business_id is an integer
             if business_id is not None:
-                existing_business = Business.query.filter_by(id=business_id).first()
-                if not existing_business:
-                    # Use a default name if not provided
-                    business_name = data.get('business_name', f'Business {business_id}')
-                    new_business = Business(id=business_id, name=business_name)
-                    db.session.add(new_business)
-                    db.session.commit()
+                try:
+                    business_id = int(business_id)
+                    existing_business = Business.query.filter_by(id=business_id).first()
+                    if not existing_business:
+                        # Use a default name if not provided
+                        business_name = data.get('business_name', f'Business {business_id}')
+                        new_business = Business(id=business_id, name=business_name)
+                        db.session.add(new_business)
+                        db.session.commit()
+                except (ValueError, TypeError):
+                    logger.error(f"Invalid business_id format: {business_id}. Must be an integer.")
+                    return jsonify({"error": "Business ID must be a valid integer"}), 400
         
         workflow = Workflow(
             id=workflow_id,
@@ -113,7 +119,7 @@ def create_workflow():
             status=status,
             actions=actions,
             conditions=data.get('conditions', {}),
-            business_id=data.get('business_id'),  
+            business_id=business_id,  # Use the already validated business_id 
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow()
         )
