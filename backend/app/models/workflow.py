@@ -25,7 +25,7 @@ class Workflow(db.Model):
     id = Column(String(255), primary_key=True, default=lambda: str(uuid.uuid4()))
     name = Column(String(255), nullable=False)
     status = Column(String(50), default=WorkflowStatus.DRAFT)
-    client_id = Column(String(255))
+    business_id = Column(String(255))  # Changed from client_id to business_id
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     actions = Column(JSON, default={})

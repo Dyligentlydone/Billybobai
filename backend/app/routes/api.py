@@ -244,7 +244,7 @@ def create_workflow():
         workflow = Workflow(
             name=data.get('name', 'Untitled Workflow'),
             status=data.get('status', 'draft'),
-            client_id=data.get('client_id'),
+            business_id=data.get('business_id'),
             config=config.dict()
         )
         db.session.add(workflow)

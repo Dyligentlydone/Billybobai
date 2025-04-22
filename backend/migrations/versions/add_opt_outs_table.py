@@ -18,7 +18,7 @@ def upgrade():
     op.create_table('opt_outs',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('phone_number', sa.String(length=15), nullable=False),
-        sa.Column('business_id', sa.Integer(), nullable=False),
+        sa.Column('business_id', sa.String(length=255), nullable=False),  # Changed from Integer to String to match businesses.id
         sa.Column('opted_out_at', sa.DateTime(), nullable=False),
         sa.Column('reason', sa.String(length=100), nullable=True),
         sa.PrimaryKeyConstraint('id'),

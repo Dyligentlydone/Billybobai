@@ -88,7 +88,7 @@ def create_workflow():
             status=data.get('status', 'draft'),
             actions=actions,
             conditions=data.get('conditions', {}),
-            client_id=data.get('business_id'),  # Map business_id from frontend to client_id in database
+            business_id=data.get('business_id'),  
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow()
         )
