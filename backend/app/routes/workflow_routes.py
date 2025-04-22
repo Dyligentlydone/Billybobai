@@ -98,28 +98,24 @@ def create_workflow():
         db = get_db()
         with current_app.app_context():
             business_id = data.get('business_id')
-            try:
-                # Frontend passes businessId as a number - convert to string for database
-                if business_id is not None:
-                    # Always convert to string for database operations
-                    business_id_str = str(business_id)
-                    existing_business = Business.query.filter_by(id=business_id_str).first()
-                    if not existing_business:
-                        # Use a default name if not provided
-                        business_name = data.get('business_name', f'Business {business_id}')
-                        # Create new business with ID as string
-                        new_business = Business(
-                            id=business_id_str,  # Use string ID for database
-                            name=business_name,
-                            description="Created automatically by SMSConfigWizard",
-                            domain=f"business-{business_id}.com"
-                        )
-                        db.session.add(new_business)
-                        db.session.commit()
-                        logger.info(f"Created new business with ID: {business_id_str} and name: {business_name}")
-            except (ValueError, TypeError):
-                logger.error(f"Invalid business_id format: {business_id}. Must be a valid integer.")
-                return jsonify({"error": "Business ID must be a valid integer"}), 400
+            # Accept any business_id format and convert to string
+            if business_id is not None:
+                # Always convert to string for database operations
+                business_id_str = str(business_id)
+                existing_business = Business.query.filter_by(id=business_id_str).first()
+                if not existing_business:
+                    # Use a default name if not provided
+                    business_name = data.get('business_name', f'Business {business_id}')
+                    # Create new business with ID as string
+                    new_business = Business(
+                        id=business_id_str,  # Use string ID for database
+                        name=business_name,
+                        description="Created automatically by SMSConfigWizard",
+                        domain=f"business-{business_id}.com"
+                    )
+                    db.session.add(new_business)
+                    db.session.commit()
+                    logger.info(f"Created new business with ID: {business_id_str} and name: {business_name}")
         
         workflow = Workflow(
             id=workflow_id,
