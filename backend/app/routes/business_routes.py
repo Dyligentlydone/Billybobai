@@ -70,7 +70,7 @@ def create_business():
             
         # Create new business
         business = Business(
-            id=str(data['id']),  # Ensure ID is stored as string
+            id=data['id'],  # Keep ID handling consistent
             name=data['name'],
             description=data.get('description', f"Business {data['id']}"),
             domain=data.get('domain', f"business-{data['id']}.com")  # Add default domain

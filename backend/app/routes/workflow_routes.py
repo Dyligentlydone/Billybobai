@@ -101,16 +101,17 @@ def create_workflow():
             # Ensure business_id is an integer
             if business_id is not None:
                 try:
+                    # Simple conversion to int - the ID is and should be a number
                     business_id = int(business_id)
-                    # Convert back to string since database expects VARCHAR
-                    business_id = str(business_id)
-                    existing_business = Business.query.filter_by(id=business_id).first()
+                    # Convert back to string for database query since we store it as VARCHAR
+                    business_id_str = str(business_id)
+                    existing_business = Business.query.filter_by(id=business_id_str).first()
                     if not existing_business:
                         # Use a default name if not provided
                         business_name = data.get('business_name', f'Business {business_id}')
                         # Create new business with correct ID format
                         new_business = Business(
-                            id=business_id,  # ID should be just the number as string
+                            id=business_id_str,  # ID should be just the number as string
                             name=business_name,  # Name is where we put "Business X"
                             description="Created automatically by SMSConfigWizard",  # Add a description
                             domain=f"business-{business_id}.com"  # Add domain with default value
@@ -128,7 +129,7 @@ def create_workflow():
             status=status,
             actions=actions,
             conditions=data.get('conditions', {}),
-            business_id=business_id,  # Use the already validated business_id 
+            business_id=business_id_str,  # Use the already validated business_id 
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow()
         )
