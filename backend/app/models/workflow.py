@@ -1,7 +1,8 @@
 """
 This module defines the Workflow model and related schemas.
 """
-from sqlalchemy import Column, String, DateTime, JSON
+from sqlalchemy import Column, String, DateTime, JSON, Integer, ForeignKey
+from sqlalchemy.orm import relationship
 from app.database import db
 from datetime import datetime
 from enum import Enum
@@ -25,7 +26,8 @@ class Workflow(db.Model):
     id = Column(String(255), primary_key=True, default=lambda: str(uuid.uuid4()))
     name = Column(String(255), nullable=False)
     status = Column(String(50), default=WorkflowStatus.DRAFT)
-    business_id = Column(String(255))  # Changed from client_id to business_id
+    business_id = Column(Integer, ForeignKey('businesses.id'))  # Ensure type matches Business.id
+    business = relationship("Business", back_populates="workflows")
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     actions = Column(JSON, default={})

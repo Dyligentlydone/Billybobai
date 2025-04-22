@@ -56,13 +56,19 @@ def create_app():
         # Import models to ensure they're registered
         logger.info("Importing models for database initialization...")
         try:
+            from .models.business import Business
+            logger.info("Business model imported successfully")
+        except ImportError as ie:
+            logger.error(f"Failed to import Business model: {str(ie)}")
+            import traceback
+            logger.error(traceback.format_exc())
+        try:
             from .models.workflow import Workflow
             logger.info("Workflow model imported successfully")
         except ImportError as ie:
             logger.error(f"Failed to import Workflow model: {str(ie)}")
             import traceback
             logger.error(traceback.format_exc())
-
         try:
             from .models.sms_settings import SMSNotificationSettings
             logger.info("SMSNotificationSettings model imported successfully")
