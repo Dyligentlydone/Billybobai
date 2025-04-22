@@ -256,6 +256,13 @@ def create_app():
             except Exception as e:
                 logger.error(f"Failed to register API blueprint: {str(e)}")
 
+            try:
+                from .routes import business_routes
+                app.register_blueprint(business_routes.business_bp)
+                logger.info("Business blueprint registered successfully")
+            except Exception as e:
+                logger.error(f"Failed to register business blueprint: {str(e)}")
+
             # Add other blueprints here as needed
 
         register_blueprints_with_error_handling(app)
