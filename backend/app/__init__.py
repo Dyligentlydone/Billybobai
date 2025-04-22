@@ -38,49 +38,34 @@ def create_app():
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///whys.db')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     logger.info(f"Database URI set to: {'configured' if os.getenv('DATABASE_URL') else 'sqlite:///whys.db'} - Full URI: {app.config['SQLALCHEMY_DATABASE_URI'][:10]}... (truncated for security)")
-    
-    # Initialize database with a global scope
-    global db
-    try:
-        logger.info("Initializing database...")
-        try:
-            from .database import init_db
-            db = init_db(app)
-            logger.info("Database initialized using init_db from database module")
-        except ImportError:
-            logger.warning("database module not found, falling back to Flask-SQLAlchemy")
-            from flask_sqlalchemy import SQLAlchemy
-            db = SQLAlchemy(app)
-            logger.info("Database object created with Flask-SQLAlchemy")
-        
-        # Import models to ensure they're registered
-        logger.info("Importing models for database initialization...")
-        try:
-            from app.models import Business, Workflow, SMSNotificationSettings
-            logger.info("Business, Workflow, and SMSNotificationSettings models imported successfully from app.models.__init__")
-        except ImportError as ie:
-            logger.error(f"Failed to import Business/Workflow/SMSNotificationSettings models: {str(ie)}")
-            import traceback
-            logger.error(traceback.format_exc())
 
-        # Create tables if they don't exist
-        with app.app_context():
-            try:
-                db.create_all()
-                logger.info("Database tables created successfully (if not already present)")
-                # Test database connection explicitly
-                db.engine.connect()
-                logger.info("Database connection test successful")
-            except Exception as db_conn_error:
-                logger.error(f"Failed to connect to database or create tables: {str(db_conn_error)}")
-                import traceback
-                logger.error(traceback.format_exc())
-    except Exception as e:
-        logger.error(f"Failed to initialize database: {str(e)}")
+    # Initialize database (canonical way)
+    from app.db import db
+    db.init_app(app)
+    logger.info("Database initialized using canonical db instance from app.db")
+
+    # Import models to ensure they're registered
+    logger.info("Importing models for database initialization...")
+    try:
+        from app.models import Business, Workflow, SMSNotificationSettings
+        logger.info("Business, Workflow, and SMSNotificationSettings models imported successfully from app.models.__init__")
+    except ImportError as ie:
+        logger.error(f"Failed to import Business/Workflow/SMSNotificationSettings models: {str(ie)}")
         import traceback
         logger.error(traceback.format_exc())
-        # Don't raise the error, let the app start anyway
-        db = None  # Set db to None to avoid unbound variable issues
+
+    # Create tables if they don't exist
+    with app.app_context():
+        try:
+            db.create_all()
+            logger.info("Database tables created successfully (if not already present)")
+            # Test database connection explicitly
+            db.engine.connect()
+            logger.info("Database connection test successful")
+        except Exception as db_conn_error:
+            logger.error(f"Failed to connect to database or create tables: {str(db_conn_error)}")
+            import traceback
+            logger.error(traceback.format_exc())
 
     try:
         # Register blueprints with error handling for missing dependencies
@@ -166,12 +151,9 @@ def create_app():
 
             # Test database connection
             try:
-                if db is not None:
-                    with app.app_context():
-                        db.engine.connect()
-                    health_status['database'] = 'connected'
-                else:
-                    health_status['database'] = 'not initialized'
+                with app.app_context():
+                    db.engine.connect()
+                health_status['database'] = 'connected'
             except Exception as e:
                 health_status['database'] = f'error: {str(e)}'
                 logger.error(f"Database health check failed: {str(e)}")
