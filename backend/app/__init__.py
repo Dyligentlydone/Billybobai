@@ -63,6 +63,31 @@ def create_app():
         try:
             db.create_all()
             logger.info("Database tables created successfully (if not already present)")
+            
+            # Add description column to businesses table if it doesn't exist
+            try:
+                from sqlalchemy import text
+                db.session.execute(text("""
+                    DO $$
+                    BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1 
+                            FROM information_schema.columns 
+                            WHERE table_name = 'businesses' 
+                            AND column_name = 'description'
+                        ) THEN
+                            ALTER TABLE businesses ADD COLUMN description VARCHAR(1000);
+                            RAISE NOTICE 'Added description column to businesses table';
+                        END IF;
+                    END $$;
+                """))
+                db.session.commit()
+                logger.info("Checked and added description column to businesses table if needed")
+            except Exception as column_error:
+                logger.error(f"Failed to add description column: {str(column_error)}")
+                import traceback
+                logger.error(traceback.format_exc())
+            
             # Test database connection explicitly
             db.engine.connect()
             logger.info("Database connection test successful")
