@@ -232,16 +232,26 @@ def create_app():
             import traceback
             logger.error(traceback.format_exc())
 
+    logger.info("Registering route blueprints...")
+    try:
+        # Import and register routes
+        from .routes.workflow_routes import workflow_bp
+        app.register_blueprint(workflow_bp)
+        logger.info("Workflow routes registered successfully")
+    except Exception as e:
+        logger.error(f"Failed to register workflow routes: {str(e)}")
+    
+    try:
+        # Import and register business routes - must be registered for SMSConfigWizard to work
+        from .routes.business_routes import business_bp
+        app.register_blueprint(business_bp)
+        logger.info("Business routes registered successfully")
+    except Exception as e:
+        logger.error(f"Failed to register business routes: {str(e)}")
+
     try:
         # Register blueprints with error handling for missing dependencies
         def register_blueprints_with_error_handling(app):
-            try:
-                from .routes import workflow_routes
-                app.register_blueprint(workflow_routes.workflow_bp)
-                logger.info("Workflow blueprint registered successfully")
-            except Exception as e:
-                logger.error(f"Failed to register workflow blueprint: {str(e)}")
-
             try:
                 from .routes import calendly_routes
                 app.register_blueprint(calendly_routes.calendly_bp)
@@ -255,13 +265,6 @@ def create_app():
                 logger.info("API blueprint registered successfully at /api")
             except Exception as e:
                 logger.error(f"Failed to register API blueprint: {str(e)}")
-
-            try:
-                from .routes import business_routes
-                app.register_blueprint(business_routes.business_bp)
-                logger.info("Business blueprint registered successfully")
-            except Exception as e:
-                logger.error(f"Failed to register business blueprint: {str(e)}")
 
             # Add other blueprints here as needed
 

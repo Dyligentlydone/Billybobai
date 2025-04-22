@@ -692,6 +692,7 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
         throw new Error('Business ID must be a valid number');
       }
       
+      // Safe access to twilio properties using optional chaining
       const workflowData = {
         business_id: businessId,  // Explicitly converted to number
         name: `SMS Automation ${config.twilio.businessId}`,
@@ -702,7 +703,13 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
         conditions: {
           trigger: 'sms_received'
         },
-        twilio: config.twilio,
+        twilio: {
+          ...config.twilio,
+          // Ensure these fields exist even if they're empty
+          phoneNumber: config.twilio?.phoneNumber || '',
+          accountSid: config.twilio?.accountSid || '',
+          authToken: config.twilio?.authToken || ''
+        },
         brandTone: config.brandTone,
         aiTraining: config.aiTraining,
         ai: {
