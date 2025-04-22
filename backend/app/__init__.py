@@ -81,11 +81,12 @@ def create_app():
                                 CREATE TABLE IF NOT EXISTS businesses (
                                     id VARCHAR(255) PRIMARY KEY,
                                     name VARCHAR(255) NOT NULL,
-                                    description VARCHAR(1000)
+                                    description VARCHAR(1000),
+                                    domain VARCHAR(255) NOT NULL DEFAULT 'default-domain.com'
                                 );
                             """))
                             db.session.commit()
-                            logger.info("Created businesses table with description column")
+                            logger.info("Created businesses table with description and domain columns")
                         
                         # Check if description column exists in businesses table
                         columns = [col['name'] for col in inspector.get_columns('businesses')]
@@ -93,6 +94,12 @@ def create_app():
                             db.session.execute(text('ALTER TABLE businesses ADD COLUMN description VARCHAR(1000);'))
                             db.session.commit()
                             logger.info("Added description column to businesses table")
+                        
+                        # Check if domain column exists in businesses table
+                        if 'domain' not in columns:
+                            db.session.execute(text("ALTER TABLE businesses ADD COLUMN domain VARCHAR(255) NOT NULL DEFAULT 'default-domain.com';"))
+                            db.session.commit()
+                            logger.info("Added domain column to businesses table")
                         
                         # Check for other columns in workflows table
                         if 'workflows' in inspector.get_table_names():
@@ -125,9 +132,10 @@ def create_app():
                                     CREATE TABLE businesses (
                                         id INTEGER PRIMARY KEY,
                                         name VARCHAR(255) NOT NULL,
-                                        description VARCHAR(1000)
+                                        description VARCHAR(1000),
+                                        domain VARCHAR(255) NOT NULL DEFAULT 'default-domain.com'
                                     );
-                                    RAISE NOTICE 'Created businesses table with description column';
+                                    RAISE NOTICE 'Created businesses table with description and domain columns';
                                 END IF;
                             END $$;
                         """))
@@ -144,6 +152,18 @@ def create_app():
                             logger.info("Description column added to businesses table or already exists")
                         except Exception as column_error:
                             logger.error(f"Error adding description column (may already exist): {str(column_error)}")
+                            # Continue execution even if this fails
+                        
+                        # Make an explicit attempt to add the domain column
+                        logger.info("Explicitly trying to add domain column to businesses table...")
+                        try:
+                            db.session.execute(text("""
+                                ALTER TABLE businesses ADD COLUMN IF NOT EXISTS domain VARCHAR(255) NOT NULL DEFAULT 'default-domain.com';
+                            """))
+                            db.session.commit()
+                            logger.info("Domain column added to businesses table or already exists")
+                        except Exception as column_error:
+                            logger.error(f"Error adding domain column (may already exist): {str(column_error)}")
                             # Continue execution even if this fails
                             
                         # Verify the column exists by querying the information schema

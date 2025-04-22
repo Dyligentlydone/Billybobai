@@ -10,6 +10,7 @@ class Business(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
     description = Column(String(1000), nullable=True)
+    domain = Column(String(255), nullable=False)
     config = relationship("BusinessConfig", back_populates="business", uselist=False)
 
 class BusinessConfig(Base):
