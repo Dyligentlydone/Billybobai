@@ -8,9 +8,10 @@ from typing import Dict, Optional, List, Any
 import uuid
 
 class WorkflowStatus(str, Enum):
-    DRAFT = 'draft'
-    ACTIVE = 'active'
-    ARCHIVED = 'archived'
+    # Change the enum values to match what PostgreSQL expects
+    DRAFT = 'DRAFT'
+    ACTIVE = 'ACTIVE'
+    ARCHIVED = 'ARCHIVED'
 
 class ExecutionStatus(str, Enum):
     RUNNING = "running"

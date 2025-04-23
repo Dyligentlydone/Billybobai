@@ -9,12 +9,15 @@ import { VoiceWizard } from '../components/wizard/VoiceWizard';
 import { WizardProvider } from '../contexts/WizardContext';
 import { Dialog, DialogContent, DialogActions, Button } from '@mui/material';
 
+type WorkflowStatus = 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
+
 interface Workflow {
   _id: string;
   name: string;
-  status: 'active' | 'draft' | 'archived';
+  status: WorkflowStatus;
   createdAt: string;
   updatedAt: string;
+  [key: string]: any; // To allow for additional properties
 }
 
 const API_URL = import.meta.env.VITE_BACKEND_URL || 'https://billybobai-production.up.railway.app';
@@ -32,17 +35,18 @@ const Workflows: React.FC = () => {
   // Initialize the query client for cache invalidation
   const queryClient = useQueryClient();
 
+  const fetchWorkflows = async () => {
+    const response = await axios.get<Workflow[]>('/api/workflows');
+    return response.data.map(workflow => ({
+      ...workflow,
+      // Normalize status values to match UI expectations
+      status: (workflow.status || '').toUpperCase() as WorkflowStatus
+    }));
+  };
+
   const { data: workflows, isLoading, error } = useQuery<Workflow[], AxiosError>(
     'workflows',
-    async () => {
-      try {
-        const { data } = await axios.get(`${API_URL}/api/workflows`);
-        return data;
-      } catch (err) {
-        console.error('Error fetching workflows:', err);
-        throw err;
-      }
-    },
+    fetchWorkflows,
     {
       retry: 3,
       retryDelay: 1000,
