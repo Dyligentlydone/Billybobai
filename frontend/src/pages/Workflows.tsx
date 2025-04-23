@@ -52,13 +52,31 @@ const Workflows: React.FC = () => {
         }
       });
       
-      console.log('Workflows response:', response.data);
+      // Enhanced logging to debug the response
+      console.log('Workflows raw response:', response);
+      console.log('Workflows data type:', typeof response.data);
+      console.log('Is array?', Array.isArray(response.data));
       
-      if (!response.data || !Array.isArray(response.data)) {
-        console.error('Invalid response format:', response.data);
+      if (!response.data) {
+        console.error('Empty response data');
         return [];
       }
       
+      if (!Array.isArray(response.data)) {
+        console.error('Response is not an array:', response.data);
+        // Try to convert non-array response to array if possible
+        if (typeof response.data === 'object') {
+          console.log('Attempting to convert object to array');
+          return [response.data].map(workflow => ({
+            ...workflow,
+            status: (workflow.status || '').toUpperCase() as WorkflowStatus
+          }));
+        }
+        return [];
+      }
+      
+      // If we get here, we have an array response
+      console.log('Workflows count:', response.data.length);
       return response.data.map(workflow => ({
         ...workflow,
         // Normalize status values to match UI expectations
@@ -396,11 +414,7 @@ const Workflows: React.FC = () => {
                     <div className="p-4 text-center text-sm text-red-700">
                       Error loading workflows: {error.message}
                     </div>
-                  ) : !workflows?.length ? (
-                    <div className="p-4 text-center text-sm text-gray-700">
-                      No custom workflows yet. Create your first one or use a template above!
-                    </div>
-                  ) : (
+                  ) : workflows && workflows.length > 0 ? (
                     <table className="min-w-full divide-y divide-gray-300">
                       <thead className="bg-gray-50">
                         <tr>
@@ -468,6 +482,10 @@ const Workflows: React.FC = () => {
                         ))}
                       </tbody>
                     </table>
+                  ) : (
+                    <div className="p-4 text-center text-sm text-gray-700">
+                      No custom workflows yet. Create your first one or use a template above!
+                    </div>
                   )}
                 </div>
               </div>
