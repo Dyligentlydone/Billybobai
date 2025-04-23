@@ -6,6 +6,7 @@ class Business(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False)
     description = db.Column(db.String(1000))
+    domain = db.Column(db.String(255), nullable=False, default="example.com") 
     workflows = db.relationship("Workflow", back_populates="business")
     config = db.relationship("BusinessConfig", back_populates="business", uselist=False)
 

@@ -10,7 +10,7 @@ class Business(Base):
     id = Column(String(255), primary_key=True)  # Using String to match actual database schema
     name = Column(String, nullable=False)
     description = Column(String(1000), nullable=True)
-    domain = Column(String(255), nullable=False)
+    domain = Column(String(255), nullable=False, default="example.com")
     config = relationship("BusinessConfig", back_populates="business", uselist=False)
 
 class BusinessConfig(Base):
