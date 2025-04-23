@@ -1,5 +1,5 @@
 import os
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 import openai
 from pydantic import BaseModel
 
@@ -16,9 +16,42 @@ class AIService:
         Given a business description and requirements, generate a workflow configuration using Twilio, SendGrid, and Zendesk.
         Focus on practical, efficient solutions that improve customer experience."""
 
-    def analyze_requirements(self, description: str) -> WorkflowConfig:
-        """Analyze natural language requirements and generate workflow configuration."""
+    async def analyze_requirements(self, description: str, actions=None) -> Union[WorkflowConfig, Dict]:
+        """Analyze natural language requirements and generate workflow configuration or response."""
         try:
+            # If actions is provided, we're in SMS response mode (not config generation)
+            if actions:
+                # Use the provided workflow actions to generate a response to the SMS
+                # Extract prompt from the workflow configuration if available
+                ai_settings = actions.get('aiTraining', {})
+                prompt = actions.get('twilio', {}).get('prompt', '')
+                
+                if not prompt:
+                    # Fallback to creating a generic prompt
+                    brand_tone = actions.get('brandTone', {}).get('voiceType', 'professional')
+                    prompt = f"You are a {brand_tone} AI assistant responding to customer SMS messages."
+                
+                # Set up context from the workflow actions
+                system_prompt = f"{prompt}\n\nRespond to the customer message briefly and professionally."
+                
+                # Use OpenAI to generate a response
+                response = openai.chat.completions.create(
+                    model=ai_settings.get('openAIModel', 'gpt-4'),
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": description}
+                    ],
+                    temperature=actions.get('temperature', 0.7),
+                    max_tokens=300  # Keep SMS responses brief
+                )
+                
+                # Return the AI generated message
+                return {
+                    "message": response.choices[0].message.content.strip(),
+                    "twilio": True  # Indicate this is a Twilio response
+                }
+            
+            # Original workflow config generation logic
             response = openai.chat.completions.create(
                 model="gpt-4",
                 messages=[
@@ -34,7 +67,16 @@ class AIService:
             workflow.instructions.extend(self._generate_setup_instructions(workflow))
             return workflow
         except Exception as e:
-            raise Exception(f"Failed to analyze requirements: {str(e)}")
+            # Log the error but return a fallback response to prevent system failures
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to analyze requirements: {str(e)}")
+            
+            # Return a fallback response that won't break the SMS flow
+            return {
+                "message": "I apologize, but I'm having trouble understanding your request. Could you please rephrase it?",
+                "twilio": True
+            }
 
     def _parse_ai_response(self, response: str) -> WorkflowConfig:
         """Parse AI response into structured workflow configuration."""

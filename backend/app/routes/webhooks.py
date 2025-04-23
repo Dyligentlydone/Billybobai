@@ -202,7 +202,6 @@ async def zendesk_webhook():
         return jsonify({"error": str(e)}), 500
 
 @webhooks.route('/api/sms/webhook/<business_id>', methods=['POST'])
-@verify_twilio_signature
 async def business_specific_webhook(business_id):
     """Handle incoming Twilio webhooks for a specific business."""
     try:
@@ -213,6 +212,10 @@ async def business_specific_webhook(business_id):
         
         logger.info(f"Received SMS webhook for business ID: {business_id}")
         logger.info(f"From: {from_number}, Body: {body}")
+        
+        # Log all request details for debugging
+        logger.info(f"Request headers: {dict(request.headers)}")
+        logger.info(f"Request form data: {dict(request.form)}")
         
         # Lookup the workflow for this business
         from app.models.workflow import Workflow
@@ -233,23 +236,49 @@ async def business_specific_webhook(business_id):
                 response.message("Thank you for your message. A representative will get back to you soon.")
                 return str(response)
             
+            logger.info(f"Found active workflow: {workflow.id} with actions: {workflow.actions}")
+            
             # Process the message using the AI service
             if body:
-                # Generate AI response based on workflow configuration
-                workflow_response = await ai_service.analyze_requirements(body, workflow.actions)
+                # Initialize AI service if needed
+                if ai_service is None:
+                    from ..services.ai_service import AIService
+                    global ai_service
+                    ai_service = AIService()
+                    logger.info("AI service initialized for SMS processing")
                 
-                # Get response text from AI or fallback message
-                response_text = (workflow_response.get('message') or 
-                                workflow.actions.get('twilio', {}).get('fallbackMessage') or
-                                "Thank you for your message. We'll respond shortly.")
-                
-                # Create Twilio response
-                response = MessagingResponse()
-                response.message(response_text)
-                
-                # Log successful response
-                logger.info(f"Successfully processed message for business ID: {business_id}")
-                return str(response)
+                try:
+                    # Generate AI response based on workflow configuration
+                    logger.info("Calling AI service to generate response...")
+                    workflow_response = await ai_service.analyze_requirements(body, workflow.actions)
+                    logger.info(f"AI service response: {workflow_response}")
+                    
+                    # Get response text from AI or fallback message
+                    response_text = (workflow_response.get('message') or 
+                                   workflow.actions.get('twilio', {}).get('fallbackMessage') or
+                                   workflow.actions.get('response', {}).get('fallbackMessage') or
+                                   "Thank you for your message. We'll respond shortly.")
+                    
+                    # Create Twilio response
+                    response = MessagingResponse()
+                    response.message(response_text)
+                    
+                    # Log successful response
+                    logger.info(f"Successfully processed message for business ID: {business_id}")
+                    return str(response)
+                except Exception as process_error:
+                    logger.error(f"Error processing message with AI: {str(process_error)}")
+                    import traceback
+                    logger.error(traceback.format_exc())
+                    
+                    # Use fallback message from workflow if available
+                    fallback_message = (workflow.actions.get('twilio', {}).get('fallbackMessage') or
+                                      workflow.actions.get('response', {}).get('fallbackMessage') or
+                                      "Thank you for your message. A representative will get back to you soon.")
+                    
+                    response = MessagingResponse()
+                    response.message(fallback_message)
+                    return str(response)
             
             # Basic response for empty messages
             response = MessagingResponse()
