@@ -11,7 +11,6 @@ class WorkflowConfig(BaseModel):
 
 class AIService:
     def __init__(self):
-        openai.api_key = os.getenv('OPENAI_API_KEY')
         self.system_prompt = """You are an AI assistant that helps create customer service automation workflows.
         Given a business description and requirements, generate a workflow configuration using Twilio, SendGrid, and Zendesk.
         Focus on practical, efficient solutions that improve customer experience."""
@@ -22,8 +21,20 @@ class AIService:
             # If actions is provided, we're in SMS response mode (not config generation)
             if actions:
                 # Use the provided workflow actions to generate a response to the SMS
-                # Extract prompt from the workflow configuration if available
+                # Extract OpenAI API key from the workflow configuration
                 ai_settings = actions.get('aiTraining', {})
+                api_key = ai_settings.get('openAIKey')
+                
+                # If no API key in the workflow, try environment variable as fallback
+                if not api_key:
+                    api_key = os.getenv('OPENAI_API_KEY')
+                    if not api_key:
+                        raise ValueError("No OpenAI API key found in workflow config or environment variables")
+                
+                # Set the API key for this request
+                openai.api_key = api_key
+                
+                # Extract prompt from the workflow configuration if available
                 prompt = actions.get('twilio', {}).get('prompt', '')
                 
                 if not prompt:
@@ -52,6 +63,11 @@ class AIService:
                 }
             
             # Original workflow config generation logic
+            api_key = os.getenv('OPENAI_API_KEY')
+            if not api_key:
+                raise ValueError("No OpenAI API key found in environment variables")
+            openai.api_key = api_key
+            
             response = openai.chat.completions.create(
                 model="gpt-4",
                 messages=[
@@ -163,6 +179,11 @@ class AIService:
             # Add the current customer email
             messages.append({"role": "user", "content": customer_email})
 
+            api_key = os.getenv('OPENAI_API_KEY')
+            if not api_key:
+                raise ValueError("No OpenAI API key found in environment variables")
+            openai.api_key = api_key
+            
             response = await openai.chat.completions.create(
                 model="gpt-4",
                 messages=messages,
@@ -193,6 +214,11 @@ class AIService:
         """Extract variables from AI response to fit into a template."""
         try:
             # Ask GPT to extract variables
+            api_key = os.getenv('OPENAI_API_KEY')
+            if not api_key:
+                raise ValueError("No OpenAI API key found in environment variables")
+            openai.api_key = api_key
+            
             response = await openai.chat.completions.create(
                 model="gpt-4",
                 messages=[
