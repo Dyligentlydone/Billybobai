@@ -27,18 +27,45 @@ def get_db():
 @workflow_bp.route('/api/workflows', methods=['GET'])
 def get_workflows():
     logger.info("GET /api/workflows endpoint called")
-    db = get_db()
-    with current_app.app_context():
-        workflows = Workflow.query.all()
-        return jsonify([{
-            '_id': str(workflow.id),
-            'name': workflow.name,
-            'status': workflow.status,
-            'actions': workflow.actions,
-            'conditions': workflow.conditions,
-            'createdAt': workflow.created_at.isoformat(),
-            'updatedAt': workflow.updated_at.isoformat()
-        } for workflow in workflows])
+    try:
+        db = get_db()
+        with current_app.app_context():
+            try:
+                # Check if we can actually query the database
+                from sqlalchemy import text
+                test_result = db.session.execute(text("SELECT 1")).fetchone()
+                logger.info(f"Database connection test: {test_result}")
+                
+                # List all tables to verify schema
+                inspector = db.inspect(db.engine)
+                all_tables = inspector.get_table_names()
+                logger.info(f"Database tables: {all_tables}")
+                
+                workflows = Workflow.query.all()
+                logger.info(f"Found {len(workflows)} workflows")
+                
+                # Return empty list instead of 404 if no workflows found
+                return jsonify([{
+                    '_id': str(workflow.id),
+                    'name': workflow.name,
+                    'status': workflow.status,
+                    'actions': workflow.actions,
+                    'conditions': workflow.conditions,
+                    'createdAt': workflow.created_at.isoformat(),
+                    'updatedAt': workflow.updated_at.isoformat()
+                } for workflow in workflows])
+            except Exception as e:
+                logger.error(f"Error querying workflows: {str(e)}")
+                import traceback
+                logger.error(traceback.format_exc())
+                # Return empty array on error to prevent frontend breakage
+                return jsonify([])
+    except Exception as e:
+        logger.error(f"Error in get_workflows route: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        # Return empty array on error to prevent frontend breakage
+        return jsonify([])
 
 @workflow_bp.route('/api/workflows/<workflow_id>', methods=['GET'])
 def get_workflow(workflow_id):
