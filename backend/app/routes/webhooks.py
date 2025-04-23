@@ -200,3 +200,68 @@ async def zendesk_webhook():
         return jsonify({"status": "processed"}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@webhooks.route('/api/sms/webhook/<business_id>', methods=['POST'])
+@verify_twilio_signature
+async def business_specific_webhook(business_id):
+    """Handle incoming Twilio webhooks for a specific business."""
+    try:
+        # Get message details
+        message_type = request.form.get('MessageType', 'sms')
+        from_number = request.form.get('From')
+        body = request.form.get('Body', '')
+        
+        logger.info(f"Received SMS webhook for business ID: {business_id}")
+        logger.info(f"From: {from_number}, Body: {body}")
+        
+        # Lookup the workflow for this business
+        from app.models.workflow import Workflow
+        from app.models.business import Business
+        db = get_db()
+        
+        with current_app.app_context():
+            # Find active workflow for this business
+            workflow = Workflow.query.filter_by(
+                business_id=business_id,
+                status='ACTIVE'
+            ).first()
+            
+            if not workflow:
+                logger.error(f"No active workflow found for business ID: {business_id}")
+                # Return a basic response if no workflow is configured
+                response = MessagingResponse()
+                response.message("Thank you for your message. A representative will get back to you soon.")
+                return str(response)
+            
+            # Process the message using the AI service
+            if body:
+                # Generate AI response based on workflow configuration
+                workflow_response = await ai_service.analyze_requirements(body, workflow.actions)
+                
+                # Get response text from AI or fallback message
+                response_text = (workflow_response.get('message') or 
+                                workflow.actions.get('twilio', {}).get('fallbackMessage') or
+                                "Thank you for your message. We'll respond shortly.")
+                
+                # Create Twilio response
+                response = MessagingResponse()
+                response.message(response_text)
+                
+                # Log successful response
+                logger.info(f"Successfully processed message for business ID: {business_id}")
+                return str(response)
+            
+            # Basic response for empty messages
+            response = MessagingResponse()
+            response.message("We've received your message. How can we help you today?")
+            return str(response)
+            
+    except Exception as e:
+        logger.error(f"Error processing business-specific webhook: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        
+        # Return a basic response in case of errors
+        response = MessagingResponse()
+        response.message("Thank you for your message. A representative will get back to you soon.")
+        return str(response)
