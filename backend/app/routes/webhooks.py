@@ -210,12 +210,13 @@ async def business_specific_webhook(business_id):
         from_number = request.form.get('From')
         body = request.form.get('Body', '')
         
-        logger.info(f"Received SMS webhook for business ID: {business_id}")
-        logger.info(f"From: {from_number}, Body: {body}")
+        logger.info(f"##########################################")
+        logger.info(f"RECEIVED SMS WEBHOOK - BUSINESS ID: {business_id}")
+        logger.info(f"FROM: {from_number}, BODY: {body}")
         
         # Log all request details for debugging
-        logger.info(f"Request headers: {dict(request.headers)}")
-        logger.info(f"Request form data: {dict(request.form)}")
+        logger.info(f"REQUEST HEADERS: {dict(request.headers)}")
+        logger.info(f"REQUEST FORM DATA: {dict(request.form)}")
         
         # Lookup the workflow for this business
         from app.models.workflow import Workflow
@@ -230,13 +231,21 @@ async def business_specific_webhook(business_id):
             ).first()
             
             if not workflow:
-                logger.error(f"No active workflow found for business ID: {business_id}")
+                logger.error(f"NO ACTIVE WORKFLOW FOUND FOR BUSINESS ID: {business_id}")
                 # Return a basic response if no workflow is configured
                 response = MessagingResponse()
                 response.message("Thank you for your message. A representative will get back to you soon.")
                 return str(response)
             
-            logger.info(f"Found active workflow: {workflow.id} with actions: {workflow.actions}")
+            logger.info(f"FOUND ACTIVE WORKFLOW: {workflow.id}")
+            logger.info(f"WORKFLOW ACTIONS: {workflow.actions}")
+            
+            # Check if OpenAI API key exists in the workflow config
+            openai_key = workflow.actions.get('aiTraining', {}).get('openAIKey')
+            twilioConfig = workflow.actions.get('twilio', {})
+            
+            logger.info(f"OPENAI KEY AVAILABLE: {'YES' if openai_key else 'NO'}")
+            logger.info(f"TWILIO CONFIG: {twilioConfig}")
             
             # Process the message using the AI service
             if body:
@@ -249,9 +258,9 @@ async def business_specific_webhook(business_id):
                 
                 try:
                     # Generate AI response based on workflow configuration
-                    logger.info("Calling AI service to generate response...")
+                    logger.info("CALLING AI SERVICE TO GENERATE RESPONSE...")
                     workflow_response = await ai_service.analyze_requirements(body, workflow.actions)
-                    logger.info(f"AI service response: {workflow_response}")
+                    logger.info(f"AI SERVICE RESPONSE: {workflow_response}")
                     
                     # Get response text from AI or fallback message
                     response_text = (workflow_response.get('message') or 
@@ -264,12 +273,12 @@ async def business_specific_webhook(business_id):
                     response.message(response_text)
                     
                     # Log successful response
-                    logger.info(f"Successfully processed message for business ID: {business_id}")
+                    logger.info(f"SUCCESSFULLY PROCESSED MESSAGE FOR BUSINESS ID: {business_id}")
                     return str(response)
-                except Exception as process_error:
-                    logger.error(f"Error processing message with AI: {str(process_error)}")
+                except Exception as ai_error:
+                    logger.error(f"AI SERVICE ERROR: {str(ai_error)}")
                     import traceback
-                    logger.error(traceback.format_exc())
+                    logger.error(f"AI SERVICE TRACEBACK: {traceback.format_exc()}")
                     
                     # Use fallback message from workflow if available
                     fallback_message = (workflow.actions.get('twilio', {}).get('fallbackMessage') or
@@ -286,9 +295,9 @@ async def business_specific_webhook(business_id):
             return str(response)
             
     except Exception as e:
-        logger.error(f"Error processing business-specific webhook: {str(e)}")
+        logger.error(f"ERROR PROCESSING BUSINESS-SPECIFIC WEBHOOK: {str(e)}")
         import traceback
-        logger.error(traceback.format_exc())
+        logger.error(f"TRACEBACK: {traceback.format_exc()}")
         
         # Return a basic response in case of errors
         response = MessagingResponse()

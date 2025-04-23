@@ -2,6 +2,8 @@ import os
 from typing import Dict, List, Optional, Union
 import openai
 from pydantic import BaseModel
+import json
+import logging
 
 class WorkflowConfig(BaseModel):
     twilio: Dict[str, str] = {}
@@ -18,49 +20,92 @@ class AIService:
     async def analyze_requirements(self, description: str, actions=None) -> Union[WorkflowConfig, Dict]:
         """Analyze natural language requirements and generate workflow configuration or response."""
         try:
-            # If actions is provided, we're in SMS response mode (not config generation)
+            # Enhanced logging for troubleshooting
+            logger = logging.getLogger(__name__)
+            logger.info(f"AI Service analyzing: {description[:50]}...")
+            logger.info(f"Actions provided: {bool(actions)}")
+            
+            # Handle SMS response generation with actions provided from workflow
             if actions:
-                # Use the provided workflow actions to generate a response to the SMS
-                # Extract OpenAI API key from the workflow configuration
-                ai_settings = actions.get('aiTraining', {})
-                api_key = ai_settings.get('openAIKey')
+                # Extract OpenAI API key from actions
+                api_key = actions.get('aiTraining', {}).get('openAIKey')
+                logger.info(f"Using OpenAI key from workflow config: {'Available' if api_key else 'Missing'}")
                 
-                # If no API key in the workflow, try environment variable as fallback
                 if not api_key:
-                    api_key = os.getenv('OPENAI_API_KEY')
-                    if not api_key:
-                        raise ValueError("No OpenAI API key found in workflow config or environment variables")
+                    # Try to find API key in other possible locations in the config
+                    api_key = (
+                        actions.get('openAIKey') or 
+                        actions.get('ai', {}).get('apiKey') or
+                        os.getenv('OPENAI_API_KEY')
+                    )
+                    logger.info(f"Fallback OpenAI key found: {'Yes' if api_key else 'No'}")
                 
-                # Set the API key for this request
-                openai.api_key = api_key
+                if not api_key:
+                    logger.error("No OpenAI API key found in workflow config or environment")
+                    return {"message": "I apologize, but I'm unable to process your request at this time."}
                 
-                # Extract prompt from the workflow configuration if available
-                prompt = actions.get('twilio', {}).get('prompt', '')
+                # Set up OpenAI with the workflow's API key
+                logger.info("Setting up OpenAI client with workflow API key")
+                client = openai.OpenAI(api_key=api_key)
                 
-                if not prompt:
-                    # Fallback to creating a generic prompt
-                    brand_tone = actions.get('brandTone', {}).get('voiceType', 'professional')
-                    prompt = f"You are a {brand_tone} AI assistant responding to customer SMS messages."
+                # Build system prompt from brand voice settings
+                brand_tone = actions.get('brandTone', {})
+                voice_type = brand_tone.get('voiceType', 'professional')
+                greetings = brand_tone.get('greetings', [])
+                words_to_avoid = brand_tone.get('wordsToAvoid', [])
                 
-                # Set up context from the workflow actions
-                system_prompt = f"{prompt}\n\nRespond to the customer message briefly and professionally."
+                # Build context from various config settings
+                context_data = actions.get('context', {})
+                qa_pairs = actions.get('aiTraining', {}).get('qaPairs', [])
                 
-                # Use OpenAI to generate a response
-                response = openai.chat.completions.create(
-                    model=ai_settings.get('openAIModel', 'gpt-4'),
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": description}
-                    ],
-                    temperature=actions.get('temperature', 0.7),
-                    max_tokens=300  # Keep SMS responses brief
-                )
+                # Create a comprehensive system prompt
+                system_prompt = f"""
+                You are an AI assistant providing {voice_type} responses via SMS.
                 
-                # Return the AI generated message
-                return {
-                    "message": response.choices[0].message.content.strip(),
-                    "twilio": True  # Indicate this is a Twilio response
-                }
+                Voice Guidelines:
+                - Use a {voice_type} tone
+                - Greetings to use: {', '.join(greetings) if greetings else 'Be natural and friendly'}
+                - Words to avoid: {', '.join(words_to_avoid) if words_to_avoid else 'N/A'}
+                - Keep responses under 160 characters when possible
+                - Be helpful, concise, and accurate
+                
+                FAQ Knowledge:
+                {json.dumps(qa_pairs) if qa_pairs else "No specific FAQ data provided."}
+                
+                Context Information:
+                {json.dumps(context_data) if context_data else "No specific context provided."}
+                
+                Respond directly to the user's message.
+                """
+                
+                logger.info(f"Using system prompt: {system_prompt[:100]}...")
+                
+                # Call OpenAI API with explicit client
+                try:
+                    logger.info("Making OpenAI API call...")
+                    response = client.chat.completions.create(
+                        model="gpt-4",
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": description}
+                        ],
+                        temperature=actions.get('temperature', 0.7),
+                        max_tokens=300  # Keep SMS responses brief
+                    )
+                    logger.info("OpenAI API call successful")
+                    
+                    # Return the AI generated message
+                    return {
+                        "message": response.choices[0].message.content.strip(),
+                        "twilio": True  # Indicate this is a Twilio response
+                    }
+                except Exception as openai_error:
+                    logger.error(f"OpenAI API error: {str(openai_error)}")
+                    # Return a structured error response
+                    return {
+                        "message": "I apologize, but I'm having trouble responding right now. Please try again later.",
+                        "error": str(openai_error)
+                    }
             
             # Original workflow config generation logic
             api_key = os.getenv('OPENAI_API_KEY')
@@ -84,7 +129,6 @@ class AIService:
             return workflow
         except Exception as e:
             # Log the error but return a fallback response to prevent system failures
-            import logging
             logger = logging.getLogger(__name__)
             logger.error(f"Failed to analyze requirements: {str(e)}")
             

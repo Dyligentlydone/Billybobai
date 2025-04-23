@@ -1,8 +1,12 @@
 from typing import Dict, Optional
 import os
+import logging
 from twilio.rest import Client
 from twilio.base.exceptions import TwilioRestException
 from pydantic import BaseModel
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 class MessageRequest(BaseModel):
     to: str
@@ -47,82 +51,185 @@ class TwilioService:
             else:
                 raise ValueError(f"Unsupported message type: {request.type}")
         except TwilioRestException as e:
+            logger.error(f"TWILIO ERROR: {str(e)}")
+            error_details = {
+                "code": e.code,
+                "status": e.status,
+                "message": str(e),
+                "to": request.to,
+                "from": self.phone_number
+            }
+            logger.error(f"TWILIO ERROR DETAILS: {error_details}")
             raise Exception(f"Twilio error: {str(e)}")
+        except Exception as e:
+            logger.error(f"UNEXPECTED ERROR SENDING MESSAGE: {str(e)}")
+            import traceback
+            logger.error(f"TRACEBACK: {traceback.format_exc()}")
+            raise Exception(f"Unexpected error: {str(e)}")
 
     async def _send_sms(self, request: MessageRequest) -> Dict:
         """Send SMS message."""
-        message = await self.client.messages.create(
-            to=request.to,
-            from_=self.phone_number,
-            body=request.message,
-            media_url=[request.media_url] if request.media_url else None
-        )
-        return {
-            "sid": message.sid,
-            "status": message.status,
-            "type": "sms"
-        }
+        try:
+            logger.info(f"SENDING SMS TO: {request.to}")
+            logger.info(f"MESSAGE: {request.message}")
+            logger.info(f"FROM NUMBER: {self.phone_number}")
+            
+            message = await self.client.messages.create(
+                to=request.to,
+                from_=self.phone_number,
+                body=request.message,
+                media_url=[request.media_url] if request.media_url else None
+            )
+            
+            logger.info(f"SMS SENT SUCCESSFULLY - SID: {message.sid}")
+            return {
+                "sid": message.sid,
+                "status": message.status,
+                "type": "sms"
+            }
+        except TwilioRestException as e:
+            logger.error(f"TWILIO ERROR: {str(e)}")
+            error_details = {
+                "code": e.code,
+                "status": e.status,
+                "message": str(e),
+                "to": request.to,
+                "from": self.phone_number
+            }
+            logger.error(f"TWILIO ERROR DETAILS: {error_details}")
+            return {"error": str(e), "details": error_details}
+        except Exception as e:
+            logger.error(f"UNEXPECTED ERROR SENDING SMS: {str(e)}")
+            import traceback
+            logger.error(f"TRACEBACK: {traceback.format_exc()}")
+            return {"error": str(e)}
 
     async def _send_whatsapp(self, request: MessageRequest) -> Dict:
         """Send WhatsApp message."""
-        message = await self.client.messages.create(
-            to=f"whatsapp:{request.to}",
-            from_=f"whatsapp:{self.phone_number}",
-            body=request.message,
-            media_url=[request.media_url] if request.media_url else None
-        )
-        return {
-            "sid": message.sid,
-            "status": message.status,
-            "type": "whatsapp"
-        }
+        try:
+            logger.info(f"SENDING WHATSAPP TO: {request.to}")
+            logger.info(f"MESSAGE: {request.message}")
+            logger.info(f"FROM NUMBER: {self.phone_number}")
+            
+            message = await self.client.messages.create(
+                to=f"whatsapp:{request.to}",
+                from_=f"whatsapp:{self.phone_number}",
+                body=request.message,
+                media_url=[request.media_url] if request.media_url else None
+            )
+            
+            logger.info(f"WHATSAPP SENT SUCCESSFULLY - SID: {message.sid}")
+            return {
+                "sid": message.sid,
+                "status": message.status,
+                "type": "whatsapp"
+            }
+        except TwilioRestException as e:
+            logger.error(f"TWILIO ERROR: {str(e)}")
+            error_details = {
+                "code": e.code,
+                "status": e.status,
+                "message": str(e),
+                "to": request.to,
+                "from": self.phone_number
+            }
+            logger.error(f"TWILIO ERROR DETAILS: {error_details}")
+            return {"error": str(e), "details": error_details}
+        except Exception as e:
+            logger.error(f"UNEXPECTED ERROR SENDING WHATSAPP: {str(e)}")
+            import traceback
+            logger.error(f"TRACEBACK: {traceback.format_exc()}")
+            return {"error": str(e)}
 
     async def _make_call(self, request: MessageRequest) -> Dict:
         """Make voice call with TwiML."""
-        twiml = f"""
-        <?xml version="1.0" encoding="UTF-8"?>
-        <Response>
-            <Say>{request.message}</Say>
-        </Response>
-        """
-        call = await self.client.calls.create(
-            to=request.to,
-            from_=self.phone_number,
-            twiml=twiml
-        )
-        return {
-            "sid": call.sid,
-            "status": call.status,
-            "type": "voice"
-        }
+        try:
+            logger.info(f"MAKING CALL TO: {request.to}")
+            logger.info(f"MESSAGE: {request.message}")
+            logger.info(f"FROM NUMBER: {self.phone_number}")
+            
+            twiml = f"""
+            <?xml version="1.0" encoding="UTF-8"?>
+            <Response>
+                <Say>{request.message}</Say>
+            </Response>
+            """
+            call = await self.client.calls.create(
+                to=request.to,
+                from_=self.phone_number,
+                twiml=twiml
+            )
+            
+            logger.info(f"CALL MADE SUCCESSFULLY - SID: {call.sid}")
+            return {
+                "sid": call.sid,
+                "status": call.status,
+                "type": "voice"
+            }
+        except TwilioRestException as e:
+            logger.error(f"TWILIO ERROR: {str(e)}")
+            error_details = {
+                "code": e.code,
+                "status": e.status,
+                "message": str(e),
+                "to": request.to,
+                "from": self.phone_number
+            }
+            logger.error(f"TWILIO ERROR DETAILS: {error_details}")
+            return {"error": str(e), "details": error_details}
+        except Exception as e:
+            logger.error(f"UNEXPECTED ERROR MAKING CALL: {str(e)}")
+            import traceback
+            logger.error(f"TRACEBACK: {traceback.format_exc()}")
+            return {"error": str(e)}
 
     async def _create_flex_task(self, request: MessageRequest) -> Dict:
         """Create Flex task for chat/messaging."""
-        channel = await self.client.flex.v1.channels.create(
-            flex_flow_sid=self.flex_flow_sid,
-            identity=request.to,
-            chat_friendly_name=f"Chat with {request.to}"
-        )
-
-        # Create task for the channel
-        task = await self.client.taskrouter.workspaces(os.getenv('TWILIO_WORKSPACE_SID')) \
-            .tasks \
-            .create(
-                workflow_sid=os.getenv('TWILIO_WORKFLOW_SID'),
-                channel_sid=channel.sid,
-                attributes={
-                    "type": "flex",
-                    "name": request.to,
-                    "message": request.message
-                }
+        try:
+            logger.info(f"CREATING FLEX TASK FOR: {request.to}")
+            logger.info(f"MESSAGE: {request.message}")
+            
+            channel = await self.client.flex.v1.channels.create(
+                flex_flow_sid=self.flex_flow_sid,
+                identity=request.to,
+                chat_friendly_name=f"Chat with {request.to}"
             )
 
-        return {
-            "sid": task.sid,
-            "channel_sid": channel.sid,
-            "status": task.assignment_status,
-            "type": "flex"
-        }
+            # Create task for the channel
+            task = await self.client.taskrouter.workspaces(os.getenv('TWILIO_WORKSPACE_SID')) \
+                .tasks \
+                .create(
+                    workflow_sid=os.getenv('TWILIO_WORKFLOW_SID'),
+                    channel_sid=channel.sid,
+                    attributes={
+                        "type": "flex",
+                        "name": request.to,
+                        "message": request.message
+                    }
+                )
+
+            logger.info(f"FLEX TASK CREATED SUCCESSFULLY - SID: {task.sid}")
+            return {
+                "sid": task.sid,
+                "channel_sid": channel.sid,
+                "status": task.assignment_status,
+                "type": "flex"
+            }
+        except TwilioRestException as e:
+            logger.error(f"TWILIO ERROR: {str(e)}")
+            error_details = {
+                "code": e.code,
+                "status": e.status,
+                "message": str(e),
+                "to": request.to
+            }
+            logger.error(f"TWILIO ERROR DETAILS: {error_details}")
+            return {"error": str(e), "details": error_details}
+        except Exception as e:
+            logger.error(f"UNEXPECTED ERROR CREATING FLEX TASK: {str(e)}")
+            import traceback
+            logger.error(f"TRACEBACK: {traceback.format_exc()}")
+            return {"error": str(e)}
 
     def validate_webhook(self, request_data: Dict) -> bool:
         """Validate incoming webhook request from Twilio."""
