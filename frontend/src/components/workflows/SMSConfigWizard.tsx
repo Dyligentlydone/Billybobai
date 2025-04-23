@@ -309,14 +309,20 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
         // Try to extract the SMS configuration from the existing workflow
         const actions = existingData.actions || {};
         console.log('Extracted actions:', actions);
-        const twilioConfig = actions.twilio || {};
+        
+        // Handle either structure - direct actions or nested under 'sms'
+        const smsActions = actions.sms || {};
+        console.log('SMS actions:', smsActions);
+        
+        // Use either direct properties or ones nested under 'sms'
+        const twilioConfig = actions.twilio || smsActions.twilio || {};
         console.log('Extracted twilioConfig:', twilioConfig);
-        const brandTone = actions.brandTone || {};
-        const aiTraining = actions.aiTraining || {};
-        const context = actions.context || {};
-        const response = actions.response || {};
-        const monitoring = actions.monitoring || {};
-        const systemIntegration = actions.systemIntegration || {};
+        const brandTone = actions.brandTone || smsActions.brandTone || {};
+        const aiTraining = actions.aiTraining || smsActions.aiTraining || {};
+        const context = actions.context || smsActions.context || {};
+        const response = actions.response || smsActions.response || {};
+        const monitoring = actions.monitoring || smsActions.monitoring || {};
+        const systemIntegration = actions.systemIntegration || smsActions.systemIntegration || {};
         
         // Create a config object from the existing data
         const existingConfig: Config = {
