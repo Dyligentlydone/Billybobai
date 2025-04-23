@@ -94,15 +94,17 @@ const Workflows: React.FC = () => {
 
   const handleEditWorkflow = async (id: string) => {
     try {
+      console.log("Fetching workflow data for ID:", id);
       const workflowData = await fetchWorkflowData(id);
+      console.log("Received workflow data:", JSON.stringify(workflowData, null, 2));
       
       // Check workflow type to determine which editor to show
       if (workflowData.name && workflowData.name.toLowerCase().includes('sms')) {
-        // For SMS workflows, load the SMSConfigWizard with existing data
+        console.log("Loading SMS workflow in SMSConfigWizard");
         setSelectedWorkflowData(workflowData);
         setShowSMSWizard(true);
       } else {
-        // For other workflows, use the standard workflow builder
+        console.log("Loading workflow in WorkflowBuilder");
         setSelectedWorkflow(id);
       }
     } catch (error) {

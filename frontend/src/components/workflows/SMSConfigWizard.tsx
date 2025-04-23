@@ -301,12 +301,16 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
 
   // Load existing data when editing a workflow
   useEffect(() => {
+    console.log("SMSConfigWizard received existingData:", existingData);
+    
     if (existingData) {
-      console.log('Loading existing workflow data:', existingData);
+      console.log('Loading existing workflow data in SMSConfigWizard');
       try {
         // Try to extract the SMS configuration from the existing workflow
         const actions = existingData.actions || {};
+        console.log('Extracted actions:', actions);
         const twilioConfig = actions.twilio || {};
+        console.log('Extracted twilioConfig:', twilioConfig);
         const brandTone = actions.brandTone || {};
         const aiTraining = actions.aiTraining || {};
         const context = actions.context || {};
@@ -1686,7 +1690,9 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
               />
               <span className="text-sm text-gray-500">ms</span>
             </div>
-            <p className="mt-1 text-xs text-gray-500">Alert if response takes longer than this</p>
+            <p className="mt-1 text-xs text-gray-500">
+              Alert if response takes longer than this
+            </p>
           </div>
 
           <div>
@@ -1711,7 +1717,9 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
               />
               <span className="text-sm text-gray-500">%</span>
             </div>
-            <p className="mt-1 text-xs text-gray-500">Alert if error rate exceeds this percentage</p>
+            <p className="mt-1 text-xs text-gray-500">
+              Alert if error rate exceeds this percentage
+            </p>
           </div>
 
           <div>
