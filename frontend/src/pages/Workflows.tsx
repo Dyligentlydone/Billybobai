@@ -36,12 +36,23 @@ const Workflows: React.FC = () => {
   const queryClient = useQueryClient();
 
   const fetchWorkflows = async () => {
-    const response = await axios.get<Workflow[]>('/api/workflows');
-    return response.data.map(workflow => ({
-      ...workflow,
-      // Normalize status values to match UI expectations
-      status: (workflow.status || '').toUpperCase() as WorkflowStatus
-    }));
+    try {
+      // Use the relative URL which will work with your CORS configuration
+      const apiUrl = '/api/workflows';
+      
+      console.log('Fetching workflows from:', apiUrl);
+      const response = await axios.get<Workflow[]>(apiUrl);
+      
+      console.log('Workflows response:', response.data);
+      return response.data.map(workflow => ({
+        ...workflow,
+        // Normalize status values to match UI expectations
+        status: (workflow.status || '').toUpperCase() as WorkflowStatus
+      }));
+    } catch (err) {
+      console.error('Error fetching workflows:', err);
+      throw err;
+    }
   };
 
   const { data: workflows, isLoading, error } = useQuery<Workflow[], AxiosError>(
