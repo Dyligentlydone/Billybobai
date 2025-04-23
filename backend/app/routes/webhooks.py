@@ -201,22 +201,40 @@ async def zendesk_webhook():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@webhooks.route('/api/sms/webhook/<business_id>', methods=['POST'])
+@webhooks.route('/api/sms/webhook/<business_id>', methods=['POST', 'GET'])
 async def business_specific_webhook(business_id):
     """Handle incoming Twilio webhooks for a specific business."""
     try:
-        # Get message details
-        message_type = request.form.get('MessageType', 'sms')
-        from_number = request.form.get('From')
-        body = request.form.get('Body', '')
-        
+        # Log that the endpoint was reached
         logger.info(f"##########################################")
-        logger.info(f"RECEIVED SMS WEBHOOK - BUSINESS ID: {business_id}")
-        logger.info(f"FROM: {from_number}, BODY: {body}")
+        logger.info(f"SMS WEBHOOK ENDPOINT REACHED - Method: {request.method}")
+        logger.info(f"REQUEST URL: {request.url}")
+        logger.info(f"BUSINESS ID: {business_id}")
         
-        # Log all request details for debugging
-        logger.info(f"REQUEST HEADERS: {dict(request.headers)}")
-        logger.info(f"REQUEST FORM DATA: {dict(request.form)}")
+        # Log all headers for complete debugging
+        logger.info(f"COMPLETE REQUEST HEADERS:")
+        for header, value in request.headers.items():
+            logger.info(f"  {header}: {value}")
+            
+        # Get message details, handle both POST and GET
+        if request.method == 'POST':
+            logger.info(f"FORM DATA: {dict(request.form)}")
+            from_number = request.form.get('From')
+            body = request.form.get('Body', '')
+        else:  # GET
+            logger.info(f"QUERY PARAMS: {dict(request.args)}")
+            from_number = request.args.get('From')
+            body = request.args.get('Body', '')
+            
+        logger.info(f"FROM NUMBER: {from_number}")
+        logger.info(f"MESSAGE BODY: {body}")
+        
+        # If no message content, give a basic response
+        if not from_number or not body:
+            logger.info("No message content - returning default response")
+            response = MessagingResponse()
+            response.message("Hello! Thanks for contacting us. How can we help?")
+            return str(response)
         
         # Lookup the workflow for this business
         from app.models.workflow import Workflow
