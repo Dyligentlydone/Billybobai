@@ -25,7 +25,7 @@ def create_app():
         "http://localhost:3000",
         "http://127.0.0.1:5173",  # Add IP equivalents for local development
         "http://127.0.0.1:3000"
-    ], supports_credentials=True)
+    ], supports_credentials=True, allow_headers=["Content-Type", "Authorization", "Accept"])
 
     # Log environment variables (excluding sensitive ones)
     logger.info("Environment:")

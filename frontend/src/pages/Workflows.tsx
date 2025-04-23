@@ -9,11 +9,18 @@ import { VoiceWizard } from '../components/wizard/VoiceWizard';
 import { WizardProvider } from '../contexts/WizardContext';
 import { Dialog, DialogContent, DialogActions, Button } from '@mui/material';
 
-// Configure axios for CORS
-axios.defaults.withCredentials = true;
-
 // API URL configuration
 const API_BASE_URL = 'https://billybobai-production.up.railway.app';
+
+// Create axios instance with consistent configuration
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  withCredentials: true,
+  headers: {
+    'Accept': 'application/json',
+    'Content-Type': 'application/json'
+  }
+});
 
 type WorkflowStatus = 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
 
@@ -41,16 +48,9 @@ const Workflows: React.FC = () => {
 
   const fetchWorkflows = async () => {
     try {
-      // Use the full API URL to bypass CORS issues
-      const apiUrl = `${API_BASE_URL}/api/workflows`;
-      
-      console.log('Fetching workflows from:', apiUrl);
-      const response = await axios.get(apiUrl, {
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        }
-      });
+      console.log('Fetching workflows from API');
+      // Use the axios instance with proper credential handling
+      const response = await api.get('/api/workflows');
       
       // Enhanced logging to debug the response
       console.log('Workflows raw response:', response);
@@ -153,7 +153,7 @@ const Workflows: React.FC = () => {
 
   const fetchWorkflowData = async (id: string) => {
     try {
-      const { data } = await axios.get(`${API_BASE_URL}/api/workflows/${id}`);
+      const { data } = await api.get(`/api/workflows/${id}`);
       console.log("Fetched workflow data:", data);
       return data;
     } catch (err) {
@@ -191,7 +191,7 @@ const Workflows: React.FC = () => {
     try {
       console.log("Deleting workflow with ID:", id);
       
-      const response = await axios.delete(`${API_BASE_URL}/api/workflows/${id}`);
+      const response = await api.delete(`/api/workflows/${id}`);
       console.log("Delete response:", response.status);
       
       if (response.status === 204) {
