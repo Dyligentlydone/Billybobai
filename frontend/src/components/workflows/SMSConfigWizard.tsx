@@ -891,6 +891,32 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
           const responseData = await response.json();
           console.log('Success response:', responseData);
           
+          // Get the workflow ID from the response
+          const workflowId = responseData._id || responseData.id;
+          
+          if (workflowId) {
+            // Call the activation endpoint to change status from draft to active
+            console.log('Activating workflow:', workflowId);
+            try {
+              const activateUrl = `${BACKEND_URL}/api/workflows/${workflowId}/activate`;
+              const activateResponse = await fetch(activateUrl, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Accept': 'application/json',
+                },
+              });
+              
+              if (activateResponse.ok) {
+                console.log('Workflow activated successfully');
+              } else {
+                console.error('Failed to activate workflow:', await activateResponse.text());
+              }
+            } catch (activateError) {
+              console.error('Error activating workflow:', activateError);
+            }
+          }
+          
           // Call the onComplete callback with the final config
           const completeConfig = {
             ...config,

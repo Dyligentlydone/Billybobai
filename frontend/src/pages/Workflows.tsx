@@ -50,19 +50,36 @@ const Workflows: React.FC = () => {
   );
 
   const handleSMSConfigComplete = (config: any) => {
+    // Fix the structure mismatch - check both possible locations for twilio data
+    // This makes the component more robust to different data structures
+    const twilioConfig = config.twilio || {};
+    const integrationConfig = config.integration || {};
+    
+    // Get the phone number from either location
+    const phoneNumber = twilioConfig.phoneNumber || 
+                         twilioConfig.twilioPhoneNumber || 
+                         integrationConfig.twilioPhoneNumber || 
+                         integrationConfig.phoneNumber || '';
+    
+    // Get voice type from the right location
+    const voiceType = (config.brandTone || {}).voiceType || 'professional';
+    const greetings = (config.brandTone || {}).greetings || [];
+    const wordsToAvoid = (config.brandTone || {}).wordsToAvoid || [];
+    const businessHours = ((config.templates || {}).businessHours) || '{}';
+                           
     setSMSConfig({
       twilio: {
         type: 'sms',
         aiEnabled: 'true',
-        phoneNumber: config.integration.twilioPhoneNumber,
-        prompt: `You are an AI assistant for ${config.brandTone.voiceType} communication via SMS. Guidelines:
-          - Voice: ${config.brandTone.voiceType}
-          - Greetings: ${config.brandTone.greetings.join(', ')}
-          - Avoid: ${config.brandTone.wordsToAvoid.join(', ')}
+        phoneNumber: phoneNumber,
+        prompt: `You are an AI assistant for ${voiceType} communication via SMS. Guidelines:
+          - Voice: ${voiceType}
+          - Greetings: ${greetings.join(', ')}
+          - Avoid: ${wordsToAvoid.join(', ')}
           - Response time target: 5 seconds
           - Keep responses under 160 characters when possible
           - Use fallback message if unable to respond
-          - Respect business hours: ${JSON.stringify(config.templates.businessHours)}`,
+          - Respect business hours: ${JSON.stringify(businessHours)}`,
       },
       instructions: [
         'Configure Twilio webhook URL',
