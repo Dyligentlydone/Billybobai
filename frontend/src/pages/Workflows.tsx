@@ -9,6 +9,12 @@ import { VoiceWizard } from '../components/wizard/VoiceWizard';
 import { WizardProvider } from '../contexts/WizardContext';
 import { Dialog, DialogContent, DialogActions, Button } from '@mui/material';
 
+// Configure axios for CORS
+axios.defaults.withCredentials = true;
+
+// API URL configuration
+const API_BASE_URL = 'https://billybobai-production.up.railway.app';
+
 type WorkflowStatus = 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
 
 interface Workflow {
@@ -19,8 +25,6 @@ interface Workflow {
   updatedAt: string;
   [key: string]: any; // To allow for additional properties
 }
-
-const API_URL = import.meta.env.VITE_BACKEND_URL || 'https://billybobai-production.up.railway.app';
 
 const Workflows: React.FC = () => {
   const [selectedWorkflow, setSelectedWorkflow] = useState<string | null>(null);
@@ -37,13 +41,24 @@ const Workflows: React.FC = () => {
 
   const fetchWorkflows = async () => {
     try {
-      // Use the relative URL which will work with your CORS configuration
-      const apiUrl = '/api/workflows';
+      // Use the full API URL to bypass CORS issues
+      const apiUrl = `${API_BASE_URL}/api/workflows`;
       
       console.log('Fetching workflows from:', apiUrl);
-      const response = await axios.get<Workflow[]>(apiUrl);
+      const response = await axios.get(apiUrl, {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
       
       console.log('Workflows response:', response.data);
+      
+      if (!response.data || !Array.isArray(response.data)) {
+        console.error('Invalid response format:', response.data);
+        return [];
+      }
+      
       return response.data.map(workflow => ({
         ...workflow,
         // Normalize status values to match UI expectations
@@ -51,7 +66,8 @@ const Workflows: React.FC = () => {
       }));
     } catch (err) {
       console.error('Error fetching workflows:', err);
-      throw err;
+      // Return empty array instead of throwing to prevent UI breakage
+      return [];
     }
   };
 
@@ -119,7 +135,7 @@ const Workflows: React.FC = () => {
 
   const fetchWorkflowData = async (id: string) => {
     try {
-      const { data } = await axios.get(`${API_URL}/api/workflows/${id}`);
+      const { data } = await axios.get(`${API_BASE_URL}/api/workflows/${id}`);
       console.log("Fetched workflow data:", data);
       return data;
     } catch (err) {
@@ -157,7 +173,7 @@ const Workflows: React.FC = () => {
     try {
       console.log("Deleting workflow with ID:", id);
       
-      const response = await axios.delete(`${API_URL}/api/workflows/${id}`);
+      const response = await axios.delete(`${API_BASE_URL}/api/workflows/${id}`);
       console.log("Delete response:", response.status);
       
       if (response.status === 204) {

@@ -36,6 +36,14 @@ def create_app():
         else:
             logger.info(f"{var}: {'configured' if os.getenv(var) else 'missing'}")
 
+    # Add CORS debug headers to help troubleshoot frontend issues
+    @app.after_request
+    def add_cors_headers(response):
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type,Authorization'
+        response.headers['Access-Control-Allow-Methods'] = 'GET,PUT,POST,DELETE,OPTIONS'
+        return response
+
     # Configure database
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///whys.db')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
