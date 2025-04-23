@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { useQuery } from 'react-query';
+import { useQuery, useQueryClient } from 'react-query';
 import axios, { AxiosError } from 'axios';
+import toast from 'react-hot-toast';
 import WorkflowBuilder from '../components/workflows/WorkflowBuilder';
 import SMSConfigWizard from '../components/workflows/SMSConfigWizard';
 import EmailConfigWizard from '../components/workflows/EmailConfigWizard';
@@ -27,6 +28,9 @@ const Workflows: React.FC = () => {
   const [smsConfig, setSMSConfig] = useState<any>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+
+  // Initialize the query client for cache invalidation
+  const queryClient = useQueryClient();
 
   const { data: workflows, isLoading, error } = useQuery<Workflow[], AxiosError>(
     'workflows',
@@ -109,6 +113,29 @@ const Workflows: React.FC = () => {
       }
     } catch (error) {
       console.error("Error editing workflow:", error);
+    }
+  };
+
+  // Add function to handle workflow deletion
+  const handleDeleteWorkflow = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this workflow?')) {
+      return;
+    }
+    
+    try {
+      console.log("Deleting workflow with ID:", id);
+      
+      const response = await axios.delete(`${API_URL}/api/workflows/${id}`);
+      console.log("Delete response:", response.status);
+      
+      if (response.status === 204) {
+        // Refetch the workflows list to update the UI
+        queryClient.invalidateQueries('workflows');
+        toast.success('Workflow deleted successfully');
+      }
+    } catch (error) {
+      console.error("Error deleting workflow:", error);
+      toast.error('Failed to delete workflow');
     }
   };
 
@@ -353,6 +380,12 @@ const Workflows: React.FC = () => {
                           >
                             <span className="sr-only">Edit</span>
                           </th>
+                          <th
+                            scope="col"
+                            className="relative py-3.5 pl-3 pr-4 sm:pr-6"
+                          >
+                            <span className="sr-only">Delete</span>
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200 bg-white">
@@ -373,6 +406,14 @@ const Workflows: React.FC = () => {
                                 className="text-indigo-600 hover:text-indigo-900"
                               >
                                 Edit
+                              </button>
+                            </td>
+                            <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                              <button
+                                onClick={() => handleDeleteWorkflow(workflow._id)}
+                                className="text-red-600 hover:text-red-900"
+                              >
+                                Delete
                               </button>
                             </td>
                           </tr>
