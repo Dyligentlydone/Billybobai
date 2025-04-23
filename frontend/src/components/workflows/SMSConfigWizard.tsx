@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 // Instead of importing from config, define URL here for now
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://billybobai-production.up.railway.app';
@@ -134,6 +134,7 @@ interface Config {
 interface Props {
   onComplete: (config: Config) => void;
   onCancel: () => void;
+  existingData?: any;  // Add this prop for editing existing workflows
 }
 
 const INITIAL_CONFIG: Config = {
@@ -262,39 +263,173 @@ const INITIAL_CONFIG: Config = {
   }
 };
 
-export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
+export default function SMSConfigWizard({ onComplete, onCancel, existingData }: Props) {
   const [step, setStep] = useState(1);
   const [config, setConfig] = useState<Config>(INITIAL_CONFIG);
-  const [newGreeting, setNewGreeting] = useState('');
-  const [newPhrase, setNewPhrase] = useState('');
-  const [newWordToAvoid, setNewWordToAvoid] = useState('');
-  
+  const [brandToneState, setBrandToneState] = useState({
+    newGreeting: '',
+    newPhrase: '',
+    newWordToAvoid: ''
+  });
+  const [aiTrainingState, setAiTrainingState] = useState({
+    newQuestion: '',
+    newAnswer: '',
+    newDocName: '',
+    newDocContent: '',
+    newCustomerMessage: '',
+    newAgentResponse: ''
+  });
+  const [contextState, setContextState] = useState({
+    newTrigger: '',
+    newResponse: '',
+    newCategory: '',
+    newContent: '',
+    newIntent: '',
+    newExample: ''
+  });
+  const [responseState, setResponseState] = useState({
+    newTemplateName: '',
+    newTemplateContent: '',
+    newTemplateDescription: '',
+    newTemplateVariables: [] as string[],
+    newVariableName: ''
+  });
+  const [integrationState, setIntegrationState] = useState({
+    businesses: [] as Array<{ id: string; name: string }>,
+    selectedBusinessId: ''
+  });
+
+  // Load existing data when editing a workflow
+  useEffect(() => {
+    if (existingData) {
+      console.log('Loading existing workflow data:', existingData);
+      try {
+        // Try to extract the SMS configuration from the existing workflow
+        const actions = existingData.actions || {};
+        const twilioConfig = actions.twilio || {};
+        const brandTone = actions.brandTone || {};
+        const aiTraining = actions.aiTraining || {};
+        const context = actions.context || {};
+        const response = actions.response || {};
+        const monitoring = actions.monitoring || {};
+        const systemIntegration = actions.systemIntegration || {};
+        
+        // Create a config object from the existing data
+        const existingConfig: Config = {
+          twilio: {
+            businessId: existingData.business_id ? parseInt(existingData.business_id) : 0,
+            accountSid: twilioConfig.accountSid || '',
+            authToken: twilioConfig.authToken || '',
+            phoneNumber: twilioConfig.phoneNumber || twilioConfig.twilioPhoneNumber || '',
+            messagingServiceSid: twilioConfig.messagingServiceSid || '',
+            webhookUrl: twilioConfig.webhookUrl || '',
+            fallbackUrl: twilioConfig.fallbackUrl || '',
+            statusCallback: twilioConfig.statusCallback || '',
+            retryCount: twilioConfig.retryCount || 3
+          },
+          brandTone: {
+            voiceType: brandTone.voiceType || 'professional',
+            greetings: brandTone.greetings || [],
+            phrasingExamples: brandTone.phrasingExamples || [],
+            wordsToAvoid: brandTone.wordsToAvoid || []
+          },
+          aiTraining: {
+            openAIKey: aiTraining.openAIKey || '',
+            qaPairs: aiTraining.qaPairs || [],
+            faqDocuments: aiTraining.faqDocuments || [],
+            chatHistory: aiTraining.chatHistory || []
+          },
+          context: {
+            memoryWindow: context.memoryWindow || 5,
+            contextualTriggers: context.contextualTriggers || [],
+            knowledgeBase: context.knowledgeBase || [],
+            intentExamples: context.intentExamples || []
+          },
+          response: {
+            templates: response.templates || [],
+            fallbackMessage: response.fallbackMessage || 'I apologize, but I am unable to process your request at the moment. Please try again later or contact our support team.',
+            messageStructure: response.messageStructure || [],
+            characterLimit: response.characterLimit || 160
+          },
+          monitoring: {
+            alertThresholds: monitoring.alertThresholds || {
+              responseTime: 5000,
+              errorRate: 5,
+              dailyVolume: 1000
+            },
+            slackNotifications: monitoring.slackNotifications || {
+              enabled: false,
+              webhookUrl: '',
+              channel: 'alerts'
+            },
+            metrics: monitoring.metrics || {
+              responseTime: true,
+              errorRate: true, 
+              messageVolume: true,
+              aiConfidence: false,
+              customerSentiment: false
+            },
+            retention: monitoring.retention || {
+              logsRetentionDays: 30,
+              messageHistoryDays: 90
+            }
+          },
+          systemIntegration: {
+            zendesk: systemIntegration.zendesk || {
+              enabled: false,
+              email: '',
+              apiToken: '',
+              subdomain: '',
+              defaultPriority: 'normal',
+              createTickets: false,
+              updateExisting: false
+            },
+            calendly: systemIntegration.calendly || {
+              enabled: false,
+              access_token: '',
+              user_uri: '',
+              webhook_uri: '',
+              default_event_type: '',
+              booking_window_days: 60,
+              min_notice_hours: 1,
+              reminder_hours: [24],
+              allow_cancellation: true,
+              allow_rescheduling: true,
+              sms_notifications: {
+                enabled: true,
+                include_cancel_link: true,
+                include_reschedule_link: true,
+                confirmation_message: 'Your appointment has been confirmed.',
+                reminder_message: 'Reminder: You have an upcoming appointment.',
+                cancellation_message: 'Your appointment has been cancelled.',
+                reschedule_message: 'Your appointment has been rescheduled.'
+              }
+            },
+            webhook: systemIntegration.webhook || {
+              enabled: false,
+              url: '',
+              method: 'POST',
+              headers: {},
+              events: []
+            }
+          }
+        };
+        
+        // Update the state with the existing configuration
+        setConfig(existingConfig);
+        
+        // Set the business ID if it exists
+        if (existingData.business_id) {
+          setIntegrationState(prev => ({ ...prev, selectedBusinessId: existingData.business_id.toString() }));
+        }
+        
+      } catch (error) {
+        console.error('Error parsing existing workflow data:', error);
+      }
+    }
+  }, [existingData]);
+
   // AI Training state
-  const [newQuestion, setNewQuestion] = useState('');
-  const [newAnswer, setNewAnswer] = useState('');
-  const [newFAQName, setNewFAQName] = useState('');
-  const [newFAQContent, setNewFAQContent] = useState('');
-  const [newCustomerMessage, setNewCustomerMessage] = useState('');
-  const [newResponse, setNewResponse] = useState('');
-
-  // Context state
-  const [newTrigger, setNewTrigger] = useState('');
-  const [newTriggerResponse, setNewTriggerResponse] = useState('');
-  const [newCategory, setNewCategory] = useState('');
-  const [newContent, setNewContent] = useState('');
-  const [newIntent, setNewIntent] = useState('');
-  const [newExample, setNewExample] = useState('');
-
-  // Response Templates state
-  const [newTemplateName, setNewTemplateName] = useState('');
-  const [newTemplate, setNewTemplate] = useState('');
-  const [newVariables, setNewVariables] = useState('');
-  const [newDescription, setNewDescription] = useState('');
-
-  // Message Structure state
-  const [newSectionName, setNewSectionName] = useState('');
-  const [newSectionContent, setNewSectionContent] = useState('');
-
   const handleVoiceTypeChange = (type: BrandToneConfig['voiceType']) => {
     setConfig(prev => ({
       ...prev,
@@ -306,92 +441,89 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
   };
 
   const addGreeting = () => {
-    if (newGreeting.trim()) {
+    if (brandToneState.newGreeting.trim()) {
       setConfig(prev => ({
         ...prev,
         brandTone: {
           ...prev.brandTone,
-          greetings: [...prev.brandTone.greetings, newGreeting.trim()]
+          greetings: [...prev.brandTone.greetings, brandToneState.newGreeting.trim()]
         }
       }));
-      setNewGreeting('');
+      setBrandToneState(prev => ({ ...prev, newGreeting: '' }));
     }
   };
 
   const addPhrase = () => {
-    if (newPhrase.trim()) {
+    if (brandToneState.newPhrase.trim()) {
       setConfig(prev => ({
         ...prev,
         brandTone: {
           ...prev.brandTone,
-          phrasingExamples: [...prev.brandTone.phrasingExamples, newPhrase.trim()]
+          phrasingExamples: [...prev.brandTone.phrasingExamples, brandToneState.newPhrase.trim()]
         }
       }));
-      setNewPhrase('');
+      setBrandToneState(prev => ({ ...prev, newPhrase: '' }));
     }
   };
 
   const addWordToAvoid = () => {
-    if (newWordToAvoid.trim()) {
+    if (brandToneState.newWordToAvoid.trim()) {
       setConfig(prev => ({
         ...prev,
         brandTone: {
           ...prev.brandTone,
-          wordsToAvoid: [...prev.brandTone.wordsToAvoid, newWordToAvoid.trim()]
+          wordsToAvoid: [...prev.brandTone.wordsToAvoid, brandToneState.newWordToAvoid.trim()]
         }
       }));
-      setNewWordToAvoid('');
+      setBrandToneState(prev => ({ ...prev, newWordToAvoid: '' }));
     }
   };
 
   const addQAPair = () => {
-    if (newQuestion.trim() && newAnswer.trim()) {
+    if (aiTrainingState.newQuestion.trim() && aiTrainingState.newAnswer.trim()) {
       setConfig(prev => ({
         ...prev,
         aiTraining: {
           ...prev.aiTraining,
           qaPairs: [...prev.aiTraining.qaPairs, {
-            question: newQuestion.trim(),
-            answer: newAnswer.trim()
+            question: aiTrainingState.newQuestion.trim(),
+            answer: aiTrainingState.newAnswer.trim()
           }]
         }
       }));
-      setNewQuestion('');
-      setNewAnswer('');
+      setAiTrainingState(prev => ({ ...prev, newQuestion: '', newAnswer: '' }));
     }
   };
 
   const addFAQDocument = () => {
-    if (newFAQName.trim() && newFAQContent.trim()) {
+    if (aiTrainingState.newDocName.trim() && aiTrainingState.newDocContent.trim()) {
       setConfig(prev => ({
         ...prev,
         aiTraining: {
           ...prev.aiTraining,
           faqDocuments: [...prev.aiTraining.faqDocuments, {
-            name: newFAQName.trim(),
-            content: newFAQContent.trim()
+            name: aiTrainingState.newDocName.trim(),
+            content: aiTrainingState.newDocContent.trim()
           }]
         }
       }));
-      setNewFAQName('');
-      setNewFAQContent('');
+      setAiTrainingState(prev => ({ ...prev, newDocName: '', newDocContent: '' }));
     }
   };
 
   const addChatExample = () => {
-    if (newCustomerMessage.trim() && newResponse.trim()) {
+    if (aiTrainingState.newCustomerMessage.trim() && aiTrainingState.newAgentResponse.trim()) {
       setConfig(prev => ({
         ...prev,
         aiTraining: {
           ...prev.aiTraining,
           chatHistory: [...prev.aiTraining.chatHistory, {
-            customer: newCustomerMessage.trim(),
-            response: newResponse.trim()
+            customer: aiTrainingState.newCustomerMessage.trim(),
+            response: aiTrainingState.newAgentResponse.trim()
           }]
         }
       }));
-      setNewCustomerMessage('');
-      setNewResponse('');
+      setAiTrainingState(prev => ({ ...prev, newCustomerMessage: '', newAgentResponse: '' }));
     }
   };
 
@@ -436,42 +568,40 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
   };
 
   const addContextualTrigger = () => {
-    if (newTrigger.trim() && newTriggerResponse.trim()) {
+    if (contextState.newTrigger.trim() && contextState.newResponse.trim()) {
       setConfig(prev => ({
         ...prev,
         context: {
           ...prev.context,
           contextualTriggers: [...prev.context.contextualTriggers, {
-            trigger: newTrigger.trim(),
-            response: newTriggerResponse.trim()
+            trigger: contextState.newTrigger.trim(),
+            response: contextState.newResponse.trim()
           }]
         }
       }));
-      setNewTrigger('');
-      setNewTriggerResponse('');
+      setContextState(prev => ({ ...prev, newTrigger: '', newResponse: '' }));
     }
   };
 
   const addKnowledgeItem = () => {
-    if (newCategory.trim() && newContent.trim()) {
+    if (contextState.newCategory.trim() && contextState.newContent.trim()) {
       setConfig(prev => ({
         ...prev,
         context: {
           ...prev.context,
           knowledgeBase: [...prev.context.knowledgeBase, {
-            category: newCategory.trim(),
-            content: newContent.trim()
+            category: contextState.newCategory.trim(),
+            content: contextState.newContent.trim()
           }]
         }
       }));
-      setNewCategory('');
-      setNewContent('');
+      setContextState(prev => ({ ...prev, newCategory: '', newContent: '' }));
     }
   };
 
   const addIntentExample = () => {
-    if (newIntent.trim() && newExample.trim()) {
-      const existingIntent = config.context.intentExamples.find(i => i.intent === newIntent.trim());
+    if (contextState.newIntent.trim() && contextState.newExample.trim()) {
+      const existingIntent = config.context.intentExamples.find(i => i.intent === contextState.newIntent.trim());
       
       if (existingIntent) {
         setConfig(prev => ({
@@ -479,8 +609,8 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
           context: {
             ...prev.context,
             intentExamples: prev.context.intentExamples.map(i =>
-              i.intent === newIntent.trim()
-                ? { ...i, examples: [...i.examples, newExample.trim()] }
+              i.intent === contextState.newIntent.trim()
+                ? { ...i, examples: [...i.examples, contextState.newExample.trim()] }
                 : i
             )
           }
@@ -491,13 +621,13 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
           context: {
             ...prev.context,
             intentExamples: [...prev.context.intentExamples, {
-              intent: newIntent.trim(),
-              examples: [newExample.trim()]
+              intent: contextState.newIntent.trim(),
+              examples: [contextState.newExample.trim()]
             }]
           }
         }));
       }
-      setNewExample('');
+      setContextState(prev => ({ ...prev, newExample: '' }));
     }
   };
 
@@ -536,27 +666,21 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
   };
 
   const addTemplate = () => {
-    if (newTemplateName.trim() && newTemplate.trim()) {
-      const variables = newVariables.split(',')
-        .map(v => v.trim())
-        .filter(v => v.length > 0);
-
+    if (responseState.newTemplateName.trim() && responseState.newTemplateContent.trim()) {
+      const variables = responseState.newTemplateVariables;
       setConfig(prev => ({
         ...prev,
         response: {
           ...prev.response,
           templates: [...prev.response.templates, {
-            name: newTemplateName.trim(),
-            template: newTemplate.trim(),
+            name: responseState.newTemplateName.trim(),
+            template: responseState.newTemplateContent.trim(),
             variables,
-            description: newDescription.trim()
+            description: responseState.newTemplateDescription.trim()
           }]
         }
       }));
-      setNewTemplateName('');
-      setNewTemplate('');
-      setNewVariables('');
-      setNewDescription('');
+      setResponseState(prev => ({ ...prev, newTemplateName: '', newTemplateContent: '', newTemplateDescription: '' }));
     }
   };
 
@@ -571,21 +695,20 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
   };
 
   const addMessageSection = () => {
-    if (newSectionName.trim()) {
+    if (responseState.newTemplateName.trim()) {
       setConfig(prev => ({
         ...prev,
         response: {
           ...prev.response,
           messageStructure: [...prev.response.messageStructure, {
-            id: newSectionName.toLowerCase().replace(/\s+/g, '_'),
-            name: newSectionName.trim(),
+            id: responseState.newTemplateName.toLowerCase().replace(/\s+/g, '_'),
+            name: responseState.newTemplateName.trim(),
             enabled: true,
-            defaultContent: newSectionContent.trim() || '{content}'
+            defaultContent: responseState.newTemplateContent.trim() || '{content}'
           }]
         }
       }));
-      setNewSectionName('');
-      setNewSectionContent('');
+      setResponseState(prev => ({ ...prev, newTemplateName: '', newTemplateContent: '' }));
     }
   };
 
@@ -814,8 +937,8 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
         <div className="mt-2 flex gap-2">
           <input
             type="text"
-            value={newGreeting}
-            onChange={(e) => setNewGreeting(e.target.value)}
+            value={brandToneState.newGreeting}
+            onChange={(e) => setBrandToneState(prev => ({ ...prev, newGreeting: e.target.value }))}
             onKeyDown={(e) => e.key === 'Enter' && addGreeting()}
             placeholder="Add a greeting..."
             className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
@@ -852,8 +975,8 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
         <div className="mt-2 flex gap-2">
           <input
             type="text"
-            value={newPhrase}
-            onChange={(e) => setNewPhrase(e.target.value)}
+            value={brandToneState.newPhrase}
+            onChange={(e) => setBrandToneState(prev => ({ ...prev, newPhrase: e.target.value }))}
             onKeyDown={(e) => e.key === 'Enter' && addPhrase()}
             placeholder="Add a phrasing example..."
             className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
@@ -890,8 +1013,8 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
         <div className="mt-2 flex gap-2">
           <input
             type="text"
-            value={newWordToAvoid}
-            onChange={(e) => setNewWordToAvoid(e.target.value)}
+            value={brandToneState.newWordToAvoid}
+            onChange={(e) => setBrandToneState(prev => ({ ...prev, newWordToAvoid: e.target.value }))}
             onKeyDown={(e) => e.key === 'Enter' && addWordToAvoid()}
             placeholder="Add a word to avoid..."
             className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
@@ -953,8 +1076,8 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
             <div className="flex-1">
               <input
                 type="text"
-                value={newQuestion}
-                onChange={(e) => setNewQuestion(e.target.value)}
+                value={aiTrainingState.newQuestion}
+                onChange={(e) => setAiTrainingState(prev => ({ ...prev, newQuestion: e.target.value }))}
                 placeholder="Question..."
                 className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               />
@@ -962,8 +1085,8 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
             <div className="flex-1">
               <input
                 type="text"
-                value={newAnswer}
-                onChange={(e) => setNewAnswer(e.target.value)}
+                value={aiTrainingState.newAnswer}
+                onChange={(e) => setAiTrainingState(prev => ({ ...prev, newAnswer: e.target.value }))}
                 placeholder="Answer..."
                 className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               />
@@ -1002,14 +1125,14 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
           <div className="flex gap-2">
             <input
               type="text"
-              value={newFAQName}
-              onChange={(e) => setNewFAQName(e.target.value)}
+              value={aiTrainingState.newDocName}
+              onChange={(e) => setAiTrainingState(prev => ({ ...prev, newDocName: e.target.value }))}
               placeholder="Document name..."
               className="block w-1/3 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
             />
             <textarea
-              value={newFAQContent}
-              onChange={(e) => setNewFAQContent(e.target.value)}
+              value={aiTrainingState.newDocContent}
+              onChange={(e) => setAiTrainingState(prev => ({ ...prev, newDocContent: e.target.value }))}
               placeholder="Document content..."
               rows={2}
               className="block flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
@@ -1049,8 +1172,8 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
             <div className="flex-1">
               <input
                 type="text"
-                value={newCustomerMessage}
-                onChange={(e) => setNewCustomerMessage(e.target.value)}
+                value={aiTrainingState.newCustomerMessage}
+                onChange={(e) => setAiTrainingState(prev => ({ ...prev, newCustomerMessage: e.target.value }))}
                 placeholder="Customer message..."
                 className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               />
@@ -1058,8 +1181,8 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
             <div className="flex-1">
               <input
                 type="text"
-                value={newResponse}
-                onChange={(e) => setNewResponse(e.target.value)}
+                value={aiTrainingState.newAgentResponse}
+                onChange={(e) => setAiTrainingState(prev => ({ ...prev, newAgentResponse: e.target.value }))}
                 placeholder="Ideal response..."
                 className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               />
@@ -1128,15 +1251,15 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
           <div className="flex gap-2">
             <input
               type="text"
-              value={newTrigger}
-              onChange={(e) => setNewTrigger(e.target.value)}
+              value={contextState.newTrigger}
+              onChange={(e) => setContextState(prev => ({ ...prev, newTrigger: e.target.value }))}
               placeholder="When customer says..."
               className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
             />
             <input
               type="text"
-              value={newTriggerResponse}
-              onChange={(e) => setNewTriggerResponse(e.target.value)}
+              value={contextState.newResponse}
+              onChange={(e) => setContextState(prev => ({ ...prev, newResponse: e.target.value }))}
               placeholder="AI should consider..."
               className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
             />
@@ -1174,14 +1297,14 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
           <div className="flex gap-2">
             <input
               type="text"
-              value={newCategory}
-              onChange={(e) => setNewCategory(e.target.value)}
+              value={contextState.newCategory}
+              onChange={(e) => setContextState(prev => ({ ...prev, newCategory: e.target.value }))}
               placeholder="Category..."
               className="block w-1/3 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
             />
             <textarea
-              value={newContent}
-              onChange={(e) => setNewContent(e.target.value)}
+              value={contextState.newContent}
+              onChange={(e) => setContextState(prev => ({ ...prev, newContent: e.target.value }))}
               placeholder="Knowledge content..."
               rows={2}
               className="block flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
@@ -1220,15 +1343,15 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
           <div className="flex gap-2">
             <input
               type="text"
-              value={newIntent}
-              onChange={(e) => setNewIntent(e.target.value)}
+              value={contextState.newIntent}
+              onChange={(e) => setContextState(prev => ({ ...prev, newIntent: e.target.value }))}
               placeholder="Intent name..."
               className="block w-1/3 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
             />
             <input
               type="text"
-              value={newExample}
-              onChange={(e) => setNewExample(e.target.value)}
+              value={contextState.newExample}
+              onChange={(e) => setContextState(prev => ({ ...prev, newExample: e.target.value }))}
               placeholder="Example phrase..."
               className="block flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
             />
@@ -1283,8 +1406,8 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
             <div className="grid grid-cols-2 gap-3">
               <input
                 type="text"
-                value={newSectionName}
-                onChange={(e) => setNewSectionName(e.target.value)}
+                value={responseState.newTemplateName}
+                onChange={(e) => setResponseState(prev => ({ ...prev, newTemplateName: e.target.value }))}
                 placeholder="Section name..."
                 className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               />
@@ -1297,8 +1420,8 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
               </button>
             </div>
             <textarea
-              value={newSectionContent}
-              onChange={(e) => setNewSectionContent(e.target.value)}
+              value={responseState.newTemplateContent}
+              onChange={(e) => setResponseState(prev => ({ ...prev, newTemplateContent: e.target.value }))}
               placeholder="Default content... Use {variables} for placeholders"
               rows={2}
               className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
@@ -1407,8 +1530,8 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
                 <label className="block text-sm font-medium text-gray-600">Template Name</label>
                 <input
                   type="text"
-                  value={newTemplateName}
-                  onChange={(e) => setNewTemplateName(e.target.value)}
+                  value={responseState.newTemplateName}
+                  onChange={(e) => setResponseState(prev => ({ ...prev, newTemplateName: e.target.value }))}
                   placeholder="e.g., Order Status Update"
                   className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                 />
@@ -1417,8 +1540,14 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
                 <label className="block text-sm font-medium text-gray-600">Variables</label>
                 <input
                   type="text"
-                  value={newVariables}
-                  onChange={(e) => setNewVariables(e.target.value)}
+                  value={responseState.newVariableName}
+                  onChange={(e) => {
+                    const newVariables = [...responseState.newTemplateVariables];
+                    if (e.target.value.trim()) {
+                      newVariables.push(e.target.value.trim());
+                    }
+                    setResponseState(prev => ({ ...prev, newTemplateVariables: newVariables, newVariableName: '' }));
+                  }}
                   placeholder="e.g., orderNumber, status, delivery"
                   className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                 />
@@ -1429,8 +1558,8 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
             <div className="mb-3">
               <label className="block text-sm font-medium text-gray-600">Template Content</label>
               <textarea
-                value={newTemplate}
-                onChange={(e) => setNewTemplate(e.target.value)}
+                value={responseState.newTemplateContent}
+                onChange={(e) => setResponseState(prev => ({ ...prev, newTemplateContent: e.target.value }))}
                 placeholder="Your order #{orderNumber} is {status}. Expected delivery: {delivery}"
                 rows={3}
                 className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
@@ -1444,8 +1573,8 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-600">When to Use</label>
               <textarea
-                value={newDescription}
-                onChange={(e) => setNewDescription(e.target.value)}
+                value={responseState.newTemplateDescription}
+                onChange={(e) => setResponseState(prev => ({ ...prev, newTemplateDescription: e.target.value }))}
                 placeholder="e.g., Use this template when customers ask about their order status"
                 rows={2}
                 className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
@@ -1453,26 +1582,23 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
             </div>
 
             {/* Preview Section */}
-            {newTemplate && (
+            {responseState.newTemplateContent && (
               <div className="mb-4 p-3 bg-gray-50 rounded border border-gray-200">
                 <label className="block text-sm font-medium text-gray-600 mb-2">Preview</label>
                 <div className="text-sm text-gray-800">
-                  {newTemplate.replace(/{(\w+)}/g, (_match, variable) =>
+                  {responseState.newTemplateContent.replace(/{(\w+)}/g, (_match, variable) =>
                     `<span class="text-purple-600">[${variable}]</span>`
                   )}
                 </div>
                 <div className="mt-2 flex flex-wrap gap-1">
-                  {newVariables.split(',')
-                    .map(v => v.trim())
-                    .filter(v => v.length > 0)
-                    .map((variable) => (
-                      <span
-                        key={variable}
-                        className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800"
-                      >
-                        {variable}
-                      </span>
-                    ))}
+                  {responseState.newTemplateVariables.map((variable) => (
+                    <span
+                      key={variable}
+                      className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800"
+                    >
+                      {variable}
+                    </span>
+                  ))}
                 </div>
               </div>
             )}
@@ -1480,7 +1606,7 @@ export default function SMSConfigWizard({ onComplete, onCancel }: Props) {
             <button
               type="button"
               onClick={addTemplate}
-              disabled={!newTemplateName.trim() || !newTemplate.trim()}
+              disabled={!responseState.newTemplateName.trim() || !responseState.newTemplateContent.trim()}
               className="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
               Add Template

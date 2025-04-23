@@ -20,11 +20,13 @@ const API_URL = import.meta.env.VITE_BACKEND_URL || 'https://billybobai-producti
 
 const Workflows: React.FC = () => {
   const [selectedWorkflow, setSelectedWorkflow] = useState<string | null>(null);
+  const [selectedWorkflowData, setSelectedWorkflowData] = useState<any>(null);
   const [showSMSWizard, setShowSMSWizard] = useState(false);
   const [showEmailWizard, setShowEmailWizard] = useState(false);
   const [showVoiceWizard, setShowVoiceWizard] = useState(false);
   const [smsConfig, setSMSConfig] = useState<any>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   const { data: workflows, isLoading, error } = useQuery<Workflow[], AxiosError>(
     'workflows',
@@ -79,6 +81,35 @@ const Workflows: React.FC = () => {
     setIsCreating(true);
   };
 
+  const fetchWorkflowData = async (id: string) => {
+    try {
+      const { data } = await axios.get(`${API_URL}/api/workflows/${id}`);
+      console.log("Fetched workflow data:", data);
+      return data;
+    } catch (err) {
+      console.error('Error fetching workflow data:', err);
+      throw err;
+    }
+  };
+
+  const handleEditWorkflow = async (id: string) => {
+    try {
+      const workflowData = await fetchWorkflowData(id);
+      
+      // Check workflow type to determine which editor to show
+      if (workflowData.name && workflowData.name.toLowerCase().includes('sms')) {
+        // For SMS workflows, load the SMSConfigWizard with existing data
+        setSelectedWorkflowData(workflowData);
+        setShowSMSWizard(true);
+      } else {
+        // For other workflows, use the standard workflow builder
+        setSelectedWorkflow(id);
+      }
+    } catch (error) {
+      console.error("Error editing workflow:", error);
+    }
+  };
+
   if (showSMSWizard) {
     return (
       <div className="space-y-6">
@@ -104,6 +135,7 @@ const Workflows: React.FC = () => {
         <SMSConfigWizard
           onComplete={handleSMSConfigComplete}
           onCancel={() => setShowSMSWizard(false)}
+          existingData={selectedWorkflowData}
         />
       </div>
     );
@@ -335,7 +367,7 @@ const Workflows: React.FC = () => {
                             </td>
                             <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
                               <button
-                                onClick={() => setSelectedWorkflow(workflow._id)}
+                                onClick={() => handleEditWorkflow(workflow._id)}
                                 className="text-indigo-600 hover:text-indigo-900"
                               >
                                 Edit
@@ -360,6 +392,7 @@ const Workflows: React.FC = () => {
             <SMSConfigWizard
               onComplete={handleSMSConfigComplete}
               onCancel={() => setShowSMSWizard(false)}
+              existingData={selectedWorkflowData}
             />
           </WizardProvider>
         </DialogContent>
