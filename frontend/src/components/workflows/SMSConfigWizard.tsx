@@ -892,7 +892,15 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
           console.log('Success response:', responseData);
           
           // Call the onComplete callback with the final config
-          onComplete(config);
+          const completeConfig = {
+            ...config,
+            twilio: {
+              ...config.twilio,
+              phoneNumber: config.twilio?.phoneNumber || '',
+              twilioPhoneNumber: config.twilio?.phoneNumber || '',
+            }
+          };
+          onComplete(completeConfig);
           return; // Exit the function on success
         }
         
@@ -916,6 +924,7 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
           twilio: {
             ...config.twilio,
             phoneNumber: config.twilio?.phoneNumber || '',
+            twilioPhoneNumber: config.twilio?.phoneNumber || '',  // Add this field explicitly
             accountSid: config.twilio?.accountSid || '',
             authToken: config.twilio?.authToken || '',
             businessId: config.twilio?.businessId || 0,
