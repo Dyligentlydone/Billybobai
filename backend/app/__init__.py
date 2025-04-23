@@ -286,6 +286,13 @@ def create_app():
             except Exception as e:
                 logger.error(f"Failed to register API blueprint: {str(e)}")
 
+            try:
+                from .routes.webhooks import webhooks as webhooks_blueprint
+                app.register_blueprint(webhooks_blueprint)
+                logger.info("Webhooks blueprint registered successfully")
+            except Exception as e:
+                logger.error(f"Failed to register Webhooks blueprint: {str(e)}")
+
             # Add other blueprints here as needed
 
         register_blueprints_with_error_handling(app)
