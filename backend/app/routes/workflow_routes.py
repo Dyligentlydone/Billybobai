@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, current_app
-from app.models.workflow import Workflow
+from app.models.workflow import Workflow, WorkflowStatus
 from app.models.business import Business
 from datetime import datetime
 import logging
@@ -250,7 +250,11 @@ def activate_workflow(workflow_id):
         db = get_db()
         with current_app.app_context():
             workflow = Workflow.query.get_or_404(workflow_id)
-            workflow.status = 'active'
+            
+            # Use the enum value from the WorkflowStatus class instead of a string literal
+            from app.models.workflow import WorkflowStatus
+            workflow.status = WorkflowStatus.ACTIVE
+            
             workflow.updated_at = datetime.utcnow()
             db.session.commit()
             logger.info(f"Workflow activated with ID: {workflow_id}")
