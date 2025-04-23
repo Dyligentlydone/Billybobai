@@ -4,12 +4,16 @@ from app.models.business import Business
 from datetime import datetime
 import logging
 import uuid
+import base64
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
 # Create blueprint without URL prefix
 workflow_bp = Blueprint('workflow_bp', __name__)
+
+# Admin password for authentication
+ADMIN_PASSWORD = "97225"
 
 def get_db():
     """Get the database session within the app context."""
@@ -24,10 +28,45 @@ def get_db():
             db = SQLAlchemy(current_app)
             return db
 
+def check_admin_auth():
+    """Check if the request has admin authentication"""
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        logger.warning("No Authorization header provided")
+        return False
+    
+    try:
+        # Handle both Basic and Bearer auth formats
+        if auth_header.startswith('Basic '):
+            encoded = auth_header.split(' ')[1]
+            decoded = base64.b64decode(encoded).decode('utf-8')
+            # Simple check - if the admin password is in the decoded string
+            if ADMIN_PASSWORD in decoded:
+                logger.info("Admin authentication successful")
+                return True
+        elif auth_header.startswith('Bearer '):
+            token = auth_header.split(' ')[1]
+            # For Bearer tokens, we just check if it matches the admin password
+            if token == ADMIN_PASSWORD:
+                logger.info("Admin authentication with Bearer successful")
+                return True
+    except Exception as e:
+        logger.error(f"Authentication error: {str(e)}")
+    
+    logger.warning("Authentication failed")
+    return False
+
 @workflow_bp.route('/api/workflows', methods=['GET'])
 def get_workflows():
     logger.info("GET /api/workflows endpoint called")
     try:
+        # Log headers for debugging
+        logger.info(f"Request headers: {dict(request.headers)}")
+        
+        # Check admin authentication
+        is_admin = check_admin_auth()
+        logger.info(f"Admin authentication: {is_admin}")
+        
         db = get_db()
         with current_app.app_context():
             try:
@@ -41,7 +80,20 @@ def get_workflows():
                 all_tables = inspector.get_table_names()
                 logger.info(f"Database tables: {all_tables}")
                 
-                workflows = Workflow.query.all()
+                # If admin, show all workflows, otherwise filter by business
+                if is_admin:
+                    logger.info("Admin access: fetching all workflows")
+                    workflows = Workflow.query.all()
+                else:
+                    # Non-admin access is limited by business_id
+                    business_id = request.args.get('business_id')
+                    if not business_id:
+                        logger.warning("No business_id provided for non-admin request")
+                        return jsonify([])
+                    
+                    logger.info(f"Fetching workflows for business_id: {business_id}")
+                    workflows = Workflow.query.filter_by(business_id=business_id).all()
+                
                 logger.info(f"Found {len(workflows)} workflows")
                 
                 # Return empty list instead of 404 if no workflows found

@@ -17,15 +17,20 @@ logger = logging.getLogger(__name__)
 def create_app():
     logger.info("Starting application creation...")
     app = Flask(__name__)
-    # Allow CORS only from production frontend (add localhost for dev if needed)
-    CORS(app, origins=[
-        "https://billybobai-production-6713.up.railway.app",
-        "https://billybobai-production.up.railway.app",  # Add without -6713 just in case
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:5173",  # Add IP equivalents for local development
-        "http://127.0.0.1:3000"
-    ], supports_credentials=True, allow_headers=["Content-Type", "Authorization", "Accept"])
+    # Allow CORS with proper headers for Authentication
+    CORS(app, 
+         resources={r"/api/*": {
+             "origins": [
+                 "https://billybobai-production-6713.up.railway.app",
+                 "https://billybobai-production.up.railway.app",
+                 "http://localhost:5173",
+                 "http://localhost:3000",
+                 "http://127.0.0.1:5173",
+                 "http://127.0.0.1:3000"
+             ]
+         }},
+         supports_credentials=False,  # Changed to avoid preflight issues
+         allow_headers=["Content-Type", "Authorization", "Accept"])
 
     # Log environment variables (excluding sensitive ones)
     logger.info("Environment:")

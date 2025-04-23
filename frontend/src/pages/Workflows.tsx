@@ -15,10 +15,11 @@ const API_BASE_URL = 'https://billybobai-production.up.railway.app';
 // Create axios instance with consistent configuration
 const api = axios.create({
   baseURL: API_BASE_URL,
-  withCredentials: true,
+  withCredentials: false, // Change to false to avoid CORS preflight issues
   headers: {
     'Accept': 'application/json',
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    'Authorization': 'Basic OTcyMjU=' // Base64 encoded admin password "97225"
   }
 });
 
