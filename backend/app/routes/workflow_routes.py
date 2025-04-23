@@ -78,6 +78,11 @@ def create_workflow():
         # Extract data from the request, specifically handling SMS configurations
         config = data.get('config', {})
         twilio_config = config.get('twilio', {})
+        
+        # Normalize phone number field - this handles the field name mismatch
+        if 'phoneNumber' in twilio_config and 'twilioPhoneNumber' not in twilio_config:
+            twilio_config['twilioPhoneNumber'] = twilio_config['phoneNumber']
+            
         actions = data.get('actions', {})
         if not actions and config:
             # Structure actions based on SMSConfigWizard data
@@ -179,6 +184,11 @@ def update_workflow(workflow_id):
             config = data.get('config', {})
             if config:
                 twilio_config = config.get('twilio', {})
+                
+                # Normalize phone number field in update function too
+                if 'phoneNumber' in twilio_config and 'twilioPhoneNumber' not in twilio_config:
+                    twilio_config['twilioPhoneNumber'] = twilio_config['phoneNumber']
+                
                 actions = data.get('actions', {})
                 if not actions:
                     actions = {
