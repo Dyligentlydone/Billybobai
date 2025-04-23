@@ -831,7 +831,18 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
         name: `SMS Automation ${config.twilio.businessId}`,
         status: 'draft',
         actions: {
-          sms: config
+          twilio: {
+            ...config.twilio,
+            // Ensure the phone number is accessible via both field names
+            phoneNumber: config.twilio?.phoneNumber || '',
+            twilioPhoneNumber: config.twilio?.phoneNumber || ''
+          },
+          brandTone: config.brandTone,
+          aiTraining: config.aiTraining,
+          context: config.context,
+          response: config.response,
+          monitoring: config.monitoring,
+          systemIntegration: config.systemIntegration
         },
         conditions: {
           trigger: 'sms_received'
