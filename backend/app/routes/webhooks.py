@@ -259,10 +259,10 @@ def business_specific_webhook(business_id):
             
             # Process the message using the AI service
             if body:
+                global ai_service
                 # Initialize AI service if needed
                 if ai_service is None:
                     from ..services.ai_service import AIService
-                    global ai_service
                     ai_service = AIService()
                     logger.info("AI service initialized for SMS processing")
                 
