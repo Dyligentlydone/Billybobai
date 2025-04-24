@@ -17,7 +17,7 @@ class AIService:
         Given a business description and requirements, generate a workflow configuration using Twilio, SendGrid, and Zendesk.
         Focus on practical, efficient solutions that improve customer experience."""
 
-    async def analyze_requirements(self, description: str, actions=None) -> Union[WorkflowConfig, Dict]:
+    def analyze_requirements(self, description: str, actions=None) -> Union[WorkflowConfig, Dict]:
         """Analyze natural language requirements and generate workflow configuration or response."""
         try:
             # Enhanced logging for troubleshooting
@@ -81,52 +81,52 @@ class AIService:
                 logger.info(f"Using system prompt: {system_prompt[:100]}...")
                 
                 # Call OpenAI API with explicit client
-                try:
-                    logger.info("Making OpenAI API call...")
-                    response = client.chat.completions.create(
-                        model="gpt-4",
-                        messages=[
-                            {"role": "system", "content": system_prompt},
-                            {"role": "user", "content": description}
-                        ],
-                        temperature=actions.get('temperature', 0.7),
-                        max_tokens=300  # Keep SMS responses brief
-                    )
-                    logger.info("OpenAI API call successful")
-                    
-                    # Return the AI generated message
-                    return {
-                        "message": response.choices[0].message.content.strip(),
-                        "twilio": True  # Indicate this is a Twilio response
-                    }
-                except Exception as openai_error:
-                    logger.error(f"OpenAI API error: {str(openai_error)}")
-                    # Return a structured error response
-                    return {
-                        "message": "I apologize, but I'm having trouble responding right now. Please try again later.",
-                        "error": str(openai_error)
-                    }
+                logger.info("Calling OpenAI API...")
+                
+                response = client.chat.completions.create(
+                    model="gpt-4",
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": description}
+                    ],
+                    temperature=0.7,
+                    max_tokens=500
+                )
+
+                # Return the AI generated message
+                return {
+                    "message": response.choices[0].message.content.strip(),
+                    "twilio": True  # Indicate this is a Twilio response
+                }
             
             # Original workflow config generation logic
+            # Use system OpenAI key if available
+            logger.info("Using system OpenAI API key")
             api_key = os.getenv('OPENAI_API_KEY')
             if not api_key:
-                raise ValueError("No OpenAI API key found in environment variables")
-            openai.api_key = api_key
+                logger.error("No OpenAI API key found in environment")
+                return WorkflowConfig()
+                
+            client = openai.OpenAI(api_key=api_key)
             
-            response = openai.chat.completions.create(
+            response = client.chat.completions.create(
                 model="gpt-4",
                 messages=[
                     {"role": "system", "content": self.system_prompt},
-                    {"role": "user", "content": f"Generate a workflow configuration for: {description}"}
+                    {"role": "user", "content": description}
                 ],
                 temperature=0.7,
-                max_tokens=1000
+                max_tokens=1500
             )
 
             # Parse the AI response into structured workflow config
-            workflow = self._parse_ai_response(response.choices[0].message.content)
-            workflow.instructions.extend(self._generate_setup_instructions(workflow))
-            return workflow
+            config = self._parse_ai_response(response.choices[0].message.content)
+            
+            # Generate setup instructions
+            instructions = self._generate_setup_instructions(config)
+            config.instructions = instructions
+            
+            return config
         except Exception as e:
             # Log the error but return a fallback response to prevent system failures
             logger = logging.getLogger(__name__)
@@ -194,7 +194,7 @@ class AIService:
 
         return instructions
 
-    async def generate_email_response(self, 
+    def generate_email_response(self, 
         customer_email: str, 
         brand_voice: Dict,
         template_id: Optional[str] = None,
@@ -226,9 +226,10 @@ class AIService:
             api_key = os.getenv('OPENAI_API_KEY')
             if not api_key:
                 raise ValueError("No OpenAI API key found in environment variables")
-            openai.api_key = api_key
+                
+            client = openai.OpenAI(api_key=api_key)
             
-            response = await openai.chat.completions.create(
+            response = client.chat.completions.create(
                 model="gpt-4",
                 messages=messages,
                 temperature=0.7,
@@ -239,7 +240,7 @@ class AIService:
 
             # If a template is specified, extract variables and format response
             if template_id:
-                variables = await self._extract_email_variables(reply, template_id)
+                variables = self._extract_email_variables(reply, template_id)
                 return {
                     "template_id": template_id,
                     "template_data": variables,
@@ -254,16 +255,17 @@ class AIService:
         except Exception as e:
             raise Exception(f"Failed to generate email response: {str(e)}")
 
-    async def _extract_email_variables(self, content: str, template_id: str) -> Dict:
+    def _extract_email_variables(self, content: str, template_id: str) -> Dict:
         """Extract variables from AI response to fit into a template."""
         try:
             # Ask GPT to extract variables
             api_key = os.getenv('OPENAI_API_KEY')
             if not api_key:
                 raise ValueError("No OpenAI API key found in environment variables")
-            openai.api_key = api_key
+                
+            client = openai.OpenAI(api_key=api_key)
             
-            response = await openai.chat.completions.create(
+            response = client.chat.completions.create(
                 model="gpt-4",
                 messages=[
                     {"role": "system", "content": "Extract key information from this customer service response to fit into an email template."},

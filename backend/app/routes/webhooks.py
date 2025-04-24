@@ -31,7 +31,7 @@ except Exception as e:
 def verify_twilio_signature(f):
     """Decorator to verify Twilio webhook signatures."""
     @wraps(f)
-    async def decorated_function(*args, **kwargs):
+    def decorated_function(*args, **kwargs):
         twilio_signature = request.headers.get('X-Twilio-Signature', '')
         url = request.url
         params = request.form.to_dict()
@@ -39,13 +39,13 @@ def verify_twilio_signature(f):
         # Validate request is from Twilio
         if not twilio_service.validate_webhook({"signature": twilio_signature, "url": url, "params": params}):
             return jsonify({"error": "Invalid signature"}), 403
-        return await f(*args, **kwargs)
+        return f(*args, **kwargs)
     return decorated_function
 
 def verify_sendgrid_signature(f):
     """Decorator to verify SendGrid webhook signatures."""
     @wraps(f)
-    async def decorated_function(*args, **kwargs):
+    def decorated_function(*args, **kwargs):
         signature = request.headers.get('X-Twilio-Email-Event-Webhook-Signature', '')
         timestamp = request.headers.get('X-Twilio-Email-Event-Webhook-Timestamp', '')
         
@@ -64,13 +64,13 @@ def verify_sendgrid_signature(f):
         if not hmac.compare_digest(calculated_sig, signature):
             return jsonify({"error": "Invalid signature"}), 401
 
-        return await f(*args, **kwargs)
+        return f(*args, **kwargs)
     return decorated_function
 
 def verify_zendesk_signature(f):
     """Decorator to verify Zendesk webhook signatures."""
     @wraps(f)
-    async def decorated_function(*args, **kwargs):
+    def decorated_function(*args, **kwargs):
         signature = request.headers.get('X-Zendesk-Webhook-Signature', '')
         if not signature:
             return jsonify({"error": "Missing signature header"}), 401
@@ -78,12 +78,12 @@ def verify_zendesk_signature(f):
         # Validate request is from Zendesk
         if not zendesk_service.validate_webhook({"signature": signature}):
             return jsonify({"error": "Invalid signature"}), 403
-        return await f(*args, **kwargs)
+        return f(*args, **kwargs)
     return decorated_function
 
 @webhooks.route('/twilio/webhook', methods=['POST'])
 @verify_twilio_signature
-async def twilio_webhook():
+def twilio_webhook():
     """Handle incoming Twilio webhooks (SMS, Voice, WhatsApp)."""
     try:
         # Get message details
@@ -102,7 +102,7 @@ async def twilio_webhook():
         # For SMS/WhatsApp, check if AI is enabled for this number
         if body:
             # Generate AI response if configured
-            workflow_response = await ai_service.analyze_requirements(body)
+            workflow_response = ai_service.analyze_requirements(body)
             response_text = "Thank you for your message. "
             
             if workflow_response.twilio:
@@ -116,7 +116,7 @@ async def twilio_webhook():
             
             # Create Zendesk ticket if needed
             if workflow_response.zendesk:
-                await zendesk_service.create_ticket(
+                zendesk_service.create_ticket(
                     subject=f"New message from {from_number}",
                     description=body,
                     requester_email=from_number + "@sms.customer.com"  # Virtual email for SMS users
@@ -130,7 +130,7 @@ async def twilio_webhook():
 
 @webhooks.route('/sendgrid/webhook', methods=['POST'])
 @verify_sendgrid_signature
-async def sendgrid_webhook():
+def sendgrid_webhook():
     """Handle SendGrid email events (delivered, opened, clicked, etc.)."""
     try:
         events = request.get_json()
@@ -143,14 +143,14 @@ async def sendgrid_webhook():
             # Handle different event types
             if event_type == 'bounce':
                 # Create Zendesk ticket for bounced emails
-                await zendesk_service.create_ticket(
+                zendesk_service.create_ticket(
                     subject=f"Email bounce for {email}",
                     description=f"Email bounced at {timestamp}. Reason: {event.get('reason')}",
                     priority="high"
                 )
             elif event_type == 'spamreport':
                 # Create Zendesk ticket for spam reports
-                await zendesk_service.create_ticket(
+                zendesk_service.create_ticket(
                     subject=f"Spam report from {email}",
                     description=f"Spam report received at {timestamp}",
                     priority="urgent"
@@ -165,7 +165,7 @@ async def sendgrid_webhook():
 
 @webhooks.route('/zendesk/webhook', methods=['POST'])
 @verify_zendesk_signature
-async def zendesk_webhook():
+def zendesk_webhook():
     """Handle Zendesk ticket events (created, updated, solved, etc.)."""
     try:
         event = request.get_json()
@@ -179,7 +179,7 @@ async def zendesk_webhook():
             # Send thank you email via SendGrid
             requester_email = ticket.get('requester', {}).get('email')
             if requester_email:
-                await sendgrid_service.send_email({
+                sendgrid_service.send_email({
                     "to": requester_email,
                     "template_id": os.getenv('SENDGRID_THANK_YOU_TEMPLATE_ID'),
                     "template_data": {
@@ -192,7 +192,7 @@ async def zendesk_webhook():
             # Send SMS notification for urgent tickets
             assignee = ticket.get('assignee', {})
             if assignee.get('phone'):
-                await twilio_service.send_message({
+                twilio_service.send_message({
                     "to": assignee['phone'],
                     "message": f"Urgent ticket #{ticket_id} requires immediate attention"
                 })
@@ -201,8 +201,31 @@ async def zendesk_webhook():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@webhooks.route('/webhook-test', methods=['GET', 'POST'])
+def webhook_test():
+    """Simple test endpoint for Twilio webhook verification."""
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    logger.info("WEBHOOK TEST ENDPOINT HIT")
+    
+    # Log request details
+    logger.info(f"Method: {request.method}")
+    logger.info(f"Headers: {dict(request.headers)}")
+    if request.method == 'POST':
+        logger.info(f"Form data: {dict(request.form)}")
+    else:
+        logger.info(f"Query params: {dict(request.args)}")
+    
+    # Create a simple response
+    resp = MessagingResponse()
+    resp.message("Your webhook test is working! This confirms Twilio can reach your server.")
+    
+    logger.info("Returning webhook test response")
+    return str(resp)
+
 @webhooks.route('/api/sms/webhook/<business_id>', methods=['POST', 'GET'])
-async def business_specific_webhook(business_id):
+def business_specific_webhook(business_id):
     """Handle incoming Twilio webhooks for a specific business."""
     try:
         # Log that the endpoint was reached
@@ -277,7 +300,7 @@ async def business_specific_webhook(business_id):
                 try:
                     # Generate AI response based on workflow configuration
                     logger.info("CALLING AI SERVICE TO GENERATE RESPONSE...")
-                    workflow_response = await ai_service.analyze_requirements(body, workflow.actions)
+                    workflow_response = ai_service.analyze_requirements(body, workflow.actions)
                     logger.info(f"AI SERVICE RESPONSE: {workflow_response}")
                     
                     # Get response text from AI or fallback message
