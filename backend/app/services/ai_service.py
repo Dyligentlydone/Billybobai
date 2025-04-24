@@ -110,20 +110,51 @@ class AIService:
                 except AttributeError:
                     # Fall back to older OpenAI client format
                     logger.info("Falling back to older OpenAI client format")
-                    response = client.ChatCompletion.create(
-                        model="gpt-3.5-turbo",
-                        messages=[
-                            {"role": "system", "content": system_prompt},
-                            {"role": "user", "content": description}
-                        ],
-                        temperature=0.7,
-                        max_tokens=500
-                    )
-                    
-                    # Parse response from old client format
-                    message_content = response.choices[0].message.content.strip()
-                    logger.info(f"OpenAI response received (old format): {message_content[:50]}...")
-
+                    try:
+                        response = client.ChatCompletion.create(
+                            model="gpt-3.5-turbo",
+                            messages=[
+                                {"role": "system", "content": system_prompt},
+                                {"role": "user", "content": description}
+                            ],
+                            temperature=0.7,
+                            max_tokens=500
+                        )
+                        
+                        # Parse response from old client format
+                        message_content = response.choices[0].message.content.strip()
+                        logger.info(f"OpenAI response received (old format): {message_content[:50]}...")
+                    except Exception as api_error:
+                        logger.error(f"OpenAI API error: {str(api_error)}")
+                        
+                        # Check for specific error types and provide better fallback messages
+                        error_str = str(api_error).lower()
+                        if "exceeded your current quota" in error_str or "insufficient_quota" in error_str:
+                            logger.error("OpenAI API quota exceeded error - using fallback message")
+                            return {
+                                "message": "Thank you for your message. Our AI assistant is currently unavailable. A team member will respond to you shortly.",
+                                "twilio": True
+                            }
+                        elif "rate limit" in error_str:
+                            logger.error("OpenAI API rate limit error - using fallback message")
+                            return {
+                                "message": "Thank you for your message. Our system is experiencing high demand. Please try again in a few minutes.",
+                                "twilio": True
+                            }
+                        else:
+                            # Generic fallback for other errors
+                            logger.error(f"Unhandled OpenAI API error: {error_str}")
+                            return {
+                                "message": "Thank you for your message. We've received it and will respond shortly.",
+                                "twilio": True
+                            }
+                except Exception as general_error:
+                    logger.error(f"General error calling OpenAI API: {str(general_error)}")
+                    return {
+                        "message": "Thank you for your message. We've received it and will respond shortly.",
+                        "twilio": True
+                    }
+                
                 # Return the AI generated message
                 return {
                     "message": message_content,
