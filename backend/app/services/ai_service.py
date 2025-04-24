@@ -46,7 +46,15 @@ class AIService:
                 
                 # Set up OpenAI with the workflow's API key
                 logger.info("Setting up OpenAI client with workflow API key")
-                client = openai.OpenAI(api_key=api_key)
+                try:
+                    client = openai.OpenAI(api_key=api_key)
+                    logger.info("OpenAI client created successfully with new API format")
+                except Exception as openai_error:
+                    # Fallback for older OpenAI library versions
+                    logger.warning(f"Error creating OpenAI client with new format: {str(openai_error)}")
+                    logger.info("Trying older OpenAI API format")
+                    openai.api_key = api_key
+                    client = openai
                 
                 # Build system prompt from brand voice settings
                 brand_tone = actions.get('brandTone', {})
@@ -83,19 +91,42 @@ class AIService:
                 # Call OpenAI API with explicit client
                 logger.info("Calling OpenAI API...")
                 
-                response = client.chat.completions.create(
-                    model="gpt-4",
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": description}
-                    ],
-                    temperature=0.7,
-                    max_tokens=500
-                )
+                try:
+                    # Try new OpenAI client format first
+                    response = client.chat.completions.create(
+                        model="gpt-4",
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": description}
+                        ],
+                        temperature=0.7,
+                        max_tokens=500
+                    )
+                    
+                    # Parse response from new client format
+                    message_content = response.choices[0].message.content.strip()
+                    logger.info(f"OpenAI response received (new format): {message_content[:50]}...")
+                
+                except AttributeError:
+                    # Fall back to older OpenAI client format
+                    logger.info("Falling back to older OpenAI client format")
+                    response = client.ChatCompletion.create(
+                        model="gpt-4",
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": description}
+                        ],
+                        temperature=0.7,
+                        max_tokens=500
+                    )
+                    
+                    # Parse response from old client format
+                    message_content = response.choices[0].message.content.strip()
+                    logger.info(f"OpenAI response received (old format): {message_content[:50]}...")
 
                 # Return the AI generated message
                 return {
-                    "message": response.choices[0].message.content.strip(),
+                    "message": message_content,
                     "twilio": True  # Indicate this is a Twilio response
                 }
             
