@@ -201,7 +201,7 @@ def zendesk_webhook():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@webhooks.route('/api/sms/webhook/<business_id>', methods=['POST', 'GET'])
+@webhooks.route('/sms/webhook/<business_id>', methods=['POST', 'GET'])
 def business_specific_webhook(business_id):
     """Handle incoming Twilio webhooks for a specific business."""
     try:
