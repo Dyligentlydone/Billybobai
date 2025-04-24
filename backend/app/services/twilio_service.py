@@ -30,7 +30,7 @@ class TwilioService:
             self.phone_number = None
             self.flex_flow_sid = None
 
-    async def send_message(self, request: MessageRequest) -> Dict:
+    def send_message(self, request: MessageRequest) -> Dict:
         """Send message via Twilio based on type (SMS, WhatsApp, Voice, or Flex)."""
         if not self.client:
             raise TwilioRestException(
@@ -41,13 +41,13 @@ class TwilioService:
             
         try:
             if request.type == "sms":
-                return await self._send_sms(request)
+                return self._send_sms(request)
             elif request.type == "whatsapp":
-                return await self._send_whatsapp(request)
+                return self._send_whatsapp(request)
             elif request.type == "voice":
-                return await self._make_call(request)
+                return self._make_call(request)
             elif request.type == "flex":
-                return await self._create_flex_task(request)
+                return self._create_flex_task(request)
             else:
                 raise ValueError(f"Unsupported message type: {request.type}")
         except TwilioRestException as e:
@@ -67,14 +67,14 @@ class TwilioService:
             logger.error(f"TRACEBACK: {traceback.format_exc()}")
             raise Exception(f"Unexpected error: {str(e)}")
 
-    async def _send_sms(self, request: MessageRequest) -> Dict:
+    def _send_sms(self, request: MessageRequest) -> Dict:
         """Send SMS message."""
         try:
             logger.info(f"SENDING SMS TO: {request.to}")
             logger.info(f"MESSAGE: {request.message}")
             logger.info(f"FROM NUMBER: {self.phone_number}")
             
-            message = await self.client.messages.create(
+            message = self.client.messages.create(
                 to=request.to,
                 from_=self.phone_number,
                 body=request.message,
@@ -104,16 +104,19 @@ class TwilioService:
             logger.error(f"TRACEBACK: {traceback.format_exc()}")
             return {"error": str(e)}
 
-    async def _send_whatsapp(self, request: MessageRequest) -> Dict:
+    def _send_whatsapp(self, request: MessageRequest) -> Dict:
         """Send WhatsApp message."""
         try:
             logger.info(f"SENDING WHATSAPP TO: {request.to}")
             logger.info(f"MESSAGE: {request.message}")
-            logger.info(f"FROM NUMBER: {self.phone_number}")
             
-            message = await self.client.messages.create(
-                to=f"whatsapp:{request.to}",
-                from_=f"whatsapp:{self.phone_number}",
+            # Format WhatsApp number with proper prefix
+            whatsapp_to = f"whatsapp:{request.to}"
+            whatsapp_from = f"whatsapp:{self.phone_number}"
+            
+            message = self.client.messages.create(
+                to=whatsapp_to,
+                from_=whatsapp_from,
                 body=request.message,
                 media_url=[request.media_url] if request.media_url else None
             )
@@ -141,7 +144,7 @@ class TwilioService:
             logger.error(f"TRACEBACK: {traceback.format_exc()}")
             return {"error": str(e)}
 
-    async def _make_call(self, request: MessageRequest) -> Dict:
+    def _make_call(self, request: MessageRequest) -> Dict:
         """Make voice call with TwiML."""
         try:
             logger.info(f"MAKING CALL TO: {request.to}")
@@ -154,7 +157,7 @@ class TwilioService:
                 <Say>{request.message}</Say>
             </Response>
             """
-            call = await self.client.calls.create(
+            call = self.client.calls.create(
                 to=request.to,
                 from_=self.phone_number,
                 twiml=twiml
@@ -183,20 +186,20 @@ class TwilioService:
             logger.error(f"TRACEBACK: {traceback.format_exc()}")
             return {"error": str(e)}
 
-    async def _create_flex_task(self, request: MessageRequest) -> Dict:
+    def _create_flex_task(self, request: MessageRequest) -> Dict:
         """Create Flex task for chat/messaging."""
         try:
             logger.info(f"CREATING FLEX TASK FOR: {request.to}")
             logger.info(f"MESSAGE: {request.message}")
             
-            channel = await self.client.flex.v1.channels.create(
+            channel = self.client.flex.v1.channels.create(
                 flex_flow_sid=self.flex_flow_sid,
                 identity=request.to,
                 chat_friendly_name=f"Chat with {request.to}"
             )
 
             # Create task for the channel
-            task = await self.client.taskrouter.workspaces(os.getenv('TWILIO_WORKSPACE_SID')) \
+            task = self.client.taskrouter.workspaces(os.getenv('TWILIO_WORKSPACE_SID')) \
                 .tasks \
                 .create(
                     workflow_sid=os.getenv('TWILIO_WORKFLOW_SID'),
