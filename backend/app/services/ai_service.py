@@ -94,7 +94,7 @@ class AIService:
                 try:
                     # Try new OpenAI client format first
                     response = client.chat.completions.create(
-                        model="gpt-4",
+                        model="gpt-3.5-turbo",
                         messages=[
                             {"role": "system", "content": system_prompt},
                             {"role": "user", "content": description}
@@ -111,7 +111,7 @@ class AIService:
                     # Fall back to older OpenAI client format
                     logger.info("Falling back to older OpenAI client format")
                     response = client.ChatCompletion.create(
-                        model="gpt-4",
+                        model="gpt-3.5-turbo",
                         messages=[
                             {"role": "system", "content": system_prompt},
                             {"role": "user", "content": description}
