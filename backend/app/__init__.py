@@ -303,8 +303,8 @@ def create_app():
 
             try:
                 from .routes.webhooks import webhooks as webhooks_blueprint
-                app.register_blueprint(webhooks_blueprint, url_prefix='')
-                logger.info("Webhooks blueprint registered successfully")
+                app.register_blueprint(webhooks_blueprint, url_prefix='/api')
+                logger.info("Webhooks blueprint registered successfully with prefix /api")
             except Exception as e:
                 logger.error(f"Failed to register webhooks blueprint: {str(e)}")
                 import traceback
