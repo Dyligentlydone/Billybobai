@@ -201,29 +201,6 @@ def zendesk_webhook():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@webhooks.route('/webhook-test', methods=['GET', 'POST'])
-def webhook_test():
-    """Simple test endpoint for Twilio webhook verification."""
-    import logging
-    logger = logging.getLogger(__name__)
-    
-    logger.info("WEBHOOK TEST ENDPOINT HIT")
-    
-    # Log request details
-    logger.info(f"Method: {request.method}")
-    logger.info(f"Headers: {dict(request.headers)}")
-    if request.method == 'POST':
-        logger.info(f"Form data: {dict(request.form)}")
-    else:
-        logger.info(f"Query params: {dict(request.args)}")
-    
-    # Create a simple response
-    resp = MessagingResponse()
-    resp.message("Your webhook test is working! This confirms Twilio can reach your server.")
-    
-    logger.info("Returning webhook test response")
-    return str(resp)
-
 @webhooks.route('/api/sms/webhook/<business_id>', methods=['POST', 'GET'])
 def business_specific_webhook(business_id):
     """Handle incoming Twilio webhooks for a specific business."""
@@ -240,115 +217,125 @@ def business_specific_webhook(business_id):
         else:
             logger.info(f"QUERY PARAMS: {dict(request.args)}")
         
-        # Handle Twilio verification requests (GET requests)
-        if request.method == 'GET':
-            logger.info("Handling Twilio verification request")
-            # Just return a success message for validation
-            return "Webhook verification successful", 200
-        
         # Get message details from Twilio request
-        from_number = request.form.get('From', 'unknown')
-        to_number = request.form.get('To', 'unknown')
-        body = request.form.get('Body', '')
+        from_number = request.form.get('From', 'unknown') if request.method == 'POST' else request.args.get('From', 'unknown')
+        body = request.form.get('Body', '') if request.method == 'POST' else request.args.get('Body', '')
         
         logger.info(f"FROM: {from_number}")
-        logger.info(f"TO: {to_number}")
         logger.info(f"BODY: {body}")
         
-        # Import models here to avoid circular import
-        from ..models import Business, Workflow
-        from .. import db
+        # Always create a TwiML response - this is critical for Twilio
+        resp = MessagingResponse()
         
-        logger.info("Attempting database query for business and workflow")
-        
-        # Check if business exists
-        business = db.session.query(Business).filter_by(id=business_id).first()
-        
-        if not business:
-            logger.error(f"Business not found with ID: {business_id}")
-            # Create a simple response for missing business
-            response = MessagingResponse()
-            response.message("Thank you for your message. We'll get back to you soon.")
-            return str(response)
-        
-        logger.info(f"Found business: {business.name if hasattr(business, 'name') else business.id}")
-        
-        # Get active workflow for this business
-        workflow = db.session.query(Workflow).filter_by(
-            business_id=business_id,
-            status='ACTIVE'
-        ).first()
-        
-        if not workflow:
-            logger.error(f"NO ACTIVE WORKFLOW FOUND FOR BUSINESS ID: {business_id}")
-            # Return a basic response if no workflow is configured
-            response = MessagingResponse()
-            response.message("Thank you for your message. A representative will get back to you soon.")
-            return str(response)
-        
-        logger.info(f"FOUND ACTIVE WORKFLOW: {workflow.id}")
-        logger.info(f"WORKFLOW ACTIONS: {workflow.actions}")
-        
-        # Check if OpenAI API key exists in the workflow config
-        openai_key = workflow.actions.get('aiTraining', {}).get('openAIKey')
-        twilioConfig = workflow.actions.get('twilio', {})
-        
-        logger.info(f"OPENAI KEY AVAILABLE: {'YES' if openai_key else 'NO'}")
-        logger.info(f"TWILIO CONFIG: {twilioConfig}")
-        
-        # Process the message using the AI service
-        if body:
-            # Initialize AI service if needed
-            if ai_service is None:
-                from ..services.ai_service import AIService
-                global ai_service
-                ai_service = AIService()
-                logger.info("AI service initialized for SMS processing")
+        try:
+            # Import models here to avoid circular import
+            from ..models import Business, Workflow
+            from .. import db
             
-            try:
-                # Generate AI response based on workflow configuration
-                logger.info("CALLING AI SERVICE TO GENERATE RESPONSE...")
-                workflow_response = ai_service.analyze_requirements(body, workflow.actions)
-                logger.info(f"AI SERVICE RESPONSE: {workflow_response}")
+            logger.info("Attempting database query for business and workflow")
+            
+            # Check if business exists
+            business = db.session.query(Business).filter_by(id=business_id).first()
+            
+            if not business:
+                logger.error(f"Business not found with ID: {business_id}")
+                # Always return a valid TwiML response even when business not found
+                resp.message(f"Thank you for your message. We'll get back to you soon. (Business ID: {business_id} not found)")
+                return str(resp)
+            
+            logger.info(f"Found business: {business.name if hasattr(business, 'name') else business.id}")
+            
+            # Get active workflow for this business
+            workflow = db.session.query(Workflow).filter_by(
+                business_id=business_id,
+                status='ACTIVE'
+            ).first()
+            
+            if not workflow:
+                logger.error(f"NO ACTIVE WORKFLOW FOUND FOR BUSINESS ID: {business_id}")
+                # Always return a valid TwiML response even when workflow not found
+                resp.message("Thank you for your message. A representative will get back to you soon. (No active workflow)")
+                return str(resp)
+            
+            # Process the message using the AI service
+            if body:
+                # Initialize AI service if needed
+                if ai_service is None:
+                    from ..services.ai_service import AIService
+                    global ai_service
+                    ai_service = AIService()
+                    logger.info("AI service initialized for SMS processing")
                 
-                # Get response text from AI or fallback message
-                response_text = (workflow_response.get('message') or 
-                               workflow.actions.get('twilio', {}).get('fallbackMessage') or
-                               workflow.actions.get('response', {}).get('fallbackMessage') or
-                               "Thank you for your message. We'll respond shortly.")
-                
-                # Create Twilio response
-                response = MessagingResponse()
-                response.message(response_text)
-                
-                # Log successful response
-                logger.info(f"SUCCESSFULLY PROCESSED MESSAGE FOR BUSINESS ID: {business_id}")
-                return str(response)
-            except Exception as ai_error:
-                logger.error(f"AI SERVICE ERROR: {str(ai_error)}")
-                import traceback
-                logger.error(f"AI SERVICE TRACEBACK: {traceback.format_exc()}")
-                
-                # Use fallback message from workflow if available
-                fallback_message = (workflow.actions.get('twilio', {}).get('fallbackMessage') or
-                                  workflow.actions.get('response', {}).get('fallbackMessage') or
-                                  "Thank you for your message. A representative will get back to you soon.")
-                
-                response = MessagingResponse()
-                response.message(fallback_message)
-                return str(response)
+                try:
+                    # Generate AI response based on workflow configuration
+                    logger.info("CALLING AI SERVICE TO GENERATE RESPONSE...")
+                    workflow_response = ai_service.analyze_requirements(body, workflow.actions)
+                    logger.info(f"AI SERVICE RESPONSE: {workflow_response}")
+                    
+                    # Get response text from AI or fallback message
+                    response_text = (workflow_response.get('message') or 
+                                   workflow.actions.get('twilio', {}).get('fallbackMessage') or
+                                   workflow.actions.get('response', {}).get('fallbackMessage') or
+                                   "Thank you for your message. We'll respond shortly.")
+                    
+                    # Add the response to the TwiML
+                    resp.message(response_text)
+                    logger.info(f"SUCCESSFULLY PROCESSED MESSAGE FOR BUSINESS ID: {business_id}")
+                    
+                except Exception as ai_error:
+                    logger.error(f"AI SERVICE ERROR: {str(ai_error)}")
+                    import traceback
+                    logger.error(f"AI SERVICE TRACEBACK: {traceback.format_exc()}")
+                    
+                    # Use fallback message from workflow if available
+                    fallback_message = (workflow.actions.get('twilio', {}).get('fallbackMessage') or
+                                      workflow.actions.get('response', {}).get('fallbackMessage') or
+                                      "Thank you for your message. A representative will get back to you soon.")
+                    
+                    resp.message(fallback_message)
+            else:
+                # For empty message body
+                resp.message("We've received your message. How can we help you today?")
+            
+        except Exception as inner_error:
+            logger.error(f"ERROR PROCESSING WEBHOOK DETAILS: {str(inner_error)}")
+            import traceback
+            logger.error(f"INNER ERROR TRACEBACK: {traceback.format_exc()}")
+            
+            # Always provide a response to Twilio regardless of errors
+            resp.message("Thank you for your message. We'll respond shortly. (Error handled)")
         
-        # Basic response for empty messages
-        response = MessagingResponse()
-        response.message("We've received your message. How can we help you today?")
-        return str(response)
-        
+        # Return the TwiML response
+        return str(resp)
+            
     except Exception as e:
         logger.error(f"ERROR PROCESSING BUSINESS-SPECIFIC WEBHOOK: {str(e)}")
         import traceback
         logger.error(f"TRACEBACK: {traceback.format_exc()}")
         
-        # Return a basic response in case of errors
-        response = MessagingResponse()
-        response.message("Thank you for your message. A representative will get back to you soon.")
-        return str(response)
+        # Always return a valid TwiML response even in case of errors
+        resp = MessagingResponse()
+        resp.message("Thank you for your message. Our team will respond shortly.")
+        return str(resp)
+
+@webhooks.route('/webhook-test', methods=['GET', 'POST'])
+def webhook_test():
+    """Simple test endpoint for Twilio webhook verification."""
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    logger.info("WEBHOOK TEST ENDPOINT HIT")
+    logger.info(f"Method: {request.method}")
+    logger.info(f"Headers: {dict(request.headers)}")
+    
+    if request.method == 'POST':
+        logger.info(f"Form data: {dict(request.form)}")
+    else:
+        logger.info(f"Query params: {dict(request.args)}")
+    
+    # Create a simple TwiML response
+    resp = MessagingResponse()
+    resp.message("Your webhook test is working! This confirms Twilio can reach your server.")
+    
+    logger.info("Returning webhook test response")
+    return str(resp)
