@@ -239,7 +239,16 @@ def business_specific_webhook(business_id):
             logger.info("Attempting database query for business and workflow")
             
             # Check if business exists
-            business = db.session.query(Business).filter_by(id=business_id).first()
+            try:
+                # Use the SQLAlchemy model directly instead of db.session.query
+                business = Business.query.filter_by(id=business_id).first()
+                logger.info(f"Business query completed: {'Found' if business else 'Not found'}")
+            except Exception as db_error:
+                logger.error(f"Database error querying business: {str(db_error)}")
+                import traceback
+                logger.error(f"TRACEBACK: {traceback.format_exc()}")
+                resp.message("Thank you for your message. We'll get back to you soon. (Database error)")
+                return str(resp)
             
             if not business:
                 logger.error(f"Business not found with ID: {business_id}")
@@ -250,7 +259,7 @@ def business_specific_webhook(business_id):
             logger.info(f"Found business: {business.name if hasattr(business, 'name') else business.id}")
             
             # Get active workflow for this business
-            workflow = db.session.query(Workflow).filter_by(
+            workflow = Workflow.query.filter_by(
                 business_id=business_id,
                 status='ACTIVE'
             ).first()
