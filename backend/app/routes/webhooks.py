@@ -6,11 +6,15 @@ import hashlib
 import base64
 import json
 import os
+import logging
 from ..services.twilio_service import TwilioService
 from ..services.sendgrid_service import SendGridService
 from ..services.zendesk_service import ZendeskService
 from ..services.ai_service import AIService
 from functools import wraps
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 webhooks = Blueprint('webhooks', __name__)
 
