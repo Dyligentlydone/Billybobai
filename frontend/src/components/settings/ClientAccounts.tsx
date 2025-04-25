@@ -158,10 +158,10 @@ export default function ClientAccounts() {
   const fetchClients = async () => {
     try {
       const adminToken = localStorage.getItem('admin_token');
-      const absoluteUrl = window.location.origin + '/api/auth/passcodes?business_id=' + (business?.id || '');
-      console.log("Fetching clients from:", absoluteUrl);
+      const url = `/api/auth/passcodes?business_id=${business?.id || ''}`;
+      console.log("Fetching clients from:", url);
       
-      const response = await fetch(absoluteUrl, {
+      const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${adminToken}`
         }
@@ -234,13 +234,10 @@ export default function ClientAccounts() {
     }
 
     try {
-      // Use raw fetch with absolute URL to bypass any routing issues
       const adminToken = localStorage.getItem('admin_token');
-      const absoluteUrl = window.location.origin + '/api/auth/passcodes';
-      console.log("Sending request to:", absoluteUrl);
-      console.log("Request data:", JSON.stringify(newClient));
+      console.log("Creating client with data:", JSON.stringify(newClient));
       
-      const response = await fetch(absoluteUrl, {
+      const response = await fetch('/api/auth/passcodes', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
