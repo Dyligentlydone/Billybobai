@@ -127,12 +127,19 @@ const defaultClientState: ClientPasscode = {
 };
 
 export default function ClientAccounts() {
-  const { isAdmin } = useBusiness();
+  const { isAdmin, business } = useBusiness();
   const [clients, setClients] = useState<ClientPasscode[]>([]);
   const [showNewClientForm, setShowNewClientForm] = useState(false);
   const [expandedSections, setExpandedSections] = useState<string[]>([]);
   const [newClient, setNewClient] = useState<ClientPasscode>(defaultClientState);
   const [error, setError] = useState<string>('');
+
+  // Set admin cookie for API access
+  useEffect(() => {
+    if (isAdmin) {
+      document.cookie = "admin_password=97225; path=/";
+    }
+  }, [isAdmin]);
 
   // Redirect if not admin
   useEffect(() => {
@@ -150,7 +157,9 @@ export default function ClientAccounts() {
 
   const fetchClients = async () => {
     try {
-      const response = await fetch('/api/auth/passcodes');
+      const response = await fetch('/api/auth/passcodes?business_id=' + (business?.id || ''), {
+        credentials: 'include'
+      });
       if (response.ok) {
         const data = await response.json();
         setClients(data.clients);
@@ -218,6 +227,7 @@ export default function ClientAccounts() {
         headers: {
           'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify(newClient)
       });
 
