@@ -42,12 +42,16 @@ def create_passcode():
     try:
         # Check if admin session is active
         admin_password = request.cookies.get('admin_password')
+        logger.info(f"Received cookies: {request.cookies}")
+        logger.info(f"Admin password from cookies: {admin_password}")
+        
         if not admin_password or admin_password != "97225":  # Your admin password
             logger.warning("Unauthorized access attempt to create passcode")
-            return jsonify({"message": "Unauthorized access"}), 401
+            return jsonify({"message": "Unauthorized access - admin password not found in cookies"}), 401
             
         # Parse request data
         data = request.get_json()
+        logger.info(f"Received data: {data}")
         
         if not data:
             logger.warning("No data provided for passcode creation")
@@ -56,6 +60,8 @@ def create_passcode():
         business_id = data.get('business_id')
         passcode = data.get('passcode')
         permissions = data.get('permissions')
+        
+        logger.info(f"Creating passcode for business_id: {business_id}, passcode: {passcode}")
         
         # Validate required fields
         if not business_id:
@@ -79,7 +85,7 @@ def create_passcode():
         business = db.session.query(Business).filter_by(id=business_id).first()
         if not business:
             logger.warning(f"Business not found: {business_id}")
-            return jsonify({"message": "Business not found"}), 404
+            return jsonify({"message": f"Business not found with ID: {business_id}"}), 404
             
         # Check if passcode already exists
         existing_passcode = db.session.query(ClientPasscode).filter_by(
@@ -104,6 +110,7 @@ def create_passcode():
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error creating passcode: {str(e)}")
+        logger.exception("Detailed error information:") 
         return jsonify({"message": f"Error creating client access: {str(e)}"}), 500
 
 @auth_bp.route('/api/auth/passcodes/<int:passcode_id>', methods=['DELETE'])
