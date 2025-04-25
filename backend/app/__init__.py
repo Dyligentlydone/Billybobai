@@ -303,8 +303,8 @@ def create_app():
 
             try:
                 from .routes.auth_routes import auth_bp
-                app.register_blueprint(auth_bp)
-                logger.info("Auth blueprint registered successfully")
+                app.register_blueprint(auth_bp, url_prefix='/api')
+                logger.info("Auth blueprint registered successfully with prefix /api")
             except Exception as e:
                 logger.error(f"Failed to register Auth blueprint: {str(e)}")
                 import traceback
