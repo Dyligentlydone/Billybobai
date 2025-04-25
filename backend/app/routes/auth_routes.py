@@ -133,3 +133,81 @@ def delete_passcode(passcode_id):
         db.session.rollback()
         logger.error(f"Error deleting passcode: {str(e)}")
         return jsonify({"message": f"Error deleting client access: {str(e)}"}), 500
+
+@auth_bp.route('/api/auth/login', methods=['POST'])
+def login():
+    """Login endpoint for clients using passcodes"""
+    logger.info("Client login attempt")
+    try:
+        data = request.get_json()
+        
+        if not data:
+            logger.warning("No login data provided")
+            return jsonify({"message": "No data provided"}), 400
+            
+        business_id = data.get('business_id')
+        passcode = data.get('password')  # Frontend sends passcode as 'password'
+        
+        logger.info(f"Login attempt for business_id: {business_id}")
+        
+        if not business_id:
+            logger.warning("Business ID not provided")
+            return jsonify({"message": "Business ID required"}), 400
+            
+        if not passcode:
+            logger.warning("Passcode not provided")
+            return jsonify({"message": "Passcode required"}), 400
+        
+        # Check if it's an admin login attempt
+        if passcode == "97225":
+            # Admin login
+            logger.info(f"Admin login attempt for business: {business_id}")
+            business = db.session.query(Business).filter_by(id=business_id).first()
+            if business:
+                logger.info(f"Admin login successful for business: {business_id}")
+                return jsonify({
+                    "business": {
+                        "id": business.id,
+                        "name": business.name,
+                        "business_id": business.id,
+                        "is_admin": True,
+                        "domain": business.domain
+                    },
+                    "message": "Admin login successful"
+                }), 200
+            else:
+                logger.warning(f"Business not found: {business_id}")
+                return jsonify({"message": "Business not found"}), 404
+                
+        # Client login with passcode
+        logger.info(f"Client login attempt with passcode for business: {business_id}")
+        client = db.session.query(ClientPasscode).filter_by(
+            business_id=business_id, passcode=passcode).first()
+            
+        if not client:
+            logger.warning(f"Invalid passcode for business: {business_id}")
+            return jsonify({"message": "Invalid business ID or passcode"}), 401
+            
+        # Get the business info
+        business = db.session.query(Business).filter_by(id=business_id).first()
+        if not business:
+            logger.warning(f"Business not found: {business_id}")
+            return jsonify({"message": "Business not found"}), 404
+            
+        # Return business with client permissions
+        logger.info(f"Client login successful for business: {business_id}")
+        return jsonify({
+            "business": {
+                "id": business.id,
+                "name": business.name,
+                "business_id": business.id,
+                "is_admin": False,
+                "domain": business.domain,
+                "permissions": client.permissions
+            },
+            "message": "Login successful"
+        }), 200
+            
+    except Exception as e:
+        logger.error(f"Login error: {str(e)}")
+        return jsonify({"message": f"Error during login: {str(e)}"}), 500
