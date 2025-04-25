@@ -270,6 +270,139 @@ def create_app():
             import traceback
             logger.error(traceback.format_exc())
 
+    logger.info("Registering direct client access routes")
+    def register_direct_routes(app):
+        logger.info("Registering direct client access routes")
+        
+        # Direct client access endpoint
+        @app.route('/api/auth/passcodes', methods=['GET', 'POST', 'OPTIONS', 'DELETE'])
+        def direct_passcodes_handler():
+            logger.info(f"Direct passcodes handler: {request.method} {request.path}")
+            logger.info(f"Headers: {dict(request.headers)}")
+            logger.info(f"Cookies: {request.cookies}")
+            
+            try:
+                if request.method == 'GET':
+                    business_id = request.args.get('business_id')
+                    logger.info(f"Getting passcodes for business_id: {business_id}")
+                    
+                    if not business_id:
+                        logger.warning("Business ID not provided")
+                        return jsonify({"message": "Business ID is required", "clients": []}), 200
+                    
+                    # Verify admin auth from headers or cookies
+                    auth_header = request.headers.get('Authorization')
+                    admin_cookie = request.cookies.get('admin')
+                    admin_token = None
+                    
+                    if auth_header and auth_header.startswith('Bearer '):
+                        admin_token = auth_header.replace('Bearer ', '')
+                    
+                    is_admin = (admin_token == "97225" or admin_cookie == "97225")
+                    logger.info(f"Admin authentication status: {is_admin}")
+                    
+                    if not is_admin:
+                        logger.warning("Unauthorized access attempt")
+                        return jsonify({"message": "Unauthorized", "clients": []}), 200
+                    
+                    # Get passcodes from database
+                    try:
+                        from app.models import ClientPasscode
+                        passcodes = db.session.query(ClientPasscode).filter_by(business_id=business_id).all()
+                        passcode_list = [p.to_dict() for p in passcodes]
+                        logger.info(f"Found {len(passcode_list)} passcodes")
+                        return jsonify({"clients": passcode_list}), 200
+                    except Exception as e:
+                        logger.error(f"Database error: {str(e)}")
+                        logger.exception("Detailed error:")
+                        return jsonify({"message": "Database error", "clients": []}), 200
+                        
+                elif request.method == 'POST':
+                    try:
+                        data = request.get_json()
+                        logger.info(f"Creating passcode with data: {data}")
+                        
+                        # Verify admin auth
+                        auth_header = request.headers.get('Authorization')
+                        admin_cookie = request.cookies.get('admin')
+                        admin_token = None
+                        
+                        if auth_header and auth_header.startswith('Bearer '):
+                            admin_token = auth_header.replace('Bearer ', '')
+                        
+                        is_admin = (admin_token == "97225" or admin_cookie == "97225")
+                        logger.info(f"Admin authentication status: {is_admin}")
+                        
+                        if not is_admin:
+                            logger.warning("Unauthorized access attempt")
+                            return jsonify({"message": "Unauthorized"}), 401
+                        
+                        if not data:
+                            logger.warning("No data provided")
+                            return jsonify({"message": "No data provided"}), 400
+                            
+                        business_id = data.get('business_id')
+                        passcode = data.get('passcode')
+                        permissions = data.get('permissions')
+                        
+                        # Validation
+                        if not business_id:
+                            return jsonify({"message": "Business ID is required"}), 400
+                        if not passcode:
+                            return jsonify({"message": "Passcode is required"}), 400
+                        if not permissions:
+                            permissions = []
+                        
+                        # Create passcode
+                        from app.models import ClientPasscode, Business
+                        import json
+                        
+                        # Check if business exists
+                        business = db.session.query(Business).filter_by(id=business_id).first()
+                        if not business:
+                            logger.warning(f"Business not found: {business_id}")
+                            return jsonify({"message": f"Business not found: {business_id}"}), 404
+                        
+                        # Check if passcode exists
+                        existing = db.session.query(ClientPasscode).filter_by(
+                            business_id=business_id, passcode=passcode).first()
+                        if existing:
+                            return jsonify({"message": "Passcode already exists"}), 409
+                        
+                        # Ensure permissions is stored correctly
+                        if isinstance(permissions, list):
+                            permissions_json = json.dumps(permissions)
+                        elif isinstance(permissions, str):
+                            permissions_json = permissions  # Already a JSON string
+                        else:
+                            permissions_json = json.dumps([])  # Default empty list
+                        
+                        # Create new passcode
+                        new_passcode = ClientPasscode(
+                            business_id=business_id,
+                            passcode=passcode,
+                            permissions=permissions_json
+                        )
+                        db.session.add(new_passcode)
+                        db.session.commit()
+                        logger.info(f"Created new passcode with ID: {new_passcode.id}")
+                        return jsonify({"message": "Client access created successfully"}), 201
+                    except Exception as e:
+                        db.session.rollback()
+                        logger.error(f"Error creating passcode: {str(e)}")
+                        logger.exception("Detailed error:")
+                        return jsonify({"message": f"Error creating client access: {str(e)}"}), 500
+                
+                # OPTIONS request
+                return '', 204
+                
+            except Exception as e:
+                logger.error(f"Error in direct_passcodes_handler: {str(e)}")
+                logger.exception("Detailed error:")
+                return jsonify({"error": str(e)}), 500
+
+        register_direct_routes(app)
+
     logger.info("Registering route blueprints...")
     try:
         # Import and register routes
@@ -288,8 +421,19 @@ def create_app():
         logger.error(f"Failed to register business routes: {str(e)}")
 
     try:
-        # Register blueprints with error handling for missing dependencies
+        # Register blueprints with better error handling
         def register_blueprints_with_error_handling(app):
+            # Register auth blueprint but modify its URL prefix to avoid conflict
+            try:
+                from .routes.auth_routes import auth
+                # Disable client access routes in the auth blueprint by registering with a different prefix
+                app.register_blueprint(auth, url_prefix='/api/auth_old')
+                logger.info("Auth blueprint registered with modified prefix to avoid conflicts")
+            except Exception as e:
+                logger.error(f"Failed to register auth blueprint: {str(e)}")
+                import traceback
+                logger.error(traceback.format_exc())
+
             try:
                 from .routes import calendly_routes
                 app.register_blueprint(calendly_routes.calendly_bp)
@@ -303,15 +447,6 @@ def create_app():
                 logger.info("API blueprint registered successfully at /api")
             except Exception as e:
                 logger.error(f"Failed to register API blueprint: {str(e)}")
-
-            try:
-                from .routes.auth_routes import auth_bp
-                app.register_blueprint(auth_bp, url_prefix='/api')
-                logger.info("Auth blueprint registered successfully with prefix /api")
-            except Exception as e:
-                logger.error(f"Failed to register Auth blueprint: {str(e)}")
-                import traceback
-                logger.error(traceback.format_exc())
 
             try:
                 from .routes.webhooks import webhooks as webhooks_blueprint
