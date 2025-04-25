@@ -361,11 +361,23 @@ def create_app():
                     
                     # Verify admin auth from headers
                     auth_header = request.headers.get('Authorization')
-                    is_admin = auth_header and auth_header.replace('Bearer ', '') == "97225"
+                    is_admin = False
+                    
+                    # Try multiple auth methods for production reliability
+                    if auth_header:
+                        token = auth_header.replace('Bearer ', '')
+                        is_admin = token == "97225"
+                    
+                    # Also check for admin cookie as fallback
+                    admin_cookie = request.cookies.get('admin')
+                    if admin_cookie == "97225":
+                        is_admin = True
+                        
+                    logger.info(f"Admin authentication status: {is_admin}")
                     
                     if not is_admin:
-                        logger.warning("Unauthorized access - returning empty list for safety")
-                        return jsonify({"clients": []}), 200
+                        logger.warning("Unauthorized access attempt")
+                        return jsonify({"message": "Unauthorized access"}), 401
                     
                     # Get passcodes from database
                     try:
@@ -385,7 +397,19 @@ def create_app():
                     
                     # Verify admin auth from headers
                     auth_header = request.headers.get('Authorization')
-                    is_admin = auth_header and auth_header.replace('Bearer ', '') == "97225"
+                    is_admin = False
+                    
+                    # Try multiple auth methods for production reliability
+                    if auth_header:
+                        token = auth_header.replace('Bearer ', '')
+                        is_admin = token == "97225"
+                    
+                    # Also check for admin cookie as fallback
+                    admin_cookie = request.cookies.get('admin')
+                    if admin_cookie == "97225":
+                        is_admin = True
+                        
+                    logger.info(f"Admin authentication status: {is_admin}")
                     
                     if not is_admin:
                         logger.warning("Unauthorized access attempt")
