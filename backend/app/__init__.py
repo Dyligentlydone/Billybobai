@@ -271,10 +271,12 @@ def create_app():
             logger.error(traceback.format_exc())
 
     logger.info("Registering direct client access routes")
-    @app.route('/api/auth/passcodes', methods=['GET', 'POST', 'OPTIONS', 'DELETE'], endpoint='direct_passcodes')
-    def direct_passcodes_handler():
-        """Direct handler for client access passcodes."""
-        logger.info(f"Direct passcodes handler: {request.method} {request.path}")
+    
+    # Use a completely different path to avoid any conflicts with existing routes
+    @app.route('/api/direct/client-access', methods=['POST', 'GET', 'OPTIONS'], endpoint='direct_client_access')
+    def direct_client_access_handler():
+        """Direct handler for client access with a unique route path."""
+        logger.info(f"Direct client access handler: {request.method} {request.path}")
         logger.info(f"Headers: {dict(request.headers)}")
         
         # Add CORS headers for production environment
@@ -346,15 +348,18 @@ def create_app():
                     
             elif request.method == 'POST':
                 try:
+                    # Log raw request data for debugging
+                    raw_data = request.get_data(as_text=True)
+                    logger.info(f"Raw request data: {raw_data}")
+                    
                     # Force reading the request data as JSON
                     if not request.is_json:
                         logger.warning("Request is not JSON")
                         logger.info(f"Content-Type: {request.content_type}")
-                        logger.info(f"Raw data: {request.get_data(as_text=True)}")
                         
                         try:
                             # Try to parse JSON anyway
-                            data = json.loads(request.get_data(as_text=True))
+                            data = json.loads(raw_data)
                         except Exception as e:
                             logger.error(f"Error parsing request data: {str(e)}")
                             return Response(
@@ -449,6 +454,8 @@ def create_app():
                         permissions_json = json.dumps(permissions)
                     elif isinstance(permissions, str):
                         permissions_json = permissions  # Already a JSON string
+                    elif isinstance(permissions, dict):
+                        permissions_json = json.dumps(permissions)  # Convert dict to JSON string
                     else:
                         permissions_json = json.dumps([])  # Default empty list
                     
@@ -478,7 +485,7 @@ def create_app():
                         headers=response_headers
                     )
         except Exception as e:
-            logger.error(f"Error in direct_passcodes_handler: {str(e)}")
+            logger.error(f"Error in direct_client_access_handler: {str(e)}")
             logger.exception("Detailed error:")
             return Response(
                 json.dumps({"error": str(e)}),
@@ -578,20 +585,15 @@ def create_app():
                         logger.warning("Business ID not provided")
                         return jsonify({"message": "Business ID is required", "clients": []}), 200
                     
-                    # Verify admin auth from headers
-                    auth_header = request.headers.get('Authorization')
-                    is_admin = False
+                    # Verify admin auth from headers or cookies
+                    auth_header = request.headers.get('Authorization', '')
+                    admin_cookie = request.cookies.get('admin', '')
+                    admin_token = None
                     
-                    # Try multiple auth methods for production reliability
-                    if auth_header:
-                        token = auth_header.replace('Bearer ', '')
-                        is_admin = token == "97225"
+                    if auth_header and auth_header.startswith('Bearer '):
+                        admin_token = auth_header.replace('Bearer ', '')
                     
-                    # Also check for admin cookie as fallback
-                    admin_cookie = request.cookies.get('admin')
-                    if admin_cookie == "97225":
-                        is_admin = True
-                        
+                    is_admin = (admin_token == "97225" or admin_cookie == "97225")
                     logger.info(f"Admin authentication status: {is_admin}")
                     
                     if not is_admin:
@@ -615,19 +617,14 @@ def create_app():
                     logger.info(f"Creating passcode with data: {data}")
                     
                     # Verify admin auth from headers
-                    auth_header = request.headers.get('Authorization')
-                    is_admin = False
+                    auth_header = request.headers.get('Authorization', '')
+                    admin_cookie = request.cookies.get('admin', '')
+                    admin_token = None
                     
-                    # Try multiple auth methods for production reliability
-                    if auth_header:
-                        token = auth_header.replace('Bearer ', '')
-                        is_admin = token == "97225"
+                    if auth_header and auth_header.startswith('Bearer '):
+                        admin_token = auth_header.replace('Bearer ', '')
                     
-                    # Also check for admin cookie as fallback
-                    admin_cookie = request.cookies.get('admin')
-                    if admin_cookie == "97225":
-                        is_admin = True
-                        
+                    is_admin = (admin_token == "97225" or admin_cookie == "97225")
                     logger.info(f"Admin authentication status: {is_admin}")
                     
                     if not is_admin:

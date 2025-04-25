@@ -158,7 +158,8 @@ export default function ClientAccounts() {
   const fetchClients = async () => {
     try {
       const adminToken = localStorage.getItem('admin_token');
-      const url = `/api/auth/passcodes?business_id=${business?.id || ''}`;
+      // Use the new direct client access endpoint
+      const url = `/api/direct/client-access?business_id=${business?.id || ''}`;
       console.log("Fetching clients from:", url);
       
       // Use XMLHttpRequest for consistency with creation
@@ -219,6 +220,33 @@ export default function ClientAccounts() {
     return obj;
   };
 
+  // Helper function to flatten permissions object for API
+  const flattenPermissions = (permissions: any) => {
+    const result: { [key: string]: boolean } = {};
+    
+    // Process navigation permissions
+    Object.entries(permissions.navigation).forEach(([key, value]) => {
+      result[`navigation.${key}`] = Boolean(value);
+    });
+    
+    // Process SMS analytics permissions
+    Object.entries(permissions.analytics.sms).forEach(([key, value]) => {
+      result[`analytics.sms.${key}`] = Boolean(value);
+    });
+    
+    // Process voice analytics permissions
+    Object.entries(permissions.analytics.voice).forEach(([key, value]) => {
+      result[`analytics.voice.${key}`] = Boolean(value);
+    });
+    
+    // Process email analytics permissions
+    Object.entries(permissions.analytics.email).forEach(([key, value]) => {
+      result[`analytics.email.${key}`] = Boolean(value);
+    });
+    
+    return result;
+  };
+
   const togglePermission = (section: string, key: string) => {
     console.log('Toggling permission:', section, key);
     setNewClient(prev => {
@@ -241,6 +269,12 @@ export default function ClientAccounts() {
     e.preventDefault();
     setError('');
 
+    // Additional validation for business ID
+    if (!newClient.business_id || newClient.business_id.trim() === '') {
+      setError('Business ID is required');
+      return;
+    }
+
     if (newClient.passcode.length !== 5 || !/^\d+$/.test(newClient.passcode)) {
       setError('Passcode must be exactly 5 digits');
       return;
@@ -249,20 +283,22 @@ export default function ClientAccounts() {
     try {
       const adminToken = localStorage.getItem('admin_token');
       
-      // Format permissions properly - convert to simple array format
-      const permissionData = {
+      // Create a better structured permissions object for the backend
+      const flatPermissions = flattenPermissions(newClient.permissions);
+      
+      // Prepare data for API call
+      const clientData = {
         business_id: newClient.business_id,
         passcode: newClient.passcode,
-        permissions: Object.entries(newClient.permissions)
-          .filter(([_, enabled]) => enabled)
-          .map(([key]) => key)
+        permissions: flatPermissions
       };
       
-      console.log("Sending client data:", JSON.stringify(permissionData));
+      console.log("Sending client data:", JSON.stringify(clientData));
       
       // Use standard XMLHttpRequest for direct control
       const xhr = new XMLHttpRequest();
-      xhr.open('POST', '/api/auth/passcodes');
+      // Use the new endpoint to avoid routing conflicts
+      xhr.open('POST', '/api/direct/client-access');
       xhr.setRequestHeader('Content-Type', 'application/json');
       xhr.setRequestHeader('Authorization', `Bearer ${adminToken}`);
       
@@ -293,7 +329,7 @@ export default function ClientAccounts() {
         setError('Failed to create client access: Network error');
       };
       
-      xhr.send(JSON.stringify(permissionData));
+      xhr.send(JSON.stringify(clientData));
     } catch (error) {
       console.error('Failed to create client:', error);
       setError('Failed to create client access: Network error');
