@@ -5,6 +5,8 @@ from flask_cors import CORS
 import os
 import logging
 import sys
+import importlib
+import traceback
 
 # Configure logging to stdout
 logging.basicConfig(
@@ -336,7 +338,32 @@ def create_app():
         # Log all registered routes for debugging
         logger.info("Registered routes:")
         for rule in app.url_map.iter_rules():
-            logger.info(f"Endpoint: {rule.endpoint}, Path: {rule}, Methods: {rule.methods}")
+            logger.info(f"Endpoint: {rule.endpoint}, Path: {rule.rule}, Methods: {rule.methods}")
+            
+        # Add debug route to catch and log all requests
+        @app.route('/api/auth/passcodes', methods=['GET', 'POST', 'OPTIONS'])
+        def debug_passcodes():
+            logger.info(f"Debug route hit: {request.method} {request.path}")
+            logger.info(f"Headers: {dict(request.headers)}")
+            logger.info(f"Cookies: {request.cookies}")
+            logger.info(f"Data: {request.get_data(as_text=True)}")
+            
+            # Forward to the actual auth blueprint route
+            try:
+                if request.method == 'GET':
+                    from .routes.auth_routes import get_passcodes
+                    return get_passcodes()
+                elif request.method == 'POST':
+                    from .routes.auth_routes import create_passcode
+                    return create_passcode()
+                else:
+                    return '', 204  # OPTIONS
+            except Exception as e:
+                logger.error(f"Error in debug route: {str(e)}")
+                logger.exception("Full traceback")
+                return jsonify({"error": str(e)}), 500
+                
+        logger.info("Application creation completed successfully")
     except Exception as e:
         logger.error(f"Failed to register blueprints: {str(e)}")
         # Log the full traceback for debugging
