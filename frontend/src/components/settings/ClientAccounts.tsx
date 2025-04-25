@@ -161,21 +161,34 @@ export default function ClientAccounts() {
       const url = `/api/auth/passcodes?business_id=${business?.id || ''}`;
       console.log("Fetching clients from:", url);
       
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${adminToken}`
+      // Use XMLHttpRequest for consistency with creation
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', url);
+      xhr.setRequestHeader('Authorization', `Bearer ${adminToken}`);
+      
+      xhr.onload = function() {
+        console.log("Response status:", xhr.status);
+        console.log("Response text:", xhr.responseText);
+        
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const data = JSON.parse(xhr.responseText);
+            console.log("Received client data:", data);
+            setClients(data.clients || []);
+          } catch (err) {
+            console.error("Error parsing response:", err);
+            console.error("Raw response:", xhr.responseText);
+          }
+        } else {
+          console.error("Failed to fetch clients - status:", xhr.status);
         }
-      });
+      };
       
-      console.log("Response status:", response.status);
+      xhr.onerror = function() {
+        console.error('Network error occurred while fetching clients');
+      };
       
-      if (response.ok) {
-        const data = await response.json();
-        console.log("Received client data:", data);
-        setClients(data.clients || []);
-      } else {
-        console.error("Failed to fetch clients - status:", response.status);
-      }
+      xhr.send();
     } catch (error) {
       console.error('Failed to fetch clients:', error);
     }
@@ -247,32 +260,40 @@ export default function ClientAccounts() {
       
       console.log("Sending client data:", JSON.stringify(permissionData));
       
-      const response = await fetch('/api/auth/passcodes', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${adminToken}`
-        },
-        body: JSON.stringify(permissionData)
-      });
-
-      console.log("Response status:", response.status);
+      // Use standard XMLHttpRequest for direct control
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/auth/passcodes');
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.setRequestHeader('Authorization', `Bearer ${adminToken}`);
       
-      if (response.ok) {
-        setShowNewClientForm(false);
-        setNewClient(defaultClientState);
-        fetchClients();
-      } else {
-        let errorMessage = 'Failed to create client access';
-        try {
-          const data = await response.json();
-          errorMessage = data.message || errorMessage;
-        } catch (err) {
-          console.error("Error parsing response:", err);
+      xhr.onload = function() {
+        console.log("Response status:", xhr.status);
+        console.log("Response text:", xhr.responseText);
+        
+        if (xhr.status >= 200 && xhr.status < 300) {
+          setShowNewClientForm(false);
+          setNewClient(defaultClientState);
+          fetchClients();
+        } else {
+          let errorMessage = 'Failed to create client access';
+          try {
+            const data = JSON.parse(xhr.responseText);
+            errorMessage = data.message || errorMessage;
+          } catch (err) {
+            console.error("Error parsing response:", err);
+            console.error("Raw response:", xhr.responseText);
+          }
+          console.error("API error response:", errorMessage);
+          setError(errorMessage);
         }
-        console.error("API error response:", errorMessage);
-        setError(errorMessage);
-      }
+      };
+      
+      xhr.onerror = function() {
+        console.error('Network error occurred');
+        setError('Failed to create client access: Network error');
+      };
+      
+      xhr.send(JSON.stringify(permissionData));
     } catch (error) {
       console.error('Failed to create client:', error);
       setError('Failed to create client access: Network error');
