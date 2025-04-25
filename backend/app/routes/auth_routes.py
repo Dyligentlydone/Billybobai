@@ -5,9 +5,9 @@ from app.db import db
 
 logger = logging.getLogger(__name__)
 
-auth_bp = Blueprint('auth_bp', __name__)
+auth_bp = Blueprint('auth_bp', __name__, url_prefix='/api')
 
-@auth_bp.route('/api/auth/passcodes', methods=['GET'])
+@auth_bp.route('/auth/passcodes', methods=['GET'])
 def get_passcodes():
     """Get all client passcodes for the authenticated business."""
     logger.info("Fetching client passcodes")
@@ -47,7 +47,7 @@ def get_passcodes():
         logger.error(f"Error fetching passcodes: {str(e)}")
         return jsonify({"message": f"Error fetching passcodes: {str(e)}"}), 500
 
-@auth_bp.route('/api/auth/passcodes', methods=['POST'])
+@auth_bp.route('/auth/passcodes', methods=['POST'])
 def create_passcode():
     """Create a new client access passcode."""
     logger.info("Creating new client passcode")
@@ -134,7 +134,7 @@ def create_passcode():
         logger.exception("Detailed error information:") 
         return jsonify({"message": f"Error creating client access: {str(e)}"}), 500
 
-@auth_bp.route('/api/auth/passcodes/<int:passcode_id>', methods=['DELETE'])
+@auth_bp.route('/auth/passcodes/<int:passcode_id>', methods=['DELETE'])
 def delete_passcode(passcode_id):
     """Delete a client access passcode."""
     logger.info(f"Deleting client passcode {passcode_id}")
@@ -174,7 +174,7 @@ def delete_passcode(passcode_id):
         logger.error(f"Error deleting passcode: {str(e)}")
         return jsonify({"message": f"Error deleting client access: {str(e)}"}), 500
 
-@auth_bp.route('/api/auth/login', methods=['POST'])
+@auth_bp.route('/auth/login', methods=['POST'])
 def login():
     """Login endpoint for clients using passcodes"""
     logger.info("Client login attempt")
