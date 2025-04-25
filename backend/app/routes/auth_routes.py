@@ -254,3 +254,25 @@ def login():
     except Exception as e:
         logger.error(f"Login error: {str(e)}")
         return jsonify({"message": f"Error during login: {str(e)}"}), 500
+
+@auth.route('/direct/client-access', methods=['POST', 'GET', 'OPTIONS'])
+def direct_client_access():
+    """Direct handler for client access with a unique route path."""
+    logger.info(f"Direct client access handler via blueprint: {request.method} {request.path}")
+    logger.info(f"Headers: {dict(request.headers)}")
+    
+    # Handle OPTIONS requests for CORS preflight
+    if request.method == 'OPTIONS':
+        response = jsonify({})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+        return response, 204
+    
+    # For GET requests, use the existing get_passcodes logic
+    if request.method == 'GET':
+        return get_passcodes()
+    
+    # For POST requests, use the existing create_passcode logic  
+    if request.method == 'POST':
+        return create_passcode()
