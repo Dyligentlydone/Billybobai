@@ -9,6 +9,7 @@ class Business(db.Model):
     domain = db.Column(db.String(255), nullable=False, default="example.com") 
     workflows = db.relationship("Workflow", back_populates="business")
     config = db.relationship("BusinessConfig", back_populates="business", uselist=False)
+    passcodes = db.relationship("ClientPasscode", back_populates="business", cascade="all, delete-orphan")
 
 class BusinessConfig(db.Model):
     __tablename__ = 'business_configs'

@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify, g
 import logging
-from ..models import Business, ClientPasscode
-from .. import db
+from app.models import Business, ClientPasscode
+from app.db import db
 
 logger = logging.getLogger(__name__)
 

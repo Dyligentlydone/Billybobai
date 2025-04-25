@@ -7,6 +7,7 @@ from app.db import db
 # Import models
 from app.models.business import Business, BusinessConfig
 from app.models.workflow import Workflow, WorkflowNode, WorkflowEdge, WorkflowExecution
+from app.models.client_passcode import ClientPasscode
 
 # Define all models that should be available when importing from app.models
 __all__ = [
@@ -15,5 +16,6 @@ __all__ = [
     'Workflow',
     'WorkflowNode',
     'WorkflowEdge',
-    'WorkflowExecution'
+    'WorkflowExecution',
+    'ClientPasscode'
 ]
