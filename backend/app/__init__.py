@@ -270,10 +270,11 @@ def create_app():
             import traceback
             logger.error(traceback.format_exc())
 
-    logger.info("Registering direct client access routes")
+    logger.info("Registering direct client access routes - highest priority")
     
-    # Use a completely different path to avoid any conflicts with existing routes
+    # Ensure our direct route is registered BEFORE any blueprints
     @app.route('/api/direct/client-access', methods=['POST', 'GET', 'OPTIONS'], endpoint='direct_client_access')
+    @app.route('/api/direct/client-access/', methods=['POST', 'GET', 'OPTIONS'])  # Also handle trailing slash
     def direct_client_access_handler():
         """Direct handler for client access with a unique route path."""
         logger.info(f"Direct client access handler: {request.method} {request.path}")
@@ -422,7 +423,7 @@ def create_app():
                             headers=response_headers
                         )
                     if not permissions:
-                        permissions = []
+                        permissions = {}  # Default empty dict
                     
                     # Create passcode
                     from app.models import ClientPasscode, Business
@@ -450,14 +451,23 @@ def create_app():
                         )
                     
                     # Ensure permissions is stored correctly
-                    if isinstance(permissions, list):
-                        permissions_json = json.dumps(permissions)
-                    elif isinstance(permissions, str):
-                        permissions_json = permissions  # Already a JSON string
-                    elif isinstance(permissions, dict):
-                        permissions_json = json.dumps(permissions)  # Convert dict to JSON string
-                    else:
-                        permissions_json = json.dumps([])  # Default empty list
+                    try:
+                        if isinstance(permissions, dict):
+                            permissions_json = json.dumps(permissions)
+                        elif isinstance(permissions, list):
+                            permissions_json = json.dumps(permissions)
+                        elif isinstance(permissions, str):
+                            # Make sure it's valid JSON
+                            json.loads(permissions)  # This will raise an exception if invalid
+                            permissions_json = permissions
+                        else:
+                            permissions_json = json.dumps({})
+                    except Exception as e:
+                        logger.error(f"Error processing permissions: {str(e)}")
+                        permissions_json = json.dumps({})
+                    
+                    # For troubleshooting, log what's actually being stored
+                    logger.info(f"Final permissions JSON: {permissions_json}")
                     
                     # Create new passcode
                     new_passcode = ClientPasscode(
@@ -475,7 +485,8 @@ def create_app():
                         headers=response_headers
                     )
                 except Exception as e:
-                    db.session.rollback()
+                    if db and hasattr(db, 'session') and hasattr(db.session, 'rollback'):
+                        db.session.rollback()
                     logger.error(f"Error creating passcode: {str(e)}")
                     logger.exception("Detailed error:")
                     return Response(
@@ -493,7 +504,7 @@ def create_app():
                 mimetype='application/json',
                 headers=response_headers
             )
-
+        
     logger.info("Registering route blueprints...")
     try:
         # Import and register routes
@@ -710,6 +721,9 @@ def create_app():
         # Log the full traceback for debugging
         import traceback
         logger.error(traceback.format_exc())
+
+    # Tell Flask to use application root for all URLs
+    app.config['APPLICATION_ROOT'] = '/'
 
     @app.route('/')
     def index():
