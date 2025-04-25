@@ -158,15 +158,23 @@ export default function ClientAccounts() {
   const fetchClients = async () => {
     try {
       const adminToken = localStorage.getItem('admin_token');
-      const response = await fetch('/api/auth/passcodes?business_id=' + (business?.id || ''), {
+      const absoluteUrl = window.location.origin + '/api/auth/passcodes?business_id=' + (business?.id || '');
+      console.log("Fetching clients from:", absoluteUrl);
+      
+      const response = await fetch(absoluteUrl, {
         headers: {
           'Authorization': `Bearer ${adminToken}`
-        },
-        credentials: 'include'
+        }
       });
+      
+      console.log("Response status:", response.status);
+      
       if (response.ok) {
         const data = await response.json();
-        setClients(data.clients);
+        console.log("Received client data:", data);
+        setClients(data.clients || []);
+      } else {
+        console.error("Failed to fetch clients - status:", response.status);
       }
     } catch (error) {
       console.error('Failed to fetch clients:', error);
@@ -226,28 +234,41 @@ export default function ClientAccounts() {
     }
 
     try {
+      // Use raw fetch with absolute URL to bypass any routing issues
       const adminToken = localStorage.getItem('admin_token');
-      const response = await fetch('/api/auth/passcodes', {
+      const absoluteUrl = window.location.origin + '/api/auth/passcodes';
+      console.log("Sending request to:", absoluteUrl);
+      console.log("Request data:", JSON.stringify(newClient));
+      
+      const response = await fetch(absoluteUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${adminToken}`
         },
-        credentials: 'include',
         body: JSON.stringify(newClient)
       });
 
+      console.log("Response status:", response.status);
+      
       if (response.ok) {
         setShowNewClientForm(false);
         setNewClient(defaultClientState);
         fetchClients();
       } else {
-        const data = await response.json();
-        setError(data.message || 'Failed to create client access');
+        let errorMessage = 'Failed to create client access';
+        try {
+          const data = await response.json();
+          errorMessage = data.message || errorMessage;
+        } catch (err) {
+          console.error("Error parsing response:", err);
+        }
+        console.error("API error response:", errorMessage);
+        setError(errorMessage);
       }
     } catch (error) {
       console.error('Failed to create client:', error);
-      setError('Failed to create client access');
+      setError('Failed to create client access: Network error');
     }
   };
 
