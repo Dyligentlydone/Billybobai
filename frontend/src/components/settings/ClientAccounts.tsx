@@ -235,7 +235,17 @@ export default function ClientAccounts() {
 
     try {
       const adminToken = localStorage.getItem('admin_token');
-      console.log("Creating client with data:", JSON.stringify(newClient));
+      
+      // Format permissions properly - convert to simple array format
+      const permissionData = {
+        business_id: newClient.business_id,
+        passcode: newClient.passcode,
+        permissions: Object.entries(newClient.permissions)
+          .filter(([_, enabled]) => enabled)
+          .map(([key]) => key)
+      };
+      
+      console.log("Sending client data:", JSON.stringify(permissionData));
       
       const response = await fetch('/api/auth/passcodes', {
         method: 'POST',
@@ -243,7 +253,7 @@ export default function ClientAccounts() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${adminToken}`
         },
-        body: JSON.stringify(newClient)
+        body: JSON.stringify(permissionData)
       });
 
       console.log("Response status:", response.status);

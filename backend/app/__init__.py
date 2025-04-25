@@ -7,6 +7,7 @@ import logging
 import sys
 import importlib
 import traceback
+import json
 
 # Configure logging to stdout
 logging.basicConfig(
@@ -404,7 +405,21 @@ def create_app():
                     if not passcode:
                         return jsonify({"message": "Passcode is required"}), 400
                     if not permissions:
-                        return jsonify({"message": "Permissions are required"}), 400
+                        # Default empty permissions if not provided
+                        permissions = []
+                    
+                    # Ensure permissions is stored as JSON
+                    if not isinstance(permissions, list):
+                        try:
+                            # Try to convert to list if it's a string
+                            if isinstance(permissions, str):
+                                permissions = json.loads(permissions)
+                            # If it's a dict, convert to a list of keys
+                            elif isinstance(permissions, dict):
+                                permissions = [k for k, v in permissions.items() if v]
+                        except Exception:
+                            logger.warning("Invalid permissions format")
+                            return jsonify({"message": "Invalid permissions format"}), 400
                     
                     # Create passcode
                     try:
@@ -422,11 +437,14 @@ def create_app():
                         if existing:
                             return jsonify({"message": "Passcode already exists"}), 409
                         
+                        # Store permissions as JSON string
+                        permissions_json = json.dumps(permissions)
+                        
                         # Create new passcode
                         new_passcode = ClientPasscode(
                             business_id=business_id,
                             passcode=passcode,
-                            permissions=permissions
+                            permissions=permissions_json
                         )
                         db.session.add(new_passcode)
                         db.session.commit()
