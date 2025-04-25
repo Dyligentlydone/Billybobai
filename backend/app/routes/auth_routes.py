@@ -12,11 +12,23 @@ def get_passcodes():
     """Get all client passcodes for the authenticated business."""
     logger.info("Fetching client passcodes")
     try:
-        # Check if admin session is active
+        # Check admin authentication from different sources
         admin_password = request.cookies.get('admin_password')
-        if not admin_password or admin_password != "97225":  # Your admin password
-            logger.warning("Unauthorized access attempt to passcodes")
-            return jsonify({"message": "Unauthorized access"}), 401
+        auth_header = request.headers.get('Authorization')
+        admin_query = request.args.get('admin')
+        
+        logger.info(f"Headers: {dict(request.headers)}")
+        logger.info(f"Cookies: {request.cookies}")
+        logger.info(f"Auth header: {auth_header}")
+        logger.info(f"Admin query: {admin_query}")
+        
+        is_admin = (admin_password == "97225" or 
+                   (auth_header and auth_header.replace('Bearer ', '') == "97225") or
+                   admin_query == "97225")
+        
+        if not is_admin:
+            logger.warning("Unauthorized access attempt to get passcodes")
+            return jsonify({"message": "Unauthorized access - admin authentication required"}), 401
             
         # Get business ID from request
         business_id = request.args.get('business_id')
@@ -40,14 +52,23 @@ def create_passcode():
     """Create a new client access passcode."""
     logger.info("Creating new client passcode")
     try:
-        # Check if admin session is active
+        # Check admin authentication from different sources
         admin_password = request.cookies.get('admin_password')
-        logger.info(f"Received cookies: {request.cookies}")
-        logger.info(f"Admin password from cookies: {admin_password}")
+        auth_header = request.headers.get('Authorization')
+        admin_query = request.args.get('admin')
         
-        if not admin_password or admin_password != "97225":  # Your admin password
+        logger.info(f"Headers: {dict(request.headers)}")
+        logger.info(f"Cookies: {request.cookies}")
+        logger.info(f"Auth header: {auth_header}")
+        logger.info(f"Admin query: {admin_query}")
+        
+        is_admin = (admin_password == "97225" or 
+                   (auth_header and auth_header.replace('Bearer ', '') == "97225") or
+                   admin_query == "97225")
+        
+        if not is_admin:
             logger.warning("Unauthorized access attempt to create passcode")
-            return jsonify({"message": "Unauthorized access - admin password not found in cookies"}), 401
+            return jsonify({"message": "Unauthorized access - admin authentication required"}), 401
             
         # Parse request data
         data = request.get_json()
@@ -118,11 +139,23 @@ def delete_passcode(passcode_id):
     """Delete a client access passcode."""
     logger.info(f"Deleting client passcode {passcode_id}")
     try:
-        # Check if admin session is active
+        # Check admin authentication from different sources
         admin_password = request.cookies.get('admin_password')
-        if not admin_password or admin_password != "97225":  # Your admin password
+        auth_header = request.headers.get('Authorization')
+        admin_query = request.args.get('admin')
+        
+        logger.info(f"Headers: {dict(request.headers)}")
+        logger.info(f"Cookies: {request.cookies}")
+        logger.info(f"Auth header: {auth_header}")
+        logger.info(f"Admin query: {admin_query}")
+        
+        is_admin = (admin_password == "97225" or 
+                   (auth_header and auth_header.replace('Bearer ', '') == "97225") or
+                   admin_query == "97225")
+        
+        if not is_admin:
             logger.warning("Unauthorized access attempt to delete passcode")
-            return jsonify({"message": "Unauthorized access"}), 401
+            return jsonify({"message": "Unauthorized access - admin authentication required"}), 401
             
         # Find passcode
         passcode = db.session.query(ClientPasscode).filter_by(id=passcode_id).first()

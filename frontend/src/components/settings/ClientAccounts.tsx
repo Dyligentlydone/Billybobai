@@ -134,10 +134,10 @@ export default function ClientAccounts() {
   const [newClient, setNewClient] = useState<ClientPasscode>(defaultClientState);
   const [error, setError] = useState<string>('');
 
-  // Set admin cookie for API access
+  // Set admin token in localStorage
   useEffect(() => {
     if (isAdmin) {
-      document.cookie = "admin_password=97225; path=/";
+      localStorage.setItem('admin_token', '97225');
     }
   }, [isAdmin]);
 
@@ -157,7 +157,11 @@ export default function ClientAccounts() {
 
   const fetchClients = async () => {
     try {
+      const adminToken = localStorage.getItem('admin_token');
       const response = await fetch('/api/auth/passcodes?business_id=' + (business?.id || ''), {
+        headers: {
+          'Authorization': `Bearer ${adminToken}`
+        },
         credentials: 'include'
       });
       if (response.ok) {
@@ -222,10 +226,12 @@ export default function ClientAccounts() {
     }
 
     try {
+      const adminToken = localStorage.getItem('admin_token');
       const response = await fetch('/api/auth/passcodes', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminToken}`
         },
         credentials: 'include',
         body: JSON.stringify(newClient)
