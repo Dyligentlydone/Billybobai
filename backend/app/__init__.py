@@ -302,6 +302,15 @@ def create_app():
                 logger.error(f"Failed to register API blueprint: {str(e)}")
 
             try:
+                from .routes.auth_routes import auth_bp
+                app.register_blueprint(auth_bp)
+                logger.info("Auth blueprint registered successfully")
+            except Exception as e:
+                logger.error(f"Failed to register Auth blueprint: {str(e)}")
+                import traceback
+                logger.error(traceback.format_exc())
+
+            try:
                 from .routes.webhooks import webhooks as webhooks_blueprint
                 app.register_blueprint(webhooks_blueprint, url_prefix='/api')
                 logger.info("Webhooks blueprint registered successfully with prefix /api")
