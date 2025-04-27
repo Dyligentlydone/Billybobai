@@ -18,16 +18,20 @@ def get_passcodes():
         # Check admin authentication from different sources
         admin_password = request.cookies.get('admin_password')
         auth_header = request.headers.get('Authorization')
+        admin_cookie = request.cookies.get('admin')
         admin_query = request.args.get('admin')
         
         logger.info(f"Headers: {dict(request.headers)}")
         logger.info(f"Cookies: {request.cookies}")
         logger.info(f"Auth header: {auth_header}")
         logger.info(f"Admin query: {admin_query}")
+        logger.info(f"Admin cookie: {admin_cookie}")
         
+        # More flexible authentication checking
         is_admin = (admin_password == "97225" or 
                    (auth_header and auth_header.replace('Bearer ', '') == "97225") or
-                   admin_query == "97225")
+                   admin_query == "97225" or
+                   admin_cookie == "97225")
         
         if not is_admin:
             logger.warning("Unauthorized access attempt to get passcodes")
@@ -37,7 +41,12 @@ def get_passcodes():
         business_id = request.args.get('business_id')
         if not business_id:
             logger.warning("Business ID not provided")
-            return jsonify({"message": "Business ID is required"}), 400
+            return jsonify({"message": "Business ID is required", "clients": []}), 200
+        
+        # Special handling for 'admin' as business_id - return empty list rather than 404
+        if business_id == 'admin':
+            logger.info("Special case: 'admin' used as business_id, returning empty list")
+            return jsonify({"message": "Success", "clients": []}), 200
             
         # Query passcodes for the business
         passcodes = db.session.query(ClientPasscode).filter_by(business_id=business_id).all()
@@ -58,16 +67,20 @@ def create_passcode():
         # Check admin authentication from different sources
         admin_password = request.cookies.get('admin_password')
         auth_header = request.headers.get('Authorization')
+        admin_cookie = request.cookies.get('admin')
         admin_query = request.args.get('admin')
         
         logger.info(f"Headers: {dict(request.headers)}")
         logger.info(f"Cookies: {request.cookies}")
         logger.info(f"Auth header: {auth_header}")
         logger.info(f"Admin query: {admin_query}")
+        logger.info(f"Admin cookie: {admin_cookie}")
         
+        # More flexible authentication checking
         is_admin = (admin_password == "97225" or 
                    (auth_header and auth_header.replace('Bearer ', '') == "97225") or
-                   admin_query == "97225")
+                   admin_query == "97225" or
+                   admin_cookie == "97225")
         
         if not is_admin:
             logger.warning("Unauthorized access attempt to create passcode")
@@ -145,16 +158,20 @@ def delete_passcode(passcode_id):
         # Check admin authentication from different sources
         admin_password = request.cookies.get('admin_password')
         auth_header = request.headers.get('Authorization')
+        admin_cookie = request.cookies.get('admin')
         admin_query = request.args.get('admin')
         
         logger.info(f"Headers: {dict(request.headers)}")
         logger.info(f"Cookies: {request.cookies}")
         logger.info(f"Auth header: {auth_header}")
         logger.info(f"Admin query: {admin_query}")
+        logger.info(f"Admin cookie: {admin_cookie}")
         
+        # More flexible authentication checking
         is_admin = (admin_password == "97225" or 
                    (auth_header and auth_header.replace('Bearer ', '') == "97225") or
-                   admin_query == "97225")
+                   admin_query == "97225" or
+                   admin_cookie == "97225")
         
         if not is_admin:
             logger.warning("Unauthorized access attempt to delete passcode")

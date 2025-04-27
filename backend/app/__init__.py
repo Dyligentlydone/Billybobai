@@ -272,253 +272,42 @@ def create_app():
 
     logger.info("Registering direct client access routes - highest priority")
     
-    # Fix missing auth endpoints by registering direct routes
-    @app.route('/api/auth/passcodes', methods=['POST', 'GET'])
+    # Fix missing auth endpoints by registering direct routes with better debugging
+    @app.route('/api/auth/passcodes', methods=['POST', 'GET', 'OPTIONS'])
     def direct_auth_passcodes():
         """Direct route for client access"""
         logger.info(f"Direct passcodes route hit: {request.method} {request.path}")
+        logger.info(f"Query params: {request.args}")
         logger.info(f"Headers: {dict(request.headers)}")
         
-        from .routes.auth_routes import get_passcodes, create_passcode
-        
-        if request.method == 'GET':
-            return get_passcodes()
-        elif request.method == 'POST':
-            return create_passcode()
-        
-    # Ensure our direct route is registered BEFORE any blueprints
-    @app.route('/api/direct/client-access', methods=['POST', 'GET', 'OPTIONS'], endpoint='direct_client_access')
-    @app.route('/api/direct/client-access/', methods=['POST', 'GET', 'OPTIONS'])  # Also handle trailing slash
-    def direct_client_access_handler():
-        """Direct handler for client access with a unique route path."""
-        logger.info(f"Direct client access handler: {request.method} {request.path}")
-        logger.info(f"Headers: {dict(request.headers)}")
-        
-        # Add CORS headers for production environment
-        response_headers = {
+        # Add CORS headers for cross-origin requests
+        headers = {
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, DELETE',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
             'Access-Control-Allow-Headers': 'Content-Type, Authorization'
         }
         
-        # Handle OPTIONS requests for CORS preflight
+        # Handle OPTIONS pre-flight requests
         if request.method == 'OPTIONS':
-            return Response(status=204, headers=response_headers)
+            return ('', 204, headers)
         
         try:
+            from .routes.auth_routes import get_passcodes, create_passcode
+            
             if request.method == 'GET':
-                business_id = request.args.get('business_id')
-                logger.info(f"Getting passcodes for business_id: {business_id}")
-                
-                if not business_id:
-                    logger.warning("Business ID not provided")
-                    return Response(
-                        json.dumps({"message": "Business ID is required", "clients": []}),
-                        status=200,
-                        mimetype='application/json',
-                        headers=response_headers
-                    )
-                
-                # Verify admin auth from headers or cookies
-                auth_header = request.headers.get('Authorization', '')
-                admin_cookie = request.cookies.get('admin', '')
-                admin_token = None
-                
-                if auth_header and auth_header.startswith('Bearer '):
-                    admin_token = auth_header.replace('Bearer ', '')
-                
-                is_admin = (admin_token == "97225" or admin_cookie == "97225")
-                logger.info(f"Admin authentication status: {is_admin}")
-                
-                if not is_admin:
-                    logger.warning("Unauthorized access attempt")
-                    return Response(
-                        json.dumps({"message": "Unauthorized", "clients": []}),
-                        status=200,
-                        mimetype='application/json',
-                        headers=response_headers
-                    )
-                
-                # Get passcodes from database
-                try:
-                    from app.models import ClientPasscode
-                    passcodes = db.session.query(ClientPasscode).filter_by(business_id=business_id).all()
-                    passcode_list = [p.to_dict() for p in passcodes]
-                    logger.info(f"Found {len(passcode_list)} passcodes")
-                    return Response(
-                        json.dumps({"clients": passcode_list}),
-                        status=200,
-                        mimetype='application/json',
-                        headers=response_headers
-                    )
-                except Exception as e:
-                    logger.error(f"Database error: {str(e)}")
-                    logger.exception("Detailed error:")
-                    return Response(
-                        json.dumps({"message": f"Database error: {str(e)}", "clients": []}),
-                        status=200,
-                        mimetype='application/json',
-                        headers=response_headers
-                    )
-                    
+                # Log incoming GET request for client access
+                logger.info(f"GET passcodes: business_id={request.args.get('business_id')}, admin token provided: {'admin' in request.args}")
+                return get_passcodes()
             elif request.method == 'POST':
-                try:
-                    # Log raw request data for debugging
-                    raw_data = request.get_data(as_text=True)
-                    logger.info(f"Raw request data: {raw_data}")
-                    
-                    # Force reading the request data as JSON
-                    if not request.is_json:
-                        logger.warning("Request is not JSON")
-                        logger.info(f"Content-Type: {request.content_type}")
-                        
-                        try:
-                            # Try to parse JSON anyway
-                            data = json.loads(raw_data)
-                        except Exception as e:
-                            logger.error(f"Error parsing request data: {str(e)}")
-                            return Response(
-                                json.dumps({"message": "Invalid JSON data"}),
-                                status=400, 
-                                mimetype='application/json',
-                                headers=response_headers
-                            )
-                    else:
-                        data = request.get_json()
-                    
-                    logger.info(f"Creating passcode with data: {data}")
-                    
-                    # Verify admin auth
-                    auth_header = request.headers.get('Authorization', '')
-                    admin_cookie = request.cookies.get('admin', '')
-                    admin_token = None
-                    
-                    if auth_header and auth_header.startswith('Bearer '):
-                        admin_token = auth_header.replace('Bearer ', '')
-                    
-                    is_admin = (admin_token == "97225" or admin_cookie == "97225")
-                    logger.info(f"Admin authentication status: {is_admin}")
-                    
-                    if not is_admin:
-                        logger.warning("Unauthorized access attempt")
-                        return Response(
-                            json.dumps({"message": "Unauthorized"}),
-                            status=401,
-                            mimetype='application/json',
-                            headers=response_headers
-                        )
-                    
-                    if not data:
-                        logger.warning("No data provided")
-                        return Response(
-                            json.dumps({"message": "No data provided"}),
-                            status=400,
-                            mimetype='application/json',
-                            headers=response_headers
-                        )
-                            
-                    business_id = data.get('business_id')
-                    passcode = data.get('passcode')
-                    permissions = data.get('permissions')
-                    
-                    # Validation
-                    if not business_id:
-                        return Response(
-                            json.dumps({"message": "Business ID is required"}),
-                            status=400,
-                            mimetype='application/json',
-                            headers=response_headers
-                        )
-                    if not passcode:
-                        return Response(
-                            json.dumps({"message": "Passcode is required"}),
-                            status=400,
-                            mimetype='application/json',
-                            headers=response_headers
-                        )
-                    if not permissions:
-                        permissions = {}  # Default empty dict
-                    
-                    # Create passcode
-                    from app.models import ClientPasscode, Business
-                    
-                    # Check if business exists
-                    business = db.session.query(Business).filter_by(id=business_id).first()
-                    if not business:
-                        logger.warning(f"Business not found: {business_id}")
-                        return Response(
-                            json.dumps({"message": f"Business not found: {business_id}"}),
-                            status=404,
-                            mimetype='application/json',
-                            headers=response_headers
-                        )
-                    
-                    # Check if passcode exists
-                    existing = db.session.query(ClientPasscode).filter_by(
-                        business_id=business_id, passcode=passcode).first()
-                    if existing:
-                        return Response(
-                            json.dumps({"message": "Passcode already exists"}),
-                            status=409,
-                            mimetype='application/json',
-                            headers=response_headers
-                        )
-                    
-                    # Ensure permissions is stored correctly
-                    try:
-                        if isinstance(permissions, dict):
-                            permissions_json = json.dumps(permissions)
-                        elif isinstance(permissions, list):
-                            permissions_json = json.dumps(permissions)
-                        elif isinstance(permissions, str):
-                            # Make sure it's valid JSON
-                            json.loads(permissions)  # This will raise an exception if invalid
-                            permissions_json = permissions
-                        else:
-                            permissions_json = json.dumps({})
-                    except Exception as e:
-                        logger.error(f"Error processing permissions: {str(e)}")
-                        permissions_json = json.dumps({})
-                    
-                    # For troubleshooting, log what's actually being stored
-                    logger.info(f"Final permissions JSON: {permissions_json}")
-                    
-                    # Create new passcode
-                    new_passcode = ClientPasscode(
-                        business_id=business_id,
-                        passcode=passcode,
-                        permissions=permissions_json
-                    )
-                    db.session.add(new_passcode)
-                    db.session.commit()
-                    logger.info(f"Created new passcode with ID: {new_passcode.id}")
-                    return Response(
-                        json.dumps({"message": "Client access created successfully"}),
-                        status=201,
-                        mimetype='application/json',
-                        headers=response_headers
-                    )
-                except Exception as e:
-                    if db and hasattr(db, 'session') and hasattr(db.session, 'rollback'):
-                        db.session.rollback()
-                    logger.error(f"Error creating passcode: {str(e)}")
-                    logger.exception("Detailed error:")
-                    return Response(
-                        json.dumps({"message": f"Error creating client access: {str(e)}"}),
-                        status=500,
-                        mimetype='application/json',
-                        headers=response_headers
-                    )
+                # Log incoming POST request for client access
+                logger.info(f"CREATE passcode: {request.get_json() if request.is_json else 'No JSON data'}")
+                return create_passcode()
         except Exception as e:
-            logger.error(f"Error in direct_client_access_handler: {str(e)}")
-            logger.exception("Detailed error:")
-            return Response(
-                json.dumps({"error": str(e)}),
-                status=500,
-                mimetype='application/json',
-                headers=response_headers
-            )
-        
+            logger.error(f"Error in direct_auth_passcodes: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return jsonify({"error": str(e)}), 500
+
     logger.info("Registering route blueprints...")
     try:
         # Import and register routes
@@ -634,6 +423,7 @@ def create_app():
                         return jsonify({"clients": passcode_list}), 200
                     except Exception as e:
                         logger.error(f"Database error: {str(e)}")
+                        logger.exception("Detailed error:")
                         return jsonify({"message": "Database error", "clients": []}), 200
                         
                 elif request.method == 'POST':
