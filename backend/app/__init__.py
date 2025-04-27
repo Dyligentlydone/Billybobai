@@ -972,6 +972,94 @@ def create_app():
             logger.error(traceback.format_exc())
             return jsonify({"message": "Error fetching clients", "clients": []}), 200
 
+    # Add multiple root-level direct-clients endpoints with various path options to ensure one will work regardless of proxy configuration
+    @app.route('/api/auth/direct-clients', methods=['GET', 'POST', 'OPTIONS'])
+    @app.route('/auth/direct-clients', methods=['GET', 'POST', 'OPTIONS'])  # Try alternate path
+    @app.route('/direct-clients', methods=['GET', 'POST', 'OPTIONS'])  # Try simplest path
+    def root_direct_clients():
+        """Root-level implementation of the direct-clients endpoint to bypass all routing issues"""
+        logger.info(f"ROOT direct-clients route hit: {request.method} {request.path}")
+        logger.info(f"Request headers: {dict(request.headers)}")
+        logger.info(f"Query params: {request.args}")
+        logger.info(f"Request full URL: {request.url}")
+        
+        # Log more details about the request
+        logger.info(f"Request blueprint: {request.blueprint}")
+        logger.info(f"Request endpoint: {request.endpoint}")
+        
+        # Handle OPTIONS pre-flight requests
+        if request.method == 'OPTIONS':
+            response = jsonify({})
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+            response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+            return response, 204
+        
+        try:
+            # Check admin authentication from different sources
+            admin_password = request.cookies.get('admin_password')
+            auth_header = request.headers.get('Authorization')
+            admin_token = request.args.get('admin')  # Get from query params for GET requests
+            
+            # For POST requests, get from request body
+            if request.method == 'POST' and request.is_json:
+                data = request.get_json() or {}
+                if not admin_token:
+                    admin_token = data.get('admin_token')
+                business_id = data.get('business_id')
+            else:
+                # For GET requests, get from query params
+                business_id = request.args.get('business_id')
+            
+            logger.info(f"ROOT: Processing for business_id: {business_id}, admin token present: {admin_token is not None}")
+            
+            # Check admin authentication
+            is_admin = (admin_password == "97225" or 
+                       (auth_header and auth_header.replace('Bearer ', '') == "97225") or
+                       admin_token == "97225")
+            
+            if not is_admin:
+                logger.warning("Unauthorized access attempt")
+                return jsonify({"message": "Unauthorized", "clients": []}), 401  # Return 401 for auth failures
+                
+            if not business_id:
+                logger.warning("Business ID not provided")
+                return jsonify({"message": "Business ID is required", "clients": []}), 400  # Return 400 for bad requests
+            
+            # Special handling for 'admin' as business_id
+            if business_id == 'admin':
+                logger.info("Admin business_id - returning empty client list")
+                return jsonify({"message": "Success", "clients": []}), 200
+                
+            # Check if business exists - load models directly
+            from app.models import Business, ClientPasscode
+            from app.db import db
+            
+            business = db.session.query(Business).filter_by(id=business_id).first()
+            if not business:
+                logger.warning(f"Business not found: {business_id}")
+                return jsonify({"message": "Success", "clients": []}), 200
+                    
+            # Query passcodes for the business
+            passcodes = db.session.query(ClientPasscode).filter_by(business_id=business_id).all()
+            
+            # Convert to dictionary for JSON response
+            passcode_list = []
+            for passcode in passcodes:
+                try:
+                    passcode_list.append(passcode.to_dict())
+                except Exception as e:
+                    logger.error(f"Error converting passcode to dict: {str(e)}")
+            
+            logger.info(f"Returning {len(passcode_list)} clients")
+            return jsonify({"clients": passcode_list}), 200
+            
+        except Exception as e:
+            logger.error(f"Error in root_direct_clients: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return jsonify({"message": "Error fetching clients", "clients": [], "error": str(e)}), 500
+
     logger.info("Application creation completed successfully")
     return app
 
