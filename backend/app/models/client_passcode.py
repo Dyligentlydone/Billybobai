@@ -6,7 +6,8 @@ class ClientPasscode(db.Model):
     __tablename__ = 'client_passcodes'
 
     id = Column(Integer, primary_key=True)
-    business_id = Column(String(255), ForeignKey('businesses.id'), nullable=False)
+    # Foreign key must match type of businesses.id (Integer)
+    business_id = Column(Integer, ForeignKey('businesses.id'), nullable=False)
     passcode = Column(String(5), nullable=False)  # 5-digit passcode
     permissions = Column(JSON, nullable=False)  # Store permissions structure as JSON
     

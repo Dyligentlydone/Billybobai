@@ -1,0 +1,3 @@
+
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS description VARCHAR(1000);
+
