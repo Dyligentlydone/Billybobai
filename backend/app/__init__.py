@@ -1060,6 +1060,122 @@ def create_app():
             logger.error(traceback.format_exc())
             return jsonify({"message": "Error fetching clients", "clients": [], "error": str(e)}), 500
 
+    # Add a clear catch-all route that will handle ANY path to direct-clients
+    # This is a last resort to bypass Railway's routing issues
+    @app.route('/<path:subpath>', methods=['GET', 'POST', 'OPTIONS'])
+    def catch_all_direct_clients(subpath):
+        """Catch all route to intercept any request to direct-clients regardless of path"""
+        logger.info(f"CATCH-ALL received request: {request.method} {request.path}")
+        logger.info(f"Subpath: {subpath}")
+        
+        # If this is the direct-clients route under any path
+        if 'direct-clients' in subpath:
+            logger.info(f"CATCH-ALL: Detected direct-clients request in {subpath}")
+            
+            # Handle OPTIONS pre-flight requests
+            if request.method == 'OPTIONS':
+                response = jsonify({})
+                response.headers.add('Access-Control-Allow-Origin', '*')
+                response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+                response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+                return response, 204
+            
+            try:
+                # Extract admin token and business_id from any possible source
+                admin_token = None
+                business_id = None
+                
+                # Check query params (GET)
+                if request.args:
+                    admin_token = request.args.get('admin')
+                    business_id = request.args.get('business_id')
+                    logger.info(f"Found in query params: admin={admin_token}, business_id={business_id}")
+                
+                # Check request body (POST)
+                if request.is_json and not (admin_token and business_id):
+                    data = request.get_json() or {}
+                    if not admin_token:
+                        admin_token = data.get('admin_token')
+                    if not business_id:
+                        business_id = data.get('business_id')
+                    logger.info(f"Found in JSON body: admin={admin_token}, business_id={business_id}")
+                
+                # Check form data (POST)
+                if request.form and not (admin_token and business_id):
+                    if not admin_token:
+                        admin_token = request.form.get('admin_token')
+                    if not business_id:
+                        business_id = request.form.get('business_id')
+                    logger.info(f"Found in form data: admin={admin_token}, business_id={business_id}")
+                
+                # Check headers
+                auth_header = request.headers.get('Authorization')
+                if auth_header:
+                    logger.info(f"Found Authorization header: {auth_header}")
+                
+                # Check cookies
+                admin_password = request.cookies.get('admin_password')
+                if admin_password:
+                    logger.info(f"Found admin_password cookie")
+                
+                # Log full details
+                logger.info(f"CATCH-ALL Client request details:")
+                logger.info(f"  - Headers: {dict(request.headers)}")
+                logger.info(f"  - Args: {dict(request.args)}")
+                logger.info(f"  - Form: {dict(request.form) if request.form else 'None'}")
+                logger.info(f"  - JSON: {request.get_json() if request.is_json else 'None'}")
+                logger.info(f"  - Cookies: {request.cookies}")
+                
+                # Admin authentication
+                is_admin = (admin_password == "97225" or 
+                           (auth_header and auth_header.replace('Bearer ', '') == "97225") or
+                           admin_token == "97225")
+                
+                if not is_admin:
+                    logger.warning("CATCH-ALL: Unauthorized access attempt")
+                    return jsonify({"message": "Unauthorized", "clients": []}), 200
+                    
+                if not business_id:
+                    logger.warning("CATCH-ALL: Business ID not provided")
+                    return jsonify({"message": "Business ID is required", "clients": []}), 200
+                
+                # Special handling for 'admin' as business_id
+                if business_id == 'admin':
+                    logger.info("CATCH-ALL: Admin business_id - returning empty client list")
+                    return jsonify({"message": "Success", "clients": []}), 200
+                    
+                # Check if business exists - load models directly
+                from app.models import Business, ClientPasscode
+                from app.db import db
+                
+                business = db.session.query(Business).filter_by(id=business_id).first()
+                if not business:
+                    logger.warning(f"CATCH-ALL: Business not found: {business_id}")
+                    return jsonify({"message": "Success", "clients": []}), 200
+                        
+                # Query passcodes for the business
+                passcodes = db.session.query(ClientPasscode).filter_by(business_id=business_id).all()
+                
+                # Convert to dictionary for JSON response
+                passcode_list = []
+                for passcode in passcodes:
+                    try:
+                        passcode_list.append(passcode.to_dict())
+                    except Exception as e:
+                        logger.error(f"CATCH-ALL: Error converting passcode to dict: {str(e)}")
+                
+                logger.info(f"CATCH-ALL: Returning {len(passcode_list)} clients")
+                return jsonify({"clients": passcode_list}), 200
+                
+            except Exception as e:
+                logger.error(f"CATCH-ALL: Error processing direct-clients: {str(e)}")
+                import traceback
+                logger.error(traceback.format_exc())
+                return jsonify({"message": "Error fetching clients", "clients": [], "error": str(e)}), 200
+        
+        # For all other paths
+        return jsonify({"message": "Path not found", "path": subpath}), 404
+
     logger.info("Application creation completed successfully")
     return app
 
