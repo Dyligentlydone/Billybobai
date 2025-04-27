@@ -158,8 +158,9 @@ export default function ClientAccounts() {
   const fetchClients = async () => {
     try {
       const adminToken = localStorage.getItem('admin_token');
-      // Use the original auth route that exists in the backend with admin token in query params
-      const url = `/api/auth/passcodes?business_id=${business?.id || ''}&admin=${adminToken}`;
+      // Use absolute URL with the origin to ensure it works in all environments
+      const baseUrl = window.location.origin;
+      const url = `${baseUrl}/api/auth/passcodes?business_id=${business?.id || ''}&admin=${adminToken}`;
       console.log("Fetching clients from:", url);
       
       // Use fetch API for consistent behavior
@@ -295,7 +296,8 @@ export default function ClientAccounts() {
       console.log("Sending client data:", JSON.stringify(clientData));
       
       // Update the URL to include admin token directly in query string to bypass auth header issues
-      const url = `/api/auth/passcodes?admin=${adminToken}`;
+      const baseUrl = window.location.origin;
+      const url = `${baseUrl}/api/auth/passcodes?admin=${adminToken}`;
       
       // Use fetch API instead of XMLHttpRequest for better error handling
       fetch(url, {
