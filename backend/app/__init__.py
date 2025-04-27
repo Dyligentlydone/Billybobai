@@ -331,6 +331,66 @@ def create_app():
                 return jsonify({"error": str(e)}), 500
         return None
 
+    @app.before_request
+    def handle_direct_clients_requests():
+        """Intercept any direct-clients requests at the app level"""
+        if '/api/auth/direct-clients' in request.path:
+            logger.info(f"Intercepting direct-clients request: {request.method} {request.path}")
+            
+            # Handle OPTIONS pre-flight requests
+            if request.method == 'OPTIONS':
+                response = jsonify({})
+                response.headers.add('Access-Control-Allow-Origin', '*')
+                response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
+                response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+                return response, 204
+                
+            try:
+                from .routes.auth_routes import direct_clients
+                return direct_clients()
+            except Exception as e:
+                logger.error(f"Error handling direct-clients: {str(e)}")
+                import traceback
+                logger.error(traceback.format_exc())
+                return jsonify({"clients": [], "error": str(e)}), 200
+                
+        elif '/api/auth/direct-client-create' in request.path:
+            logger.info(f"Intercepting direct-client-create request: {request.method} {request.path}")
+            
+            # Handle OPTIONS pre-flight requests
+            if request.method == 'OPTIONS':
+                response = jsonify({})
+                response.headers.add('Access-Control-Allow-Origin', '*')
+                response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
+                response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+                return response, 204
+                
+            try:
+                from .routes.auth_routes import direct_client_create
+                return direct_client_create()
+            except Exception as e:
+                logger.error(f"Error handling direct-client-create: {str(e)}")
+                import traceback
+                logger.error(traceback.format_exc())
+                return jsonify({"message": f"Error: {str(e)}"}), 500
+        
+        return None
+        
+    # Also register direct routes at the app level to ensure they're accessible
+    @app.route('/api/auth/direct-clients', methods=['POST', 'OPTIONS'])
+    def app_direct_clients():
+        """App-level direct route for client access"""
+        logger.info(f"App-level direct-clients route hit: {request.method} {request.path}")
+        from .routes.auth_routes import direct_clients
+        return direct_clients()
+        
+    @app.route('/api/auth/direct-client-create', methods=['POST', 'OPTIONS'])
+    def app_direct_client_create():
+        """App-level direct route for client access creation"""
+        logger.info(f"App-level direct-client-create route hit: {request.method} {request.path}")
+        from .routes.auth_routes import direct_client_create
+        return direct_client_create()
+
     logger.info("Registering route blueprints...")
     try:
         # Import and register routes
