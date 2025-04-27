@@ -886,6 +886,86 @@ def create_app():
             logger.error(traceback.format_exc())
             return jsonify({"message": f"Error: {str(e)}"}), 500
             
+    # Add a fully standalone direct-clients endpoint that doesn't depend on importing from auth_routes.py
+    @app.route('/api/auth/direct-clients', methods=['GET', 'POST', 'OPTIONS'])
+    def standalone_direct_clients():
+        """Standalone implementation of the direct-clients endpoint to bypass all import issues"""
+        logger.info(f"Standalone direct-clients route hit: {request.method} {request.path}")
+        logger.info(f"Query params: {request.args}")
+        
+        # Handle OPTIONS pre-flight requests
+        if request.method == 'OPTIONS':
+            response = jsonify({})
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+            response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+            return response, 204
+        
+        try:
+            # Check admin authentication from different sources
+            admin_password = request.cookies.get('admin_password')
+            auth_header = request.headers.get('Authorization')
+            admin_token = request.args.get('admin')  # Get from query params for GET requests
+            
+            # For POST requests, get from request body
+            if request.method == 'POST' and request.is_json:
+                data = request.get_json() or {}
+                if not admin_token:
+                    admin_token = data.get('admin_token')
+                business_id = data.get('business_id')
+            else:
+                # For GET requests, get from query params
+                business_id = request.args.get('business_id')
+            
+            logger.info(f"Standalone: Processing for business_id: {business_id}, admin token: {admin_token}")
+            
+            # Check admin authentication
+            is_admin = (admin_password == "97225" or 
+                       (auth_header and auth_header.replace('Bearer ', '') == "97225") or
+                       admin_token == "97225")
+            
+            if not is_admin:
+                logger.warning("Unauthorized access attempt")
+                return jsonify({"message": "Unauthorized", "clients": []}), 200
+                
+            if not business_id:
+                logger.warning("Business ID not provided")
+                return jsonify({"message": "Business ID is required", "clients": []}), 200
+            
+            # Special handling for 'admin' as business_id
+            if business_id == 'admin':
+                logger.info("Admin business_id - returning empty client list")
+                return jsonify({"message": "Success", "clients": []}), 200
+                
+            # Check if business exists - load models directly
+            from app.models import Business, ClientPasscode
+            from app.db import db
+            
+            business = db.session.query(Business).filter_by(id=business_id).first()
+            if not business:
+                logger.warning(f"Business not found: {business_id}")
+                return jsonify({"message": "Success", "clients": []}), 200
+                    
+            # Query passcodes for the business
+            passcodes = db.session.query(ClientPasscode).filter_by(business_id=business_id).all()
+            
+            # Convert to dictionary for JSON response
+            passcode_list = []
+            for passcode in passcodes:
+                try:
+                    passcode_list.append(passcode.to_dict())
+                except Exception as e:
+                    logger.error(f"Error converting passcode to dict: {str(e)}")
+            
+            logger.info(f"Returning {len(passcode_list)} clients")
+            return jsonify({"clients": passcode_list}), 200
+            
+        except Exception as e:
+            logger.error(f"Error in standalone_direct_clients: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return jsonify({"message": "Error fetching clients", "clients": []}), 200
+
     logger.info("Application creation completed successfully")
     return app
 
