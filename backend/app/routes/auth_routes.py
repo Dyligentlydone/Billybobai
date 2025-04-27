@@ -388,10 +388,13 @@ def direct_client_create():
             return jsonify({"message": "Invalid request format"}), 400
             
         data = request.get_json()
-        admin_token = data.get('admin_token')
-        business_id = data.get('business_id')
-        passcode = data.get('passcode')
-        permissions = data.get('permissions')
+        admin_token = data.get('admin_token') if data else None
+        # Fallback to query param ?admin= for compatibility with frontend
+        if not admin_token:
+            admin_token = request.args.get('admin')
+        business_id = data.get('business_id') if data else None
+        passcode = data.get('passcode') if data else None
+        permissions = data.get('permissions') if data else None
         
         logger.info(f"Direct client create for business_id: {business_id}, passcode: {passcode}")
         
