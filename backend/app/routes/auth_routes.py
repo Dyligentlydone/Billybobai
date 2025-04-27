@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify, g
 import logging
 from app.models import Business, ClientPasscode
 from app.db import db
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -292,3 +293,173 @@ def direct_client_access():
     # For POST requests, use the existing create_passcode logic  
     if request.method == 'POST':
         return create_passcode()
+
+@auth.route('/auth/direct-clients', methods=['POST', 'OPTIONS'])
+def direct_clients():
+    """Direct handler for client access without query params to avoid Railway routing issues."""
+    logger.info("Direct clients route hit")
+    logger.info(f"Headers: {dict(request.headers)}")
+    
+    # Handle OPTIONS pre-flight requests
+    if request.method == 'OPTIONS':
+        response = jsonify({})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+        return response, 204
+    
+    try:
+        # Check admin authentication from different sources
+        admin_password = request.cookies.get('admin_password')
+        auth_header = request.headers.get('Authorization')
+        
+        # Get admin token from request body
+        data = request.get_json() or {}
+        admin_token = data.get('admin_token')
+        business_id = data.get('business_id')
+        
+        logger.info(f"Direct clients for business_id: {business_id}, admin token: {admin_token}")
+        
+        is_admin = (admin_password == "97225" or 
+                   (auth_header and auth_header.replace('Bearer ', '') == "97225") or
+                   admin_token == "97225")
+        
+        if not is_admin:
+            logger.warning("Unauthorized access attempt to direct-clients")
+            return jsonify({"message": "Unauthorized", "clients": []}), 200
+            
+        if not business_id:
+            logger.warning("Business ID not provided")
+            return jsonify({"message": "Business ID is required", "clients": []}), 200
+        
+        # Special handling for 'admin' as business_id
+        if business_id == 'admin':
+            logger.info("Admin business_id - returning empty client list")
+            return jsonify({"message": "Success", "clients": []}), 200
+            
+        # Check if business exists
+        business = db.session.query(Business).filter_by(id=business_id).first()
+        if not business:
+            logger.warning(f"Business not found: {business_id}")
+            return jsonify({"message": "Success", "clients": []}), 200
+                
+        # Query passcodes for the business
+        passcodes = db.session.query(ClientPasscode).filter_by(business_id=business_id).all()
+        
+        # Convert to dictionary for JSON response
+        passcode_list = [passcode.to_dict() for passcode in passcodes]
+        
+        return jsonify({"clients": passcode_list}), 200
+    except Exception as e:
+        logger.error(f"Error in direct_clients: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return jsonify({"message": "Error fetching clients", "clients": []}), 200
+
+@auth.route('/auth/direct-client-create', methods=['POST', 'OPTIONS'])
+def direct_client_create():
+    """Direct handler for client access creation without query params to avoid Railway routing issues."""
+    logger.info("Direct client create route hit")
+    logger.info(f"Headers: {dict(request.headers)}")
+    
+    # Handle OPTIONS pre-flight requests
+    if request.method == 'OPTIONS':
+        response = jsonify({})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+        return response, 204
+    
+    try:
+        # Check admin authentication from different sources
+        admin_password = request.cookies.get('admin_password')
+        auth_header = request.headers.get('Authorization')
+        
+        # Get data from request body
+        if not request.is_json:
+            logger.warning("Request is not JSON")
+            return jsonify({"message": "Invalid request format"}), 400
+            
+        data = request.get_json()
+        admin_token = data.get('admin_token')
+        business_id = data.get('business_id')
+        passcode = data.get('passcode')
+        permissions = data.get('permissions')
+        
+        logger.info(f"Direct client create for business_id: {business_id}, passcode: {passcode}")
+        
+        # Check authentication
+        is_admin = (admin_password == "97225" or 
+                   (auth_header and auth_header.replace('Bearer ', '') == "97225") or
+                   admin_token == "97225")
+        
+        if not is_admin:
+            logger.warning("Unauthorized access attempt to create client")
+            return jsonify({"message": "Unauthorized"}), 401
+            
+        # Validate required fields
+        if not business_id:
+            logger.warning("Business ID not provided")
+            return jsonify({"message": "Business ID is required"}), 400
+            
+        if not passcode:
+            logger.warning("Passcode not provided")
+            return jsonify({"message": "Passcode is required"}), 400
+            
+        # Special handling for 'admin' as business_id
+        if business_id == 'admin':
+            logger.warning("Cannot create client access for business_id 'admin'")
+            return jsonify({"message": "Invalid business ID"}), 400
+            
+        # Check if business exists
+        business = db.session.query(Business).filter_by(id=business_id).first()
+        if not business:
+            logger.warning(f"Business not found: {business_id}")
+            return jsonify({"message": "Business not found"}), 404
+            
+        if not permissions:
+            logger.warning("Permissions not provided")
+            return jsonify({"message": "Permissions are required"}), 400
+            
+        if not passcode.isdigit() or len(passcode) != 5:
+            logger.warning(f"Invalid passcode format: {passcode}")
+            return jsonify({"message": "Passcode must be 5 digits"}), 400
+            
+        # Check if passcode already exists
+        existing_passcode = db.session.query(ClientPasscode).filter_by(
+            business_id=business_id, passcode=passcode).first()
+        if existing_passcode:
+            logger.warning(f"Passcode already exists: {passcode}")
+            return jsonify({"message": "Passcode already exists"}), 409
+            
+        # Create new passcode
+        try:
+            # Ensure permissions is properly formatted as JSON string
+            if isinstance(permissions, dict):
+                permissions_json = json.dumps(permissions)
+            elif isinstance(permissions, str):
+                # Validate it can be parsed as JSON
+                json.loads(permissions)
+                permissions_json = permissions
+            else:
+                logger.warning(f"Invalid permissions format: {type(permissions)}")
+                return jsonify({"message": "Invalid permissions format"}), 400
+                
+            new_passcode = ClientPasscode(
+                business_id=business_id,
+                passcode=passcode,
+                permissions=permissions_json
+            )
+            db.session.add(new_passcode)
+            db.session.commit()
+            logger.info(f"Created new passcode: {passcode} for business: {business_id}")
+            return jsonify({"message": "Client access created successfully"}), 201
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Error creating passcode: {str(e)}")
+            return jsonify({"message": f"Error creating client access: {str(e)}"}), 500
+    except Exception as e:
+        logger.error(f"Error in direct_client_create: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return jsonify({"message": f"Error: {str(e)}"}), 500

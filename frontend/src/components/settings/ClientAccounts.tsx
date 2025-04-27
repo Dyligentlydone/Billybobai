@@ -165,16 +165,23 @@ export default function ClientAccounts() {
       const businessId = business?.business_id || business?.id || '';
       console.log("Using business ID for fetch:", businessId);
       
-      const url = `${baseUrl}/api/auth/passcodes?business_id=${businessId}&admin=${adminToken}`;
+      // Use a simpler, more direct URL format that Railway will recognize
+      // Avoid query params when possible, as they might be causing the routing issues
+      const url = `${baseUrl}/api/auth/direct-clients`;
       console.log("Fetching clients from:", url);
       
       // Use fetch API for consistent behavior
       fetch(url, {
-        method: 'GET',
+        method: 'POST', // Use POST instead of GET to avoid query param issues
         headers: {
           'Authorization': `Bearer ${adminToken}`,
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
         },
+        body: JSON.stringify({
+          business_id: businessId,
+          admin_token: adminToken
+        }),
         credentials: 'include'
       })
       .then(response => {
@@ -315,7 +322,7 @@ export default function ClientAccounts() {
       
       // Update the URL to include admin token directly in query string to bypass auth header issues
       const baseUrl = window.location.origin;
-      const url = `${baseUrl}/api/auth/passcodes?admin=${adminToken}`;
+      const url = `${baseUrl}/api/auth/direct-client-create`;
       
       // Use fetch API instead of XMLHttpRequest for better error handling
       fetch(url, {
@@ -325,7 +332,10 @@ export default function ClientAccounts() {
           'Authorization': `Bearer ${adminToken}`,
           'Accept': 'application/json'
         },
-        body: JSON.stringify(clientData),
+        body: JSON.stringify({
+          ...clientData,
+          admin_token: adminToken
+        }),
         credentials: 'include'
       })
       .then(response => {
