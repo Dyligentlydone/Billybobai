@@ -158,8 +158,9 @@ export default function ClientAccounts() {
   const fetchClients = async () => {
     try {
       const adminToken = localStorage.getItem('admin_token');
-      // Use the new direct client access endpoint
-      const url = `/api/direct/client-access?business_id=${business?.id || ''}`;
+      // Use the original auth route that exists in the backend
+      const baseUrl = window.location.origin;
+      const url = `${baseUrl}/api/auth/passcodes?business_id=${business?.id || ''}`;
       console.log("Fetching clients from:", url);
       
       // Use XMLHttpRequest for consistency with creation
@@ -297,8 +298,9 @@ export default function ClientAccounts() {
       
       // Use standard XMLHttpRequest for direct control
       const xhr = new XMLHttpRequest();
-      // Use the new endpoint to avoid routing conflicts
-      xhr.open('POST', '/api/direct/client-access');
+      // Use absolute URL for Railway production environment
+      const baseUrl = window.location.origin;
+      xhr.open('POST', `${baseUrl}/api/auth/passcodes`);
       xhr.setRequestHeader('Content-Type', 'application/json');
       xhr.setRequestHeader('Authorization', `Bearer ${adminToken}`);
       
