@@ -158,38 +158,37 @@ export default function ClientAccounts() {
   const fetchClients = async () => {
     try {
       const adminToken = localStorage.getItem('admin_token');
-      // Use the original auth route that exists in the backend with correct path structure
-      const url = `/api/auth/passcodes?business_id=${business?.id || ''}`;
+      // Use the original auth route that exists in the backend with admin token in query params
+      const url = `/api/auth/passcodes?business_id=${business?.id || ''}&admin=${adminToken}`;
       console.log("Fetching clients from:", url);
       
-      // Use XMLHttpRequest for consistency with creation
-      const xhr = new XMLHttpRequest();
-      xhr.open('GET', url);
-      xhr.setRequestHeader('Authorization', `Bearer ${adminToken}`);
-      
-      xhr.onload = function() {
-        console.log("Response status:", xhr.status);
-        console.log("Response text:", xhr.responseText);
-        
-        if (xhr.status >= 200 && xhr.status < 300) {
+      // Use fetch API for consistent behavior
+      fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${adminToken}`
+        },
+        credentials: 'include'
+      })
+      .then(response => {
+        console.log("Response status:", response.status);
+        return response.text().then(text => {
+          console.log("Raw response:", text);
           try {
-            const data = JSON.parse(xhr.responseText);
-            console.log("Received client data:", data);
-            setClients(data.clients || []);
+            return text ? JSON.parse(text) : {};
           } catch (err) {
             console.error("Error parsing response:", err);
-            console.error("Raw response:", xhr.responseText);
+            return { clients: [] };
           }
-        } else {
-          console.error("Failed to fetch clients - status:", xhr.status);
-        }
-      };
-      
-      xhr.onerror = function() {
-        console.error('Network error occurred while fetching clients');
-      };
-      
-      xhr.send();
+        });
+      })
+      .then(data => {
+        console.log("Received client data:", data);
+        setClients(data.clients || []);
+      })
+      .catch(error => {
+        console.error('Network error occurred while fetching clients:', error);
+      });
     } catch (error) {
       console.error('Failed to fetch clients:', error);
     }
@@ -295,41 +294,46 @@ export default function ClientAccounts() {
       
       console.log("Sending client data:", JSON.stringify(clientData));
       
-      // Use standard XMLHttpRequest for direct control
-      const xhr = new XMLHttpRequest();
-      // Use correct path that matches backend route exactly
-      xhr.open('POST', '/api/auth/passcodes');
-      xhr.setRequestHeader('Content-Type', 'application/json');
-      xhr.setRequestHeader('Authorization', `Bearer ${adminToken}`);
+      // Update the URL to include admin token directly in query string to bypass auth header issues
+      const url = `/api/auth/passcodes?admin=${adminToken}`;
       
-      xhr.onload = function() {
-        console.log("Response status:", xhr.status);
-        console.log("Response text:", xhr.responseText);
-        
-        if (xhr.status >= 200 && xhr.status < 300) {
+      // Use fetch API instead of XMLHttpRequest for better error handling
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminToken}`
+        },
+        body: JSON.stringify(clientData),
+        credentials: 'include'
+      })
+      .then(response => {
+        console.log("Response status:", response.status);
+        return response.text().then(text => {
+          console.log("Raw response:", text);
+          try {
+            return text ? JSON.parse(text) : {};
+          } catch (err) {
+            console.error("Error parsing response:", err);
+            return { message: "Invalid server response" };
+          }
+        });
+      })
+      .then(data => {
+        if (data && !data.error) {
           setShowNewClientForm(false);
           setNewClient(defaultClientState);
           fetchClients();
         } else {
-          let errorMessage = 'Failed to create client access';
-          try {
-            const data = JSON.parse(xhr.responseText);
-            errorMessage = data.message || errorMessage;
-          } catch (err) {
-            console.error("Error parsing response:", err);
-            console.error("Raw response:", xhr.responseText);
-          }
+          const errorMessage = data.message || data.error || 'Failed to create client access';
           console.error("API error response:", errorMessage);
           setError(errorMessage);
         }
-      };
-      
-      xhr.onerror = function() {
-        console.error('Network error occurred');
+      })
+      .catch(error => {
+        console.error('Network error occurred:', error);
         setError('Failed to create client access: Network error');
-      };
-      
-      xhr.send(JSON.stringify(clientData));
+      });
     } catch (error) {
       console.error('Failed to create client:', error);
       setError('Failed to create client access: Network error');
