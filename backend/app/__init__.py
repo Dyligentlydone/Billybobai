@@ -528,9 +528,9 @@ def create_app():
             # Register auth blueprint but modify its URL prefix to avoid conflict
             try:
                 from .routes.auth_routes import auth
-                # Disable client access routes in the auth blueprint by registering with a different prefix
-                app.register_blueprint(auth, url_prefix='/api/auth_old')
-                logger.info("Auth blueprint registered with modified prefix to avoid conflicts")
+                # Register with the original prefix to match frontend expectations
+                app.register_blueprint(auth, url_prefix='/api')
+                logger.info("Auth blueprint registered with original prefix to match frontend")
             except Exception as e:
                 logger.error(f"Failed to register auth blueprint: {str(e)}")
                 import traceback
