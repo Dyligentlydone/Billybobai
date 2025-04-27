@@ -159,8 +159,7 @@ export default function ClientAccounts() {
     try {
       const adminToken = localStorage.getItem('admin_token');
       // Use the original auth route that exists in the backend
-      const baseUrl = window.location.origin;
-      const url = `${baseUrl}/api/auth/passcodes?business_id=${business?.id || ''}`;
+      const url = `/api/auth/passcodes?business_id=${business?.id || ''}`;
       console.log("Fetching clients from:", url);
       
       // Use XMLHttpRequest for consistency with creation
@@ -299,8 +298,8 @@ export default function ClientAccounts() {
       // Use standard XMLHttpRequest for direct control
       const xhr = new XMLHttpRequest();
       // Use absolute URL for Railway production environment
-      const baseUrl = window.location.origin;
-      xhr.open('POST', `${baseUrl}/api/auth/passcodes`);
+      const url = `/api/auth/passcodes`;
+      xhr.open('POST', url);
       xhr.setRequestHeader('Content-Type', 'application/json');
       xhr.setRequestHeader('Authorization', `Bearer ${adminToken}`);
       
