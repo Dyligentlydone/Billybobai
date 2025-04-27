@@ -69,8 +69,8 @@ def create_app():
     # Import models to ensure they're registered
     logger.info("Importing models for database initialization...")
     try:
-        from app.models import Business, Workflow
-        logger.info("Business and Workflow models imported successfully from app.models.__init__")
+        from app.models import Business, Workflow, ClientPasscode
+        logger.info("Business, Workflow, and ClientPasscode models imported successfully for metadata registration")
     except ImportError as ie:
         logger.error(f"Failed to import models: {str(ie)}")
         import traceback
@@ -341,7 +341,7 @@ def create_app():
             if request.method == 'OPTIONS':
                 response = jsonify({})
                 response.headers.add('Access-Control-Allow-Origin', '*')
-                response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
+                response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
                 response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
                 return response, 204
                 
