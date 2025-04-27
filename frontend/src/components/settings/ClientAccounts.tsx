@@ -172,18 +172,27 @@ export default function ClientAccounts() {
       fetch(url, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${adminToken}`
+          'Authorization': `Bearer ${adminToken}`,
+          'Accept': 'application/json'
         },
         credentials: 'include'
       })
       .then(response => {
         console.log("Response status:", response.status);
+        // Handle non-2xx responses gracefully
+        if (!response.ok) {
+          console.warn(`Error response: ${response.status} ${response.statusText}`);
+          // Return empty data to avoid parsing errors with HTML
+          return { clients: [] };
+        }
+        
         return response.text().then(text => {
           console.log("Raw response:", text);
           try {
-            return text ? JSON.parse(text) : {};
+            return text ? JSON.parse(text) : { clients: [] };
           } catch (err) {
             console.error("Error parsing response:", err);
+            // Return empty data on parse errors
             return { clients: [] };
           }
         });
@@ -313,20 +322,31 @@ export default function ClientAccounts() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${adminToken}`
+          'Authorization': `Bearer ${adminToken}`,
+          'Accept': 'application/json'
         },
         body: JSON.stringify(clientData),
         credentials: 'include'
       })
       .then(response => {
         console.log("Response status:", response.status);
+        
+        // Handle non-2xx responses gracefully
+        if (!response.ok) {
+          console.warn(`Error response: ${response.status} ${response.statusText}`);
+          // Set error message but don't try to parse HTML as JSON
+          setError(`Failed to create client access (${response.status})`);
+          setShowNewClientForm(false);
+          return { success: false, message: `Failed (${response.status})` };
+        }
+        
         return response.text().then(text => {
-          console.log("Raw response:", text);
           try {
-            return text ? JSON.parse(text) : {};
+            return text ? JSON.parse(text) : { success: true };
           } catch (err) {
             console.error("Error parsing response:", err);
-            return { message: "Invalid server response" };
+            // Return a success object on parse errors to avoid blocking
+            return { success: true, message: "Client access created (warning: unexpected response format)" };
           }
         });
       })

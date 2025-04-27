@@ -272,6 +272,13 @@ def create_app():
 
     logger.info("Registering direct client access routes - highest priority")
     
+    # Add app-level error handlers to catch 404s and return JSON instead of HTML
+    @app.errorhandler(404)
+    def handle_404(e):
+        """Return JSON for 404 errors instead of HTML"""
+        logger.warning(f"404 error: {request.path}")
+        return jsonify({"error": "Not found", "message": "The requested resource was not found"}), 404
+    
     # Fix missing auth endpoints by registering direct routes with better debugging
     @app.route('/api/auth/passcodes', methods=['POST', 'GET', 'OPTIONS'])
     def direct_auth_passcodes():
