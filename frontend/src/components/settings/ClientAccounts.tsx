@@ -160,7 +160,12 @@ export default function ClientAccounts() {
       const adminToken = localStorage.getItem('admin_token');
       // Use absolute URL with the origin to ensure it works in all environments
       const baseUrl = window.location.origin;
-      const url = `${baseUrl}/api/auth/passcodes?business_id=${business?.id || ''}&admin=${adminToken}`;
+      
+      // Get the actual business ID from the business object
+      const businessId = business?.business_id || business?.id || '';
+      console.log("Using business ID for fetch:", businessId);
+      
+      const url = `${baseUrl}/api/auth/passcodes?business_id=${businessId}&admin=${adminToken}`;
       console.log("Fetching clients from:", url);
       
       // Use fetch API for consistent behavior
@@ -286,9 +291,13 @@ export default function ClientAccounts() {
       // Create a better structured permissions object for the backend
       const flatPermissions = flattenPermissions(newClient.permissions);
       
+      // Use the correct business ID from the business object
+      const businessId = business?.business_id || business?.id || '';
+      console.log("Using business ID for creation:", businessId);
+      
       // Prepare data for API call
       const clientData = {
-        business_id: newClient.business_id,
+        business_id: businessId, // Use the actual business ID
         passcode: newClient.passcode,
         permissions: flatPermissions
       };
