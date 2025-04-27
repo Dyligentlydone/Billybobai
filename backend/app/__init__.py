@@ -411,9 +411,9 @@ def create_app():
     try:
         # Register auth blueprint with the correct prefix that matches frontend expectations
         from .routes.auth_routes import auth
-        # Register with the original prefix and ensure it's processed correctly
-        app.register_blueprint(auth, url_prefix='/api')
-        logger.info("Auth blueprint registered with prefix /api to match frontend expectations")
+        # Register WITHOUT additional prefix to avoid double-prefixing
+        app.register_blueprint(auth)
+        logger.info("Auth blueprint registered with its own prefix /api to match frontend expectations")
     except Exception as e:
         logger.error(f"Failed to register auth blueprint: {str(e)}")
         import traceback
