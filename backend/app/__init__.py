@@ -755,20 +755,28 @@ def create_app():
             return jsonify({"error": str(e)}), 500
 
     # Add a unified client bridge endpoint to ensure compatibility
-    @app.route('/api/client-bridge', methods=['GET', 'POST'])
+    @app.route('/api/client-bridge', methods=['GET', 'POST', 'OPTIONS'])
     def client_bridge():
         """
         A simple API bridge that serves as a unified endpoint for client operations
         to avoid routing issues in Railway. This endpoint will determine the operation
         based on the request body.
         """
-        logger.info(f"Client bridge hit: {request.method} {request.path}")
+        logger.info(f"Client bridge hit: {request.method} {request.path} with args: {request.args}")
         
         try:
+            # Handle OPTIONS pre-flight requests
+            if request.method == 'OPTIONS':
+                response = jsonify({})
+                response.headers.add('Access-Control-Allow-Origin', '*')
+                response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+                response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+                return response, 204
+                
             # Check for admin token in query param, header, or cookie
             admin_token = request.args.get('admin', '')
             auth_header = request.headers.get('Authorization', '')
-            if auth_header.startswith('Bearer '):
+            if auth_header and auth_header.startswith('Bearer '):
                 auth_header = auth_header[7:]  # Remove 'Bearer ' prefix
                 
             # Validate admin token
@@ -784,8 +792,20 @@ def create_app():
                 business_id = request.args.get('business_id', '')
                 operation = request.args.get('operation', 'fetch_clients')
                 
-                if operation == 'fetch_clients':
+                logger.info(f"Bridge GET: Operation={operation}, business_id={business_id}")
+                
+                # Default to fetch_clients operation for GET requests
+                if operation == 'fetch_clients' or not operation:
                     logger.info(f"Bridge: Fetching clients for business_id: {business_id}")
+                    
+                    if not business_id:
+                        # When no business_id is provided, get it from the authenticated user
+                        from .models import Business
+                        # Get first business as a fallback
+                        business = db.session.query(Business).first()
+                        if business:
+                            business_id = business.id
+                            logger.info(f"Using default business ID: {business_id}")
                     
                     if not business_id or business_id == 'admin':
                         # Return empty list for admin or missing business ID
@@ -796,6 +816,7 @@ def create_app():
                     passcodes = db.session.query(ClientPasscode).filter_by(business_id=business_id).all()
                     passcode_list = [passcode.to_dict() for passcode in passcodes]
                     
+                    logger.info(f"Returning {len(passcode_list)} clients")
                     return jsonify({"clients": passcode_list}), 200
                     
                 # Unknown operation

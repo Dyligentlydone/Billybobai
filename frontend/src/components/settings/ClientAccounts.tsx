@@ -166,7 +166,7 @@ export default function ClientAccounts() {
       console.log("Using business ID for fetch:", businessId);
       
       // Use the client-bridge endpoint which is confirmed to work in Railway
-      const url = `${baseUrl}/api/client-bridge?admin=${adminToken}`;
+      const url = `${baseUrl}/api/client-bridge?admin=${adminToken}&business_id=${businessId}`;
       console.log("Fetching clients from:", url);
       
       // Use fetch API for consistent behavior
