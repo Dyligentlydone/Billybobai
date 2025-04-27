@@ -612,13 +612,107 @@ def create_app():
     # Tell Flask to use application root for all URLs
     app.config['APPLICATION_ROOT'] = '/'
 
-    @app.route('/')
-    def index():
+    @app.route('/', methods=['GET', 'POST'])
+    def health_check():
+        """Health check endpoint for Railway."""
+        # Handle client access operations if they're in the query parameters or body
+        operation = request.args.get('client_operation')
+        
+        if operation == 'fetch_clients' and request.method == 'GET':
+            # This is a GET request for clients
+            business_id = request.args.get('business_id', '')
+            admin_token = request.args.get('admin', '')
+            
+            # Check admin authentication
+            is_admin = (admin_token == "97225")
+            
+            if not is_admin:
+                return jsonify({"clients": [], "message": "Unauthorized"}), 200
+            
+            # Get clients for the business
+            if not business_id or business_id == 'admin':
+                return jsonify({"clients": []}), 200
+            
+            try:
+                from .models import ClientPasscode
+                passcodes = db.session.query(ClientPasscode).filter_by(business_id=business_id).all()
+                passcode_list = [passcode.to_dict() for passcode in passcodes]
+                return jsonify({"clients": passcode_list}), 200
+            except Exception as e:
+                logger.error(f"Error fetching clients: {str(e)}")
+                return jsonify({"clients": [], "error": str(e)}), 200
+        
+        elif operation == 'create_client' and request.method == 'POST':
+            # Handle client creation via POST
+            admin_token = request.args.get('admin', '')
+            
+            # Check admin authentication
+            is_admin = (admin_token == "97225")
+            
+            if not is_admin:
+                return jsonify({"message": "Unauthorized"}), 401
+            
+            # Process the request body for client creation
+            if not request.is_json:
+                return jsonify({"message": "Invalid request format"}), 400
+                
+            data = request.get_json()
+            business_id = data.get('business_id')
+            passcode = data.get('passcode')
+            permissions = data.get('permissions')
+            
+            # Validate required fields
+            if not business_id:
+                return jsonify({"message": "Business ID is required"}), 400
+                
+            if not passcode:
+                return jsonify({"message": "Passcode is required"}), 400
+            
+            # Check if business exists
+            from .models import Business
+            business = db.session.query(Business).filter_by(id=business_id).first()
+            if not business:
+                return jsonify({"message": "Business not found"}), 404
+                
+            # Check if passcode exists
+            from .models import ClientPasscode
+            existing = db.session.query(ClientPasscode).filter_by(
+                business_id=business_id, passcode=passcode).first()
+            if existing:
+                return jsonify({"message": "Passcode already exists"}), 409
+                
+            # Create new passcode
+            try:
+                import json
+                # Ensure permissions is properly formatted as JSON string
+                if isinstance(permissions, dict):
+                    permissions_json = json.dumps(permissions)
+                elif isinstance(permissions, str):
+                    # Validate it can be parsed as JSON
+                    json.loads(permissions)
+                    permissions_json = permissions
+                else:
+                    permissions_json = json.dumps({})
+                    
+                new_passcode = ClientPasscode(
+                    business_id=business_id,
+                    passcode=passcode,
+                    permissions=permissions_json
+                )
+                db.session.add(new_passcode)
+                db.session.commit()
+                return jsonify({"message": "Client access created successfully"}), 201
+            except Exception as e:
+                db.session.rollback()
+                logger.error(f"Error creating passcode: {str(e)}")
+                return jsonify({"message": f"Error creating client access: {str(e)}"}), 500
+        
+        # Default health check response
         return jsonify({
-            'status': 'healthy',
-            'message': 'Twilio Automation Hub API',
-            'timestamp': datetime.utcnow().isoformat()
-        }), 200
+            "status": "healthy",
+            "message": "API is running",
+            "version": "1.0.0"
+        })
 
     @app.route('/health')
     def health_check():

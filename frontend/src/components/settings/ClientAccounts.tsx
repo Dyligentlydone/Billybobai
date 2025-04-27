@@ -165,24 +165,17 @@ export default function ClientAccounts() {
       const businessId = business?.business_id || business?.id || '';
       console.log("Using business ID for fetch:", businessId);
       
-      // Use a simpler, more direct URL format that Railway will recognize
-      // Avoid query params when possible, as they might be causing the routing issues
-      const url = `${baseUrl}/api/client-bridge`;
+      // Use the root endpoint with query parameters - this should be more reliable in Railway
+      const url = `${baseUrl}/?client_operation=fetch_clients&business_id=${businessId}&admin=${adminToken}`;
       console.log("Fetching clients from:", url);
       
       // Use fetch API for consistent behavior
       fetch(url, {
-        method: 'POST', // Use POST instead of GET to avoid query param issues
+        method: 'GET',
         headers: {
           'Authorization': `Bearer ${adminToken}`,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
+          'Accept': 'application/json'
         },
-        body: JSON.stringify({
-          business_id: businessId,
-          admin_token: adminToken,
-          operation: 'fetch_clients'  // Specify the operation for our bridge endpoint
-        }),
         credentials: 'include'
       })
       .then(response => {
@@ -323,7 +316,7 @@ export default function ClientAccounts() {
       
       // Update the URL to include admin token directly in query string to bypass auth header issues
       const baseUrl = window.location.origin;
-      const url = `${baseUrl}/api/client-bridge`;
+      const url = `${baseUrl}/?client_operation=create_client&business_id=${businessId}&admin=${adminToken}`;
       
       // Use fetch API instead of XMLHttpRequest for better error handling
       fetch(url, {
@@ -333,11 +326,7 @@ export default function ClientAccounts() {
           'Authorization': `Bearer ${adminToken}`,
           'Accept': 'application/json'
         },
-        body: JSON.stringify({
-          ...clientData,
-          admin_token: adminToken,
-          operation: 'create_client'  // Specify the operation for our bridge endpoint
-        }),
+        body: JSON.stringify(clientData),
         credentials: 'include'
       })
       .then(response => {
