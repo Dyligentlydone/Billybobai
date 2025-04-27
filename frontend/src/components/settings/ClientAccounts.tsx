@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { PlusIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
 import { useBusiness } from '../../contexts/BusinessContext';
+import { BACKEND_URL } from '../../config';
 
 interface ClientPasscode {
   business_id: string;
@@ -158,9 +159,9 @@ export default function ClientAccounts() {
   const fetchClients = async () => {
     try {
       const adminToken = localStorage.getItem('admin_token');
-      // Use backend URL in production, or fallback to relative URL
-      // This ensures API requests go to the correct backend service
-      const baseUrl = import.meta.env.VITE_BACKEND_URL || window.location.origin;
+      // Always use the BACKEND_URL constant which already contains a safe
+      // fallback to the production backend if the env var is missing.
+      const baseUrl = BACKEND_URL;
       
       // Get the actual business ID from the business object
       const businessId = business?.business_id || business?.id || '';
@@ -302,9 +303,9 @@ export default function ClientAccounts() {
       
       console.log("Sending client data:", JSON.stringify(clientData));
       
-      // Use backend URL in production, or fallback to relative URL
-      // This ensures API requests go to the correct backend service
-      const baseUrl = import.meta.env.VITE_BACKEND_URL || window.location.origin;
+      // Always use the BACKEND_URL constant to avoid environment-variable or
+      // CORS misconfig that leads to 404s.
+      const baseUrl = BACKEND_URL;
       
       // Use the direct-client-create endpoint for client creation
       const url = `${baseUrl}/api/auth/direct-client-create?admin=${adminToken}`;

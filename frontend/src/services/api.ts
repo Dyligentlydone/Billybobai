@@ -4,8 +4,9 @@ console.log("VITE_BACKEND_URL:", import.meta.env.VITE_BACKEND_URL);
 import axios from 'axios';
 import { EmailConfig as ImportedEmailConfig } from '../types/email';
 import { VoiceConfig } from '../types/voice';
+import { BACKEND_URL } from '../config';
 
-const API_URL = import.meta.env.VITE_BACKEND_URL;
+const API_URL = BACKEND_URL;
 
 // Create axios instance with base URL
 const api = axios.create({
