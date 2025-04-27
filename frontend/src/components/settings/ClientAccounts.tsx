@@ -158,7 +158,7 @@ export default function ClientAccounts() {
   const fetchClients = async () => {
     try {
       const adminToken = localStorage.getItem('admin_token');
-      // Use the original auth route that exists in the backend
+      // Use the original auth route that exists in the backend with correct path structure
       const url = `/api/auth/passcodes?business_id=${business?.id || ''}`;
       console.log("Fetching clients from:", url);
       
@@ -297,9 +297,8 @@ export default function ClientAccounts() {
       
       // Use standard XMLHttpRequest for direct control
       const xhr = new XMLHttpRequest();
-      // Use absolute URL for Railway production environment
-      const url = `/api/auth/passcodes`;
-      xhr.open('POST', url);
+      // Use correct path that matches backend route exactly
+      xhr.open('POST', '/api/auth/passcodes');
       xhr.setRequestHeader('Content-Type', 'application/json');
       xhr.setRequestHeader('Authorization', `Bearer ${adminToken}`);
       
