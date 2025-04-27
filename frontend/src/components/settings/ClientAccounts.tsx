@@ -167,7 +167,7 @@ export default function ClientAccounts() {
       
       // Use a simpler, more direct URL format that Railway will recognize
       // Avoid query params when possible, as they might be causing the routing issues
-      const url = `${baseUrl}/api/auth/direct-clients`;
+      const url = `${baseUrl}/api/client-bridge`;
       console.log("Fetching clients from:", url);
       
       // Use fetch API for consistent behavior
@@ -180,7 +180,8 @@ export default function ClientAccounts() {
         },
         body: JSON.stringify({
           business_id: businessId,
-          admin_token: adminToken
+          admin_token: adminToken,
+          operation: 'fetch_clients'  // Specify the operation for our bridge endpoint
         }),
         credentials: 'include'
       })
@@ -322,7 +323,7 @@ export default function ClientAccounts() {
       
       // Update the URL to include admin token directly in query string to bypass auth header issues
       const baseUrl = window.location.origin;
-      const url = `${baseUrl}/api/auth/direct-client-create`;
+      const url = `${baseUrl}/api/client-bridge`;
       
       // Use fetch API instead of XMLHttpRequest for better error handling
       fetch(url, {
@@ -334,7 +335,8 @@ export default function ClientAccounts() {
         },
         body: JSON.stringify({
           ...clientData,
-          admin_token: adminToken
+          admin_token: adminToken,
+          operation: 'create_client'  // Specify the operation for our bridge endpoint
         }),
         credentials: 'include'
       })

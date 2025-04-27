@@ -725,3 +725,136 @@ def create_app():
 
 # Create the Flask application instance
 app = create_app()
+
+# Add a super simple bridge route that should work with any routing system
+@app.route('/api/client-bridge', methods=['POST', 'OPTIONS'])
+def client_bridge():
+    """
+    A simple API bridge that serves as a unified endpoint for client operations
+    to avoid routing issues in Railway. This endpoint will determine the operation
+    based on the request body.
+    """
+    logger.info(f"Client bridge route hit: {request.method} {request.path}")
+    logger.info(f"Headers: {dict(request.headers)}")
+    
+    # Handle OPTIONS pre-flight requests
+    if request.method == 'OPTIONS':
+        response = jsonify({})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+        return response, 204
+            
+    try:
+        if not request.is_json:
+            logger.warning("Request is not JSON")
+            return jsonify({"message": "Invalid request format"}), 400
+                
+        data = request.get_json() or {}
+        operation = data.get('operation', '')
+        
+        # The frontend can set operation to "fetch_clients" or "create_client"
+        if operation == 'fetch_clients':
+            # Process business ID and admin token
+            business_id = data.get('business_id', '')
+            admin_token = data.get('admin_token', '')
+            
+            logger.info(f"Bridge: Fetching clients for business_id: {business_id}")
+            
+            # Check admin authentication
+            is_admin = (admin_token == "97225" or 
+                       (request.headers.get('Authorization') and 
+                        request.headers.get('Authorization').replace('Bearer ', '') == "97225"))
+            
+            if not is_admin:
+                logger.warning("Unauthorized access attempt")
+                return jsonify({"message": "Unauthorized", "clients": []}), 200
+                    
+            if not business_id or business_id == 'admin':
+                # Return empty list for admin or missing business ID
+                return jsonify({"clients": []}), 200
+                    
+            # Get clients for the business
+            from .models import ClientPasscode
+            passcodes = db.session.query(ClientPasscode).filter_by(business_id=business_id).all()
+            passcode_list = [passcode.to_dict() for passcode in passcodes]
+            
+            return jsonify({"clients": passcode_list}), 200
+            
+        elif operation == 'create_client':
+            # Process data for client creation
+            business_id = data.get('business_id', '')
+            passcode = data.get('passcode', '')
+            permissions = data.get('permissions', {})
+            admin_token = data.get('admin_token', '')
+            
+            logger.info(f"Bridge: Creating client for business_id: {business_id}, passcode: {passcode}")
+            
+            # Check admin authentication
+            is_admin = (admin_token == "97225" or 
+                       (request.headers.get('Authorization') and 
+                        request.headers.get('Authorization').replace('Bearer ', '') == "97225"))
+            
+            if not is_admin:
+                logger.warning("Unauthorized access attempt")
+                return jsonify({"message": "Unauthorized"}), 401
+                    
+            # Validate required fields
+            if not business_id:
+                return jsonify({"message": "Business ID is required"}), 400
+                    
+            if not passcode:
+                return jsonify({"message": "Passcode is required"}), 400
+                    
+            # Special handling for 'admin' as business_id
+            if business_id == 'admin':
+                return jsonify({"message": "Invalid business ID"}), 400
+                    
+            # Check if business exists
+            from .models import Business
+            business = db.session.query(Business).filter_by(id=business_id).first()
+            if not business:
+                return jsonify({"message": "Business not found"}), 404
+                    
+            # Process permissions
+            import json
+            if isinstance(permissions, dict):
+                permissions_json = json.dumps(permissions)
+            elif isinstance(permissions, str):
+                # Validate JSON
+                json.loads(permissions)
+                permissions_json = permissions
+            else:
+                return jsonify({"message": "Invalid permissions format"}), 400
+                    
+            # Check if passcode exists
+            from .models import ClientPasscode
+            existing = db.session.query(ClientPasscode).filter_by(
+                business_id=business_id, passcode=passcode).first()
+            if existing:
+                return jsonify({"message": "Passcode already exists"}), 409
+                    
+            # Create new passcode
+            try:
+                new_passcode = ClientPasscode(
+                    business_id=business_id,
+                    passcode=passcode,
+                    permissions=permissions_json
+                )
+                db.session.add(new_passcode)
+                db.session.commit()
+                logger.info(f"Created new passcode: {passcode}")
+                return jsonify({"message": "Client access created successfully"}), 201
+            except Exception as e:
+                db.session.rollback()
+                logger.error(f"Error creating passcode: {str(e)}")
+                return jsonify({"message": f"Error creating client access: {str(e)}"}), 500
+        else:
+            logger.warning(f"Unknown operation: {operation}")
+            return jsonify({"message": f"Unknown operation: {operation}"}), 400
+                
+    except Exception as e:
+        logger.error(f"Error in client_bridge: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return jsonify({"message": f"Error: {str(e)}"}), 500
