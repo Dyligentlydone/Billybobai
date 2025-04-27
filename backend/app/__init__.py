@@ -494,7 +494,7 @@ def create_app():
                     
                     if not is_admin:
                         logger.warning("Unauthorized access attempt")
-                        return jsonify({"message": "Unauthorized access"}), 401
+                        return jsonify({"message": "Unauthorized access"}), 200
                     
                     # Get passcodes from database
                     try:
@@ -526,11 +526,11 @@ def create_app():
                     
                     if not is_admin:
                         logger.warning("Unauthorized access attempt")
-                        return jsonify({"message": "Unauthorized access"}), 401
+                        return jsonify({"message": "Unauthorized access"}), 200
                     
                     if not data:
                         logger.warning("No data provided")
-                        return jsonify({"message": "No data provided"}), 400
+                        return jsonify({"message": "No data provided"}), 200
                         
                     business_id = data.get('business_id')
                     passcode = data.get('passcode')
@@ -538,20 +538,20 @@ def create_app():
                     
                     # Validation
                     if not business_id:
-                        return jsonify({"message": "Business ID is required"}), 400
+                        return jsonify({"message": "Business ID is required"}), 200
                     
                     if not passcode:
-                        return jsonify({"message": "Passcode is required"}), 400
+                        return jsonify({"message": "Passcode is required"}), 200
                     
                     # Special handling for 'admin' as business_id
                     if business_id == 'admin':
-                        return jsonify({"message": "Invalid business ID"}), 400
+                        return jsonify({"message": "Invalid business ID"}), 200
                     
                     # Check if business exists
                     from app.models import Business
                     business = db.session.query(Business).filter_by(id=business_id).first()
                     if not business:
-                        return jsonify({"message": "Business not found"}), 404
+                        return jsonify({"message": "Business not found"}), 200
                     
                     # Process permissions
                     import json
@@ -562,14 +562,14 @@ def create_app():
                         json.loads(permissions)
                         permissions_json = permissions
                     else:
-                        return jsonify({"message": "Invalid permissions format"}), 400
+                        return jsonify({"message": "Invalid permissions format"}), 200
                     
                     # Check if passcode exists
                     from app.models import ClientPasscode
                     existing = db.session.query(ClientPasscode).filter_by(
                         business_id=business_id, passcode=passcode).first()
                     if existing:
-                        return jsonify({"message": "Passcode already exists"}), 409
+                        return jsonify({"message": "Passcode already exists"}), 200
                     
                     # Create new passcode
                     try:
@@ -581,12 +581,12 @@ def create_app():
                         db.session.add(new_passcode)
                         db.session.commit()
                         logger.info(f"Created new passcode with ID: {new_passcode.id}")
-                        return jsonify({"message": "Client access created successfully"}), 201
+                        return jsonify({"message": "Client access created successfully"}), 200
                     except Exception as e:
                         db.session.rollback()
                         logger.error(f"Error creating passcode: {str(e)}")
                         logger.exception("Detailed error:")
-                        return jsonify({"message": f"Error creating client access: {str(e)}"}), 500
+                        return jsonify({"message": f"Error creating client access: {str(e)}"}), 200
                 
                 # OPTIONS request
                 return '', 204
@@ -594,7 +594,7 @@ def create_app():
             except Exception as e:
                 logger.error(f"Error in debug_passcodes: {str(e)}")
                 logger.exception("Detailed error:")
-                return jsonify({"error": str(e)}), 500
+                return jsonify({"error": str(e)}), 200
                 
         logger.info("Application creation completed successfully")
         
@@ -682,12 +682,12 @@ def create_app():
                 
                 if not is_admin:
                     logger.warning("Unauthorized access attempt")
-                    return jsonify({"message": "Unauthorized"}), 401
+                    return jsonify({"message": "Unauthorized"}), 200
                 
                 # Process the request body
                 if not request.is_json:
                     logger.warning("Request is not JSON")
-                    return jsonify({"message": "Invalid request format"}), 400
+                    return jsonify({"message": "Invalid request format"}), 200
                     
                 data = request.get_json()
                 business_id = data.get('business_id')
@@ -696,22 +696,22 @@ def create_app():
                 
                 # Validate required fields
                 if not business_id:
-                    return jsonify({"message": "Business ID is required"}), 400
+                    return jsonify({"message": "Business ID is required"}), 200
                     
                 if not passcode:
-                    return jsonify({"message": "Passcode is required"}), 400
+                    return jsonify({"message": "Passcode is required"}), 200
                 
                 # Check if business exists
                 from .models import Business, ClientPasscode
                 business = db.session.query(Business).filter_by(id=business_id).first()
                 if not business:
-                    return jsonify({"message": "Business not found"}), 404
+                    return jsonify({"message": "Business not found"}), 200
                     
                 # Check if passcode exists
                 existing = db.session.query(ClientPasscode).filter_by(
                     business_id=business_id, passcode=passcode).first()
                 if existing:
-                    return jsonify({"message": "Passcode already exists"}), 409
+                    return jsonify({"message": "Passcode already exists"}), 200
                     
                 # Create new passcode
                 try:
@@ -735,17 +735,17 @@ def create_app():
                     db.session.commit()
                     
                     logger.info(f"Created new passcode for business: {business_id}")
-                    return jsonify({"message": "Client access created successfully"}), 201
+                    return jsonify({"message": "Client access created successfully"}), 200
                 except Exception as e:
                     db.session.rollback()
                     logger.error(f"Error creating passcode: {str(e)}")
-                    return jsonify({"message": f"Error creating client access: {str(e)}"}), 500
+                    return jsonify({"message": f"Error creating client access: {str(e)}"}), 200
             
         except Exception as e:
             logger.error(f"Error in client_operations: {str(e)}")
             import traceback
             logger.error(traceback.format_exc())
-            return jsonify({"error": str(e)}), 500
+            return jsonify({"error": str(e)}), 200
 
     # Add a unified client bridge endpoint to ensure compatibility
     @app.route('/api/client-bridge', methods=['GET', 'POST', 'OPTIONS'])
@@ -777,7 +777,7 @@ def create_app():
             
             if not is_admin:
                 logger.warning("Unauthorized access attempt to client bridge")
-                return jsonify({"message": "Unauthorized"}), 401
+                return jsonify({"message": "Unauthorized"}), 200
                 
             # Handle GET requests
             if request.method == 'GET':
@@ -813,13 +813,13 @@ def create_app():
                     return jsonify({"clients": passcode_list}), 200
                     
                 # Unknown operation
-                return jsonify({"message": f"Unknown operation: {operation}"}), 400
+                return jsonify({"message": f"Unknown operation: {operation}"}), 200
                 
             # Handle POST requests
             elif request.method == 'POST':
                 # Parse operation from request
                 if not request.is_json:
-                    return jsonify({"message": "Invalid request format"}), 400
+                    return jsonify({"message": "Invalid request format"}), 200
                     
                 data = request.get_json()
                 operation = data.get('operation', 'create_client')
@@ -834,20 +834,20 @@ def create_app():
                     
                     # Validate required fields
                     if not business_id:
-                        return jsonify({"message": "Business ID is required"}), 400
+                        return jsonify({"message": "Business ID is required"}), 200
                             
                     if not passcode:
-                        return jsonify({"message": "Passcode is required"}), 400
+                        return jsonify({"message": "Passcode is required"}), 200
                             
                     # Special handling for 'admin' as business_id
                     if business_id == 'admin':
-                        return jsonify({"message": "Invalid business ID"}), 400
+                        return jsonify({"message": "Invalid business ID"}), 200
                             
                     # Check if business exists
                     from .models import Business
                     business = db.session.query(Business).filter_by(id=business_id).first()
                     if not business:
-                        return jsonify({"message": "Business not found"}), 404
+                        return jsonify({"message": "Business not found"}), 200
                             
                     # Process permissions
                     import json
@@ -858,14 +858,14 @@ def create_app():
                         json.loads(permissions)
                         permissions_json = permissions
                     else:
-                        return jsonify({"message": "Invalid permissions format"}), 400
+                        return jsonify({"message": "Invalid permissions format"}), 200
                             
                     # Check if passcode exists
                     from .models import ClientPasscode
                     existing = db.session.query(ClientPasscode).filter_by(
                         business_id=business_id, passcode=passcode).first()
                     if existing:
-                        return jsonify({"message": "Passcode already exists"}), 409
+                        return jsonify({"message": "Passcode already exists"}), 200
                             
                     # Create new passcode
                     try:
@@ -877,20 +877,20 @@ def create_app():
                         db.session.add(new_passcode)
                         db.session.commit()
                         logger.info(f"Created new passcode: {passcode}")
-                        return jsonify({"message": "Client access created successfully"}), 201
+                        return jsonify({"message": "Client access created successfully"}), 200
                     except Exception as e:
                         db.session.rollback()
                         logger.error(f"Error creating passcode: {str(e)}")
-                        return jsonify({"message": f"Error creating client access: {str(e)}"}), 500
+                        return jsonify({"message": f"Error creating client access: {str(e)}"}), 200
                 else:
                     logger.warning(f"Unknown operation: {operation}")
-                    return jsonify({"message": f"Unknown operation: {operation}"}), 400
+                    return jsonify({"message": f"Unknown operation: {operation}"}), 200
                         
         except Exception as e:
             logger.error(f"Error in client_bridge: {str(e)}")
             import traceback
             logger.error(traceback.format_exc())
-            return jsonify({"message": f"Error: {str(e)}"}), 500
+            return jsonify({"message": f"Error: {str(e)}"}), 200
             
     # Add a fully standalone direct-clients endpoint that doesn't depend on importing from auth_routes.py
     @app.route('/api/auth/direct-clients', methods=['GET', 'POST', 'OPTIONS'])
@@ -1020,11 +1020,11 @@ def create_app():
             
             if not is_admin:
                 logger.warning("Unauthorized access attempt")
-                return jsonify({"message": "Unauthorized", "clients": []}), 401  # Return 401 for auth failures
+                return jsonify({"message": "Unauthorized", "clients": []}), 200  # Return 200 instead of 401
                 
             if not business_id:
                 logger.warning("Business ID not provided")
-                return jsonify({"message": "Business ID is required", "clients": []}), 400  # Return 400 for bad requests
+                return jsonify({"message": "Business ID is required", "clients": []}), 200  # Return 200 instead of 400
             
             # Special handling for 'admin' as business_id
             if business_id == 'admin':
@@ -1058,7 +1058,7 @@ def create_app():
             logger.error(f"Error in root_direct_clients: {str(e)}")
             import traceback
             logger.error(traceback.format_exc())
-            return jsonify({"message": "Error fetching clients", "clients": [], "error": str(e)}), 500
+            return jsonify({"message": "Error fetching clients", "clients": [], "error": str(e)}), 200
 
     # Add a clear catch-all route that will handle ANY path to direct-clients
     # This is a last resort to bypass Railway's routing issues
@@ -1174,7 +1174,7 @@ def create_app():
                 return jsonify({"message": "Error fetching clients", "clients": [], "error": str(e)}), 200
         
         # For all other paths
-        return jsonify({"message": "Path not found", "path": subpath}), 404
+        return jsonify({"message": "Path not found", "path": subpath}), 200
 
     logger.info("Application creation completed successfully")
     return app
