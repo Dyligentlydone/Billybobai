@@ -165,45 +165,31 @@ export default function ClientAccounts() {
       const businessId = business?.business_id || business?.id || '';
       console.log("Using business ID for fetch:", businessId);
       
-      // Use the dedicated client operations endpoint that won't interfere with health checks
-      const url = `${baseUrl}/api/client-operations?business_id=${businessId}&admin=${adminToken}`;
+      // Use the client-bridge endpoint which is confirmed to work in Railway
+      const url = `${baseUrl}/api/client-bridge?admin=${adminToken}`;
       console.log("Fetching clients from:", url);
       
       // Use fetch API for consistent behavior
       fetch(url, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${adminToken}`,
-          'Accept': 'application/json'
-        },
-        credentials: 'include'
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        }
       })
       .then(response => {
-        console.log("Response status:", response.status);
-        // Handle non-2xx responses gracefully
         if (!response.ok) {
-          console.warn(`Error response: ${response.status} ${response.statusText}`);
-          // Return empty data to avoid parsing errors with HTML
-          return { clients: [] };
+          throw new Error(`HTTP error! Status: ${response.status}`);
         }
-        
-        return response.text().then(text => {
-          console.log("Raw response:", text);
-          try {
-            return text ? JSON.parse(text) : { clients: [] };
-          } catch (err) {
-            console.error("Error parsing response:", err);
-            // Return empty data on parse errors
-            return { clients: [] };
-          }
-        });
+        return response.json();
       })
       .then(data => {
-        console.log("Received client data:", data);
+        console.log("Clients data received:", data);
         setClients(data.clients || []);
       })
       .catch(error => {
-        console.error('Network error occurred while fetching clients:', error);
+        console.error("Error fetching clients:", error);
+        setClients([]);
       });
     } catch (error) {
       console.error('Failed to fetch clients:', error);
@@ -307,6 +293,7 @@ export default function ClientAccounts() {
       
       // Prepare data for API call
       const clientData = {
+        operation: 'create_client',
         business_id: businessId, // Use the actual business ID
         passcode: newClient.passcode,
         permissions: flatPermissions
@@ -314,42 +301,23 @@ export default function ClientAccounts() {
       
       console.log("Sending client data:", JSON.stringify(clientData));
       
-      // Update the URL to include admin token directly in query string to bypass auth header issues
+      // Use the client-bridge endpoint for client creation
       const baseUrl = window.location.origin;
-      const url = `${baseUrl}/api/client-operations?business_id=${businessId}&admin=${adminToken}`;
+      const url = `${baseUrl}/api/client-bridge?admin=${adminToken}`;
       
       // Use fetch API instead of XMLHttpRequest for better error handling
       fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${adminToken}`,
-          'Accept': 'application/json'
         },
         body: JSON.stringify(clientData),
-        credentials: 'include'
       })
       .then(response => {
-        console.log("Response status:", response.status);
-        
-        // Handle non-2xx responses gracefully
         if (!response.ok) {
-          console.warn(`Error response: ${response.status} ${response.statusText}`);
-          // Set error message but don't try to parse HTML as JSON
-          setError(`Failed to create client access (${response.status})`);
-          setShowNewClientForm(false);
-          return { success: false, message: `Failed (${response.status})` };
+          throw new Error(`HTTP error! Status: ${response.status}`);
         }
-        
-        return response.text().then(text => {
-          try {
-            return text ? JSON.parse(text) : { success: true };
-          } catch (err) {
-            console.error("Error parsing response:", err);
-            // Return a success object on parse errors to avoid blocking
-            return { success: true, message: "Client access created (warning: unexpected response format)" };
-          }
-        });
+        return response.json();
       })
       .then(data => {
         if (data && !data.error) {
