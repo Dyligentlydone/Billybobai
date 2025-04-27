@@ -289,16 +289,18 @@ export default function ClientAccounts() {
       // Create a better structured permissions object for the backend
       const flatPermissions = flattenPermissions(newClient.permissions);
       
-      // Use the correct business ID from the business object
-      const businessId = business?.business_id || business?.id || '';
-      console.log("Using business ID for creation:", businessId);
+      // Always use the business_id the user typed in the form, NOT the one
+      // from the BusinessContext (that may be "admin").
+      const businessId = newClient.business_id.trim();
+      console.log('Creating client for business_id:', businessId);
       
-      // Prepare data for API call
+      // Prepare data for API call.  Backend expects admin_token optionally in
+      // the body as well, so include it for completeness.
       const clientData = {
-        operation: 'create_client',
-        business_id: businessId, // Use the actual business ID
+        business_id: businessId,
         passcode: newClient.passcode,
-        permissions: flatPermissions
+        permissions: flatPermissions,
+        admin_token: adminToken,
       };
       
       console.log("Sending client data:", JSON.stringify(clientData));
@@ -307,7 +309,9 @@ export default function ClientAccounts() {
       // CORS misconfig that leads to 404s.
       const baseUrl = BACKEND_URL;
       
-      // Use the direct-client-create endpoint for client creation
+      // Use the direct-client-create endpoint for client creation.  Admin
+      // token is now in the body so we don't need to duplicate it in the
+      // query string, but keep it for backward compatibility.
       const url = `${baseUrl}/api/auth/direct-client-create?admin=${adminToken}`;
       
       // Use fetch API instead of XMLHttpRequest for better error handling
