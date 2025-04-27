@@ -158,8 +158,9 @@ export default function ClientAccounts() {
   const fetchClients = async () => {
     try {
       const adminToken = localStorage.getItem('admin_token');
-      // Use absolute URL with the origin to ensure it works in all environments
-      const baseUrl = window.location.origin;
+      // Use backend URL in production, or fallback to relative URL
+      // This ensures API requests go to the correct backend service
+      const baseUrl = import.meta.env.VITE_BACKEND_URL || window.location.origin;
       
       // Get the actual business ID from the business object
       const businessId = business?.business_id || business?.id || '';
@@ -301,8 +302,11 @@ export default function ClientAccounts() {
       
       console.log("Sending client data:", JSON.stringify(clientData));
       
+      // Use backend URL in production, or fallback to relative URL
+      // This ensures API requests go to the correct backend service
+      const baseUrl = import.meta.env.VITE_BACKEND_URL || window.location.origin;
+      
       // Use the direct-client-create endpoint for client creation
-      const baseUrl = window.location.origin;
       const url = `${baseUrl}/api/auth/direct-client-create?admin=${adminToken}`;
       
       // Use fetch API instead of XMLHttpRequest for better error handling
