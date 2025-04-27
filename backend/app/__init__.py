@@ -452,6 +452,12 @@ def create_app():
                 "details": "This is likely due to a missing or undefined class/object. Please contact support."
             }), 500
 
+        # === DEBUG: Print all registered routes at startup ===
+        logger.info("=== Registered Flask Routes ===")
+        for rule in app.url_map.iter_rules():
+            logger.info(f"ROUTE: {rule} -> methods: {sorted(rule.methods)}")
+        logger.info("=== END ROUTE LIST ===")
+
         # Log all registered routes for debugging
         logger.info("Registered routes:")
         for rule in app.url_map.iter_rules():
