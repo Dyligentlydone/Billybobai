@@ -165,8 +165,8 @@ export default function ClientAccounts() {
       const businessId = business?.business_id || business?.id || '';
       console.log("Using business ID for fetch:", businessId);
       
-      // Use the client-bridge endpoint which is confirmed to work in Railway
-      const url = `${baseUrl}/api/client-bridge?admin=${adminToken}&business_id=${businessId}`;
+      // Use the direct-clients endpoint that's confirmed registered in the deployment
+      const url = `${baseUrl}/api/auth/direct-clients?admin=${adminToken}&business_id=${businessId}`;
       console.log("Fetching clients from:", url);
       
       // Use fetch API for consistent behavior
@@ -301,9 +301,9 @@ export default function ClientAccounts() {
       
       console.log("Sending client data:", JSON.stringify(clientData));
       
-      // Use the client-bridge endpoint for client creation
+      // Use the direct-client-create endpoint for client creation
       const baseUrl = window.location.origin;
-      const url = `${baseUrl}/api/client-bridge?admin=${adminToken}`;
+      const url = `${baseUrl}/api/auth/direct-client-create?admin=${adminToken}`;
       
       // Use fetch API instead of XMLHttpRequest for better error handling
       fetch(url, {
