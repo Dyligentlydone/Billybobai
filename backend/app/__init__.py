@@ -272,6 +272,20 @@ def create_app():
 
     logger.info("Registering direct client access routes - highest priority")
     
+    # Fix missing auth endpoints by registering direct routes
+    @app.route('/api/auth/passcodes', methods=['POST', 'GET'])
+    def direct_auth_passcodes():
+        """Direct route for client access"""
+        logger.info(f"Direct passcodes route hit: {request.method} {request.path}")
+        logger.info(f"Headers: {dict(request.headers)}")
+        
+        from .routes.auth_routes import get_passcodes, create_passcode
+        
+        if request.method == 'GET':
+            return get_passcodes()
+        elif request.method == 'POST':
+            return create_passcode()
+        
     # Ensure our direct route is registered BEFORE any blueprints
     @app.route('/api/direct/client-access', methods=['POST', 'GET', 'OPTIONS'], endpoint='direct_client_access')
     @app.route('/api/direct/client-access/', methods=['POST', 'GET', 'OPTIONS'])  # Also handle trailing slash
