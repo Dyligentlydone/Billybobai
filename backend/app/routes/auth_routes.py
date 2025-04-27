@@ -18,20 +18,16 @@ def get_passcodes():
         # Check admin authentication from different sources
         admin_password = request.cookies.get('admin_password')
         auth_header = request.headers.get('Authorization')
-        admin_cookie = request.cookies.get('admin')
         admin_query = request.args.get('admin')
         
         logger.info(f"Headers: {dict(request.headers)}")
         logger.info(f"Cookies: {request.cookies}")
         logger.info(f"Auth header: {auth_header}")
         logger.info(f"Admin query: {admin_query}")
-        logger.info(f"Admin cookie: {admin_cookie}")
         
-        # More flexible authentication checking
         is_admin = (admin_password == "97225" or 
                    (auth_header and auth_header.replace('Bearer ', '') == "97225") or
-                   admin_query == "97225" or
-                   admin_cookie == "97225")
+                   admin_query == "97225")
         
         if not is_admin:
             logger.warning("Unauthorized access attempt to get passcodes")
@@ -43,11 +39,17 @@ def get_passcodes():
             logger.warning("Business ID not provided")
             return jsonify({"message": "Business ID is required", "clients": []}), 200
         
-        # Special handling for 'admin' as business_id - return empty list rather than 404
+        # Special handling for admin business_id - should succeed even if no real business exists with this ID
         if business_id == 'admin':
-            logger.info("Special case: 'admin' used as business_id, returning empty list")
+            logger.info("Admin used as business_id - returning empty client list")
             return jsonify({"message": "Success", "clients": []}), 200
             
+        # Check if business exists - important validation step added back from earlier commits
+        business = db.session.query(Business).filter_by(id=business_id).first()
+        if not business:
+            logger.warning(f"Business ID not found: {business_id}")
+            return jsonify({"message": "Success", "clients": []}), 200  # Return 200 to avoid frontend errors
+                
         # Query passcodes for the business
         passcodes = db.session.query(ClientPasscode).filter_by(business_id=business_id).all()
         
@@ -67,20 +69,16 @@ def create_passcode():
         # Check admin authentication from different sources
         admin_password = request.cookies.get('admin_password')
         auth_header = request.headers.get('Authorization')
-        admin_cookie = request.cookies.get('admin')
         admin_query = request.args.get('admin')
         
         logger.info(f"Headers: {dict(request.headers)}")
         logger.info(f"Cookies: {request.cookies}")
         logger.info(f"Auth header: {auth_header}")
         logger.info(f"Admin query: {admin_query}")
-        logger.info(f"Admin cookie: {admin_cookie}")
         
-        # More flexible authentication checking
         is_admin = (admin_password == "97225" or 
                    (auth_header and auth_header.replace('Bearer ', '') == "97225") or
-                   admin_query == "97225" or
-                   admin_cookie == "97225")
+                   admin_query == "97225")
         
         if not is_admin:
             logger.warning("Unauthorized access attempt to create passcode")
@@ -109,6 +107,17 @@ def create_passcode():
             logger.warning("Passcode not provided")
             return jsonify({"message": "Passcode is required"}), 400
             
+        # Special handling for 'admin' as business_id
+        if business_id == 'admin':
+            logger.warning("Cannot create client access for business_id 'admin'")
+            return jsonify({"message": "Invalid business ID"}), 400
+            
+        # Check if business exists - crucial validation step from earlier commits
+        business = db.session.query(Business).filter_by(id=business_id).first()
+        if not business:
+            logger.warning(f"Business not found: {business_id}")
+            return jsonify({"message": "Business not found"}), 404
+            
         if not permissions:
             logger.warning("Permissions not provided")
             return jsonify({"message": "Permissions are required"}), 400
@@ -117,12 +126,6 @@ def create_passcode():
         if len(passcode) != 5 or not passcode.isdigit():
             logger.warning(f"Invalid passcode format: {passcode}")
             return jsonify({"message": "Passcode must be 5 digits"}), 400
-            
-        # Check if business exists
-        business = db.session.query(Business).filter_by(id=business_id).first()
-        if not business:
-            logger.warning(f"Business not found: {business_id}")
-            return jsonify({"message": f"Business not found with ID: {business_id}"}), 404
             
         # Check if passcode already exists
         existing_passcode = db.session.query(ClientPasscode).filter_by(
@@ -158,20 +161,16 @@ def delete_passcode(passcode_id):
         # Check admin authentication from different sources
         admin_password = request.cookies.get('admin_password')
         auth_header = request.headers.get('Authorization')
-        admin_cookie = request.cookies.get('admin')
         admin_query = request.args.get('admin')
         
         logger.info(f"Headers: {dict(request.headers)}")
         logger.info(f"Cookies: {request.cookies}")
         logger.info(f"Auth header: {auth_header}")
         logger.info(f"Admin query: {admin_query}")
-        logger.info(f"Admin cookie: {admin_cookie}")
         
-        # More flexible authentication checking
         is_admin = (admin_password == "97225" or 
                    (auth_header and auth_header.replace('Bearer ', '') == "97225") or
-                   admin_query == "97225" or
-                   admin_cookie == "97225")
+                   admin_query == "97225")
         
         if not is_admin:
             logger.warning("Unauthorized access attempt to delete passcode")

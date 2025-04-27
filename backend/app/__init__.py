@@ -349,19 +349,19 @@ def create_app():
         logger.error(f"Failed to register business routes: {str(e)}")
 
     try:
+        # Register auth blueprint with the correct prefix that matches frontend expectations
+        from .routes.auth_routes import auth
+        # Register with the original prefix and ensure it's processed correctly
+        app.register_blueprint(auth, url_prefix='/api')
+        logger.info("Auth blueprint registered with prefix /api to match frontend expectations")
+    except Exception as e:
+        logger.error(f"Failed to register auth blueprint: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+
+    try:
         # Register blueprints with better error handling
         def register_blueprints_with_error_handling(app):
-            # Register auth blueprint but modify its URL prefix to avoid conflict
-            try:
-                from .routes.auth_routes import auth
-                # Register with the original prefix to match frontend expectations
-                app.register_blueprint(auth, url_prefix='/api')
-                logger.info("Auth blueprint registered with original prefix to match frontend")
-            except Exception as e:
-                logger.error(f"Failed to register auth blueprint: {str(e)}")
-                import traceback
-                logger.error(traceback.format_exc())
-
             try:
                 from .routes import calendly_routes
                 app.register_blueprint(calendly_routes.calendly_bp)
