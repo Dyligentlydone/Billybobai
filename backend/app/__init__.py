@@ -277,43 +277,59 @@ def create_app():
     def handle_404(e):
         """Return JSON for 404 errors instead of HTML"""
         logger.warning(f"404 error: {request.path}")
+        
+        # Special case for auth/passcodes routes that are getting 404s
+        if '/api/auth/passcodes' in request.path:
+            logger.info(f"Intercepting 404 for passcodes route: {request.path}")
+            # Check if this is a GET request with business_id and admin parameters
+            if request.method == 'GET' and 'business_id' in request.args and 'admin' in request.args:
+                logger.info(f"Redirecting to passcodes handler with args: {request.args}")
+                from .routes.auth_routes import get_passcodes
+                return get_passcodes()
+            # Check if this is a POST request for creating passcodes
+            elif request.method == 'POST' and request.is_json:
+                logger.info(f"Redirecting to passcode creation handler")
+                from .routes.auth_routes import create_passcode
+                return create_passcode()
+                
         return jsonify({"error": "Not found", "message": "The requested resource was not found"}), 404
     
-    # Fix missing auth endpoints by registering direct routes with better debugging
-    @app.route('/api/auth/passcodes', methods=['POST', 'GET', 'OPTIONS'])
-    def direct_auth_passcodes():
-        """Direct route for client access"""
-        logger.info(f"Direct passcodes route hit: {request.method} {request.path}")
-        logger.info(f"Query params: {request.args}")
-        logger.info(f"Headers: {dict(request.headers)}")
-        
-        # Add CORS headers for cross-origin requests
-        headers = {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-        }
-        
-        # Handle OPTIONS pre-flight requests
-        if request.method == 'OPTIONS':
-            return ('', 204, headers)
-        
-        try:
-            from .routes.auth_routes import get_passcodes, create_passcode
+    # Add a before_request handler to intercept ALL passcodes requests at the app level
+    @app.before_request
+    def handle_passcodes_requests():
+        """Intercept any passcodes requests at the app level"""
+        if '/api/auth/passcodes' in request.path:
+            logger.info(f"Intercepting passcodes request: {request.method} {request.path}")
+            logger.info(f"Query params: {request.args}")
             
-            if request.method == 'GET':
-                # Log incoming GET request for client access
-                logger.info(f"GET passcodes: business_id={request.args.get('business_id')}, admin token provided: {'admin' in request.args}")
-                return get_passcodes()
-            elif request.method == 'POST':
-                # Log incoming POST request for client access
-                logger.info(f"CREATE passcode: {request.get_json() if request.is_json else 'No JSON data'}")
-                return create_passcode()
-        except Exception as e:
-            logger.error(f"Error in direct_auth_passcodes: {str(e)}")
-            import traceback
-            logger.error(traceback.format_exc())
-            return jsonify({"error": str(e)}), 500
+            # Add CORS headers for cross-origin requests
+            headers = {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+            }
+            
+            # Handle OPTIONS pre-flight requests
+            if request.method == 'OPTIONS':
+                return ('', 204, headers)
+            
+            try:
+                from .routes.auth_routes import get_passcodes, create_passcode
+                
+                if request.method == 'GET':
+                    # Log incoming GET request for client access
+                    logger.info(f"GET passcodes: business_id={request.args.get('business_id')}, admin token provided: {'admin' in request.args}")
+                    return get_passcodes()
+                elif request.method == 'POST':
+                    # Log incoming POST request for client access
+                    logger.info(f"CREATE passcode: {request.get_json() if request.is_json else 'No JSON data'}")
+                    return create_passcode()
+            except Exception as e:
+                logger.error(f"Error in handle_passcodes_requests: {str(e)}")
+                import traceback
+                logger.error(traceback.format_exc())
+                return jsonify({"error": str(e)}), 500
+        return None
 
     logger.info("Registering route blueprints...")
     try:
