@@ -294,17 +294,18 @@ def direct_client_access():
     if request.method == 'POST':
         return create_passcode()
 
-@auth.route('/auth/direct-clients', methods=['POST', 'OPTIONS'])
+@auth.route('/auth/direct-clients', methods=['GET', 'POST', 'OPTIONS'])
 def direct_clients():
     """Direct handler for client access without query params to avoid Railway routing issues."""
     logger.info("Direct clients route hit")
-    logger.info(f"Headers: {dict(request.headers)}")
+    logger.info(f"Method: {request.method}, Headers: {dict(request.headers)}")
+    logger.info(f"Query params: {request.args}")
     
     # Handle OPTIONS pre-flight requests
     if request.method == 'OPTIONS':
         response = jsonify({})
         response.headers.add('Access-Control-Allow-Origin', '*')
-        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
         return response, 204
     
@@ -312,11 +313,17 @@ def direct_clients():
         # Check admin authentication from different sources
         admin_password = request.cookies.get('admin_password')
         auth_header = request.headers.get('Authorization')
+        admin_token = request.args.get('admin')  # Get from query params for GET requests
         
-        # Get admin token from request body
-        data = request.get_json() or {}
-        admin_token = data.get('admin_token')
-        business_id = data.get('business_id')
+        # For POST requests, get from request body
+        if request.method == 'POST' and request.is_json:
+            data = request.get_json() or {}
+            if not admin_token:
+                admin_token = data.get('admin_token')
+            business_id = data.get('business_id')
+        else:
+            # For GET requests, get from query params
+            business_id = request.args.get('business_id')
         
         logger.info(f"Direct clients for business_id: {business_id}, admin token: {admin_token}")
         
