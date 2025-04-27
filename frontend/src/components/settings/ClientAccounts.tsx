@@ -165,8 +165,8 @@ export default function ClientAccounts() {
       const businessId = business?.business_id || business?.id || '';
       console.log("Using business ID for fetch:", businessId);
       
-      // Use the root endpoint with query parameters - this should be more reliable in Railway
-      const url = `${baseUrl}/?client_operation=fetch_clients&business_id=${businessId}&admin=${adminToken}`;
+      // Use the dedicated client operations endpoint that won't interfere with health checks
+      const url = `${baseUrl}/api/client-operations?business_id=${businessId}&admin=${adminToken}`;
       console.log("Fetching clients from:", url);
       
       // Use fetch API for consistent behavior
@@ -316,7 +316,7 @@ export default function ClientAccounts() {
       
       // Update the URL to include admin token directly in query string to bypass auth header issues
       const baseUrl = window.location.origin;
-      const url = `${baseUrl}/?client_operation=create_client&business_id=${businessId}&admin=${adminToken}`;
+      const url = `${baseUrl}/api/client-operations?business_id=${businessId}&admin=${adminToken}`;
       
       // Use fetch API instead of XMLHttpRequest for better error handling
       fetch(url, {

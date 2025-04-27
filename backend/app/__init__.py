@@ -610,6 +610,124 @@ def create_app():
         import traceback
         logger.error(traceback.format_exc())
 
+    # Add a dedicated route for client access operations that won't interfere with health checks
+    @app.route('/api/client-operations', methods=['GET', 'POST'])
+    def client_operations():
+        """Dedicated endpoint for client access operations."""
+        logger.info(f"Client operations route hit: {request.method} {request.path}")
+        
+        try:
+            # Handle GET requests for fetching clients
+            if request.method == 'GET':
+                # Extract parameters
+                business_id = request.args.get('business_id', '')
+                admin_token = request.args.get('admin', '')
+                
+                logger.info(f"Fetching clients for business_id: {business_id}")
+                
+                # Check admin authentication
+                is_admin = (admin_token == "97225")
+                
+                if not is_admin:
+                    logger.warning("Unauthorized access attempt")
+                    return jsonify({"clients": [], "message": "Unauthorized"}), 200
+                
+                # Handle special cases
+                if not business_id or business_id == 'admin':
+                    return jsonify({"clients": []}), 200
+                
+                # Check if business exists and fetch clients
+                try:
+                    from .models import ClientPasscode, Business
+                    # Verify business exists
+                    business = db.session.query(Business).filter_by(id=business_id).first()
+                    if not business:
+                        logger.warning(f"Business not found: {business_id}")
+                        return jsonify({"clients": []}), 200
+                        
+                    # Get passcodes
+                    passcodes = db.session.query(ClientPasscode).filter_by(business_id=business_id).all()
+                    passcode_list = [passcode.to_dict() for passcode in passcodes]
+                    
+                    return jsonify({"clients": passcode_list}), 200
+                except Exception as e:
+                    logger.error(f"Error fetching clients: {str(e)}")
+                    return jsonify({"clients": [], "error": str(e)}), 200
+            
+            # Handle POST requests for creating clients
+            elif request.method == 'POST':
+                admin_token = request.args.get('admin', '')
+                
+                # Check admin authentication
+                is_admin = (admin_token == "97225")
+                
+                if not is_admin:
+                    logger.warning("Unauthorized access attempt")
+                    return jsonify({"message": "Unauthorized"}), 401
+                
+                # Process the request body
+                if not request.is_json:
+                    logger.warning("Request is not JSON")
+                    return jsonify({"message": "Invalid request format"}), 400
+                    
+                data = request.get_json()
+                business_id = data.get('business_id')
+                passcode = data.get('passcode')
+                permissions = data.get('permissions')
+                
+                # Validate required fields
+                if not business_id:
+                    return jsonify({"message": "Business ID is required"}), 400
+                    
+                if not passcode:
+                    return jsonify({"message": "Passcode is required"}), 400
+                
+                # Check if business exists
+                from .models import Business, ClientPasscode
+                business = db.session.query(Business).filter_by(id=business_id).first()
+                if not business:
+                    return jsonify({"message": "Business not found"}), 404
+                    
+                # Check if passcode exists
+                existing = db.session.query(ClientPasscode).filter_by(
+                    business_id=business_id, passcode=passcode).first()
+                if existing:
+                    return jsonify({"message": "Passcode already exists"}), 409
+                    
+                # Create new passcode
+                try:
+                    import json
+                    # Format permissions
+                    if isinstance(permissions, dict):
+                        permissions_json = json.dumps(permissions)
+                    elif isinstance(permissions, str):
+                        json.loads(permissions)  # Validate JSON format
+                        permissions_json = permissions
+                    else:
+                        permissions_json = json.dumps({})
+                        
+                    # Create and save new passcode
+                    new_passcode = ClientPasscode(
+                        business_id=business_id,
+                        passcode=passcode,
+                        permissions=permissions_json
+                    )
+                    db.session.add(new_passcode)
+                    db.session.commit()
+                    
+                    logger.info(f"Created new passcode for business: {business_id}")
+                    return jsonify({"message": "Client access created successfully"}), 201
+                except Exception as e:
+                    db.session.rollback()
+                    logger.error(f"Error creating passcode: {str(e)}")
+                    return jsonify({"message": f"Error creating client access: {str(e)}"}), 500
+            
+        except Exception as e:
+            logger.error(f"Error in client_operations: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return jsonify({"error": str(e)}), 500
+
     # Tell Flask to use application root for all URLs
     app.config['APPLICATION_ROOT'] = '/'
 
