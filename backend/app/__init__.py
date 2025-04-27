@@ -423,29 +423,35 @@ def create_app():
         # Register blueprints with better error handling
         def register_blueprints_with_error_handling(app):
             try:
-                from .routes import calendly_routes
-                app.register_blueprint(calendly_routes.calendly_bp)
-                logger.info("Calendly blueprint registered successfully")
-            except Exception as e:
-                logger.error(f"Failed to register Calendly blueprint: {str(e)}")
+                # Only attempt to import calendly routes if the module exists
+                try:
+                    from .routes import calendly_routes
+                    app.register_blueprint(calendly_routes.calendly_bp)
+                    logger.info("Calendly blueprint registered successfully")
+                except ImportError:
+                    logger.warning("Calendly routes not found, skipping")
+                except Exception as e:
+                    logger.error(f"Error registering Calendly blueprint: {str(e)}")
 
-            try:
-                from .routes.api import api as api_blueprint
-                app.register_blueprint(api_blueprint, url_prefix='/api')
-                logger.info("API blueprint registered successfully at /api")
-            except Exception as e:
-                logger.error(f"Failed to register API blueprint: {str(e)}")
+                try:
+                    from .routes.api import api as api_blueprint
+                    app.register_blueprint(api_blueprint, url_prefix='/api')
+                    logger.info("API blueprint registered successfully at /api")
+                except Exception as e:
+                    logger.error(f"Failed to register API blueprint: {str(e)}")
 
-            try:
-                from .routes.webhooks import webhooks as webhooks_blueprint
-                app.register_blueprint(webhooks_blueprint, url_prefix='/api')
-                logger.info("Webhooks blueprint registered successfully with prefix /api")
-            except Exception as e:
-                logger.error(f"Failed to register webhooks blueprint: {str(e)}")
-                import traceback
-                logger.error(traceback.format_exc())
+                try:
+                    from .routes.webhooks import webhooks as webhooks_blueprint
+                    app.register_blueprint(webhooks_blueprint, url_prefix='/api')
+                    logger.info("Webhooks blueprint registered successfully with prefix /api")
+                except Exception as e:
+                    logger.error(f"Failed to register webhooks blueprint: {str(e)}")
+                    import traceback
+                    logger.error(traceback.format_exc())
 
-            # Add other blueprints here as needed
+                # Add other blueprints here as needed
+            except Exception as e:
+                logger.error(f"Error in register_blueprints: {str(e)}")
 
         register_blueprints_with_error_handling(app)
 
@@ -540,45 +546,40 @@ def create_app():
                     # Validation
                     if not business_id:
                         return jsonify({"message": "Business ID is required"}), 400
+                    
                     if not passcode:
                         return jsonify({"message": "Passcode is required"}), 400
-                    if not permissions:
-                        # Default empty permissions if not provided
-                        permissions = []
                     
-                    # Ensure permissions is stored as JSON
-                    if not isinstance(permissions, list):
-                        try:
-                            # Try to convert to list if it's a string
-                            if isinstance(permissions, str):
-                                permissions = json.loads(permissions)
-                            # If it's a dict, convert to a list of keys
-                            elif isinstance(permissions, dict):
-                                permissions = [k for k, v in permissions.items() if v]
-                        except Exception:
-                            logger.warning("Invalid permissions format")
-                            return jsonify({"message": "Invalid permissions format"}), 400
+                    # Special handling for 'admin' as business_id
+                    if business_id == 'admin':
+                        return jsonify({"message": "Invalid business ID"}), 400
                     
-                    # Create passcode
-                    try:
-                        from app.models import ClientPasscode, Business
-                        
-                        # Check if business exists
-                        business = db.session.query(Business).filter_by(id=business_id).first()
-                        if not business:
-                            logger.warning(f"Business not found: {business_id}")
-                            return jsonify({"message": f"Business not found: {business_id}"}), 404
-                        
-                        # Check if passcode exists
-                        existing = db.session.query(ClientPasscode).filter_by(
-                            business_id=business_id, passcode=passcode).first()
-                        if existing:
-                            return jsonify({"message": "Passcode already exists"}), 409
-                        
-                        # Store permissions as JSON string
+                    # Check if business exists
+                    from app.models import Business
+                    business = db.session.query(Business).filter_by(id=business_id).first()
+                    if not business:
+                        return jsonify({"message": "Business not found"}), 404
+                    
+                    # Process permissions
+                    import json
+                    if isinstance(permissions, dict):
                         permissions_json = json.dumps(permissions)
-                        
-                        # Create new passcode
+                    elif isinstance(permissions, str):
+                        # Validate JSON
+                        json.loads(permissions)
+                        permissions_json = permissions
+                    else:
+                        return jsonify({"message": "Invalid permissions format"}), 400
+                    
+                    # Check if passcode exists
+                    from app.models import ClientPasscode
+                    existing = db.session.query(ClientPasscode).filter_by(
+                        business_id=business_id, passcode=passcode).first()
+                    if existing:
+                        return jsonify({"message": "Passcode already exists"}), 409
+                    
+                    # Create new passcode
+                    try:
                         new_passcode = ClientPasscode(
                             business_id=business_id,
                             passcode=passcode,
@@ -612,153 +613,27 @@ def create_app():
     # Tell Flask to use application root for all URLs
     app.config['APPLICATION_ROOT'] = '/'
 
-    @app.route('/', methods=['GET', 'POST'])
+    @app.route('/')
     def health_check():
         """Health check endpoint for Railway."""
-        # Handle client access operations if they're in the query parameters or body
-        operation = request.args.get('client_operation')
-        
-        if operation == 'fetch_clients' and request.method == 'GET':
-            # This is a GET request for clients
-            business_id = request.args.get('business_id', '')
-            admin_token = request.args.get('admin', '')
-            
-            # Check admin authentication
-            is_admin = (admin_token == "97225")
-            
-            if not is_admin:
-                return jsonify({"clients": [], "message": "Unauthorized"}), 200
-            
-            # Get clients for the business
-            if not business_id or business_id == 'admin':
-                return jsonify({"clients": []}), 200
-            
-            try:
-                from .models import ClientPasscode
-                passcodes = db.session.query(ClientPasscode).filter_by(business_id=business_id).all()
-                passcode_list = [passcode.to_dict() for passcode in passcodes]
-                return jsonify({"clients": passcode_list}), 200
-            except Exception as e:
-                logger.error(f"Error fetching clients: {str(e)}")
-                return jsonify({"clients": [], "error": str(e)}), 200
-        
-        elif operation == 'create_client' and request.method == 'POST':
-            # Handle client creation via POST
-            admin_token = request.args.get('admin', '')
-            
-            # Check admin authentication
-            is_admin = (admin_token == "97225")
-            
-            if not is_admin:
-                return jsonify({"message": "Unauthorized"}), 401
-            
-            # Process the request body for client creation
-            if not request.is_json:
-                return jsonify({"message": "Invalid request format"}), 400
-                
-            data = request.get_json()
-            business_id = data.get('business_id')
-            passcode = data.get('passcode')
-            permissions = data.get('permissions')
-            
-            # Validate required fields
-            if not business_id:
-                return jsonify({"message": "Business ID is required"}), 400
-                
-            if not passcode:
-                return jsonify({"message": "Passcode is required"}), 400
-            
-            # Check if business exists
-            from .models import Business
-            business = db.session.query(Business).filter_by(id=business_id).first()
-            if not business:
-                return jsonify({"message": "Business not found"}), 404
-                
-            # Check if passcode exists
-            from .models import ClientPasscode
-            existing = db.session.query(ClientPasscode).filter_by(
-                business_id=business_id, passcode=passcode).first()
-            if existing:
-                return jsonify({"message": "Passcode already exists"}), 409
-                
-            # Create new passcode
-            try:
-                import json
-                # Ensure permissions is properly formatted as JSON string
-                if isinstance(permissions, dict):
-                    permissions_json = json.dumps(permissions)
-                elif isinstance(permissions, str):
-                    # Validate it can be parsed as JSON
-                    json.loads(permissions)
-                    permissions_json = permissions
-                else:
-                    permissions_json = json.dumps({})
-                    
-                new_passcode = ClientPasscode(
-                    business_id=business_id,
-                    passcode=passcode,
-                    permissions=permissions_json
-                )
-                db.session.add(new_passcode)
-                db.session.commit()
-                return jsonify({"message": "Client access created successfully"}), 201
-            except Exception as e:
-                db.session.rollback()
-                logger.error(f"Error creating passcode: {str(e)}")
-                return jsonify({"message": f"Error creating client access: {str(e)}"}), 500
-        
-        # Default health check response
+        # Simple health check - no logic, just return success
         return jsonify({
             "status": "healthy",
             "message": "API is running",
-            "version": "1.0.0"
-        })
+            "version": "1.0.0",
+            "timestamp": datetime.utcnow().isoformat()
+        }), 200
 
     @app.route('/health')
-    def health_check():
-        """Health check endpoint that always returns 200 but includes detailed status."""
-        try:
-            # Basic application health
-            health_status = {
-                'status': 'healthy',  # Always return healthy to pass Railway check
-                'timestamp': datetime.utcnow().isoformat(),
-                'database': 'unknown',
-                'environment': {
-                    'FLASK_APP': os.getenv('FLASK_APP'),
-                    'FLASK_ENV': os.getenv('FLASK_ENV'),
-                    'PORT': os.getenv('PORT'),
-                    'DATABASE_URL': 'configured' if os.getenv('DATABASE_URL') else 'missing'
-                },
-                'routes': []
-            }
-
-            # Log all registered routes in health check
-            for rule in app.url_map.iter_rules():
-                health_status['routes'].append({
-                    'endpoint': rule.endpoint,
-                    'path': str(rule),
-                    'methods': list(rule.methods)
-                })
-
-            # Test database connection
-            try:
-                with app.app_context():
-                    db.engine.connect()
-                health_status['database'] = 'connected'
-            except Exception as e:
-                health_status['database'] = f'error: {str(e)}'
-                logger.error(f"Database health check failed: {str(e)}")
-
-            logger.info(f"Health check response: {health_status}")
-            return jsonify(health_status), 200  # Always return 200
-        except Exception as e:
-            logger.error(f"Health check failed: {str(e)}")
-            # Still return 200 to pass Railway check, but include error in response
-            return jsonify({
-                'status': 'healthy',  # Always return healthy
-                'warning': str(e),
-                'timestamp': datetime.utcnow().isoformat()
-            }), 200
+    def health_check_endpoint():
+        """Health check endpoint for Railway."""
+        # Simple health check - no logic, just return success
+        return jsonify({
+            "status": "healthy",
+            "message": "API is running",
+            "version": "1.0.0",
+            "timestamp": datetime.utcnow().isoformat()
+        }), 200
 
     # Temporary workaround for frontend URL mismatch
     @app.route('/undefined/api/workflows', methods=['GET'])
