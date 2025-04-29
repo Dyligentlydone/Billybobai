@@ -129,18 +129,39 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
   const isAdmin = business?.is_admin ?? false;
 
   const hasPermission = (permission: string): boolean => {
-    if (isAdmin) return true;
-    if (!permissions) return false;
+    console.log('hasPermission called for:', permission);
+    console.log('isAdmin:', isAdmin);
+    console.log('permissions object:', permissions);
     
-    const parts = permission.split('.');
-    let current: any = permissions;
-    
-    for (const part of parts) {
-      if (current[part] === undefined) return false;
-      current = current[part];
+    if (isAdmin) {
+      console.log('Admin access granted');
+      return true;
     }
     
-    return Boolean(current);
+    if (!permissions) {
+      console.log('No permissions object found');
+      return false;
+    }
+    
+    const parts = permission.split('.');
+    console.log('Permission parts:', parts);
+    
+    let current: any = permissions;
+    console.log('Starting with permissions object:', current);
+    
+    for (const part of parts) {
+      console.log(`Checking for part: "${part}" in`, current);
+      if (current[part] === undefined) {
+        console.log(`Part "${part}" not found in current object`, current);
+        return false;
+      }
+      current = current[part];
+      console.log(`Found part "${part}", new current:`, current);
+    }
+    
+    const result = Boolean(current);
+    console.log('Final permission result:', result);
+    return result;
   };
 
   const canViewMetric = (metric: string): boolean => {

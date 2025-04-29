@@ -167,10 +167,20 @@ export default function PasscodePage() {
         }
 
         const businessData = businessResponse.data;
+        
+        // Enhanced console logging
+        console.log("Raw client permissions from DB:", clientPasscode.permissions);
+        console.log("Permission keys:", Object.keys(clientPasscode.permissions));
 
         // Convert flattened permissions to nested structure
         const convertFlattenedPermissions = (flatPermissions: any): any => {
           console.log("Converting flattened permissions:", flatPermissions);
+          
+          // Check if permissions are already in a nested format
+          if (flatPermissions.navigation && typeof flatPermissions.navigation === 'object') {
+            console.log("Permissions already nested, using as is");
+            return flatPermissions;
+          }
           
           const nestedPermissions: any = {
             navigation: {
@@ -207,23 +217,44 @@ export default function PasscodePage() {
           // Process each flattened permission key
           Object.keys(flatPermissions).forEach(key => {
             const value = flatPermissions[key];
+            console.log(`Processing permission key: ${key} = ${value}`);
+            
             const parts = key.split('.');
+            console.log(`Split into parts:`, parts);
             
             if (parts.length === 2 && parts[0] === 'navigation') {
               // Handle navigation permissions
+              console.log(`Setting navigation.${parts[1]} = ${Boolean(value)}`);
               nestedPermissions.navigation[parts[1]] = Boolean(value);
             } else if (parts.length === 3 && parts[0] === 'analytics') {
               // Handle analytics permissions
+              console.log(`Setting analytics.${parts[1]}.${parts[2]} = ${Boolean(value)}`);
               nestedPermissions.analytics[parts[1]][parts[2]] = Boolean(value);
             }
           });
           
-          console.log("Converted to nested permissions:", nestedPermissions);
+          // Handle special case for direct dashboard permission
+          if (flatPermissions["navigation.dashboard"] !== undefined) {
+            console.log(`Setting direct navigation.dashboard = ${Boolean(flatPermissions["navigation.dashboard"])}`);
+            nestedPermissions.navigation.dashboard = Boolean(flatPermissions["navigation.dashboard"]);
+          }
+          
+          console.log("Final nested permissions:", nestedPermissions);
+          
+          // Verify navigation permissions are set properly
+          console.log("Dashboard permission:", nestedPermissions.navigation.dashboard);
+          console.log("Analytics permission:", nestedPermissions.navigation.analytics);
+          
           return nestedPermissions;
         };
         
         // Convert client permissions from flattened to nested structure
         const nestedPermissions = convertFlattenedPermissions(clientPasscode.permissions);
+        
+        console.log("Final permissions before storing:", nestedPermissions);
+        
+        // Store business data in localStorage for debugging
+        localStorage.setItem('debug_permissions', JSON.stringify(nestedPermissions));
         
         // Set business data and selected business id
         setBusiness({

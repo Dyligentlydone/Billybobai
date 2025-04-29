@@ -13,11 +13,21 @@ export default function PermissionGuard({
   requiredPermission,
   fallbackPath = '/'
 }: PermissionGuardProps) {
-  const { hasPermission } = useBusiness();
+  const { hasPermission, permissions, isAdmin } = useBusiness();
 
-  if (!hasPermission(requiredPermission)) {
+  console.log('PermissionGuard checking:', requiredPermission);
+  console.log('Current permissions structure:', permissions);
+  console.log('Is admin:', isAdmin);
+  
+  // Check if user has the required permission
+  const hasAccess = hasPermission(requiredPermission);
+  console.log('Has permission:', hasAccess);
+
+  if (!hasAccess) {
+    console.log('Access denied, redirecting to:', fallbackPath);
     return <Navigate to={fallbackPath} replace />;
   }
 
+  console.log('Access granted for:', requiredPermission);
   return <>{children}</>;
 }
