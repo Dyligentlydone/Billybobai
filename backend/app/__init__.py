@@ -469,6 +469,8 @@ def create_app():
             logger.info(f"Debug route hit: {request.method} {request.path}")
             logger.info(f"Headers: {dict(request.headers)}")
             logger.info(f"Cookies: {request.cookies}")
+            logger.info(f"Data: {request.get_json() if request.is_json else 'None'}")
+            logger.info(f"Args: {request.args}")
             
             # Direct handler implementation for production
             try:
@@ -511,8 +513,30 @@ def create_app():
                 elif request.method == 'POST':
                     # Handle POST request directly
                     data = request.get_json()
-                    logger.info(f"Creating passcode with data: {data}")
+                    logger.info(f"POST request with data: {data}")
                     
+                    # -----------------------------------------------------------
+                    # CLIENT PASSCODE VERIFICATION - No admin auth needed
+                    # -----------------------------------------------------------
+                    # If payload contains just a passcode for verification,
+                    # bypass all other checks since this is from a client login
+                    # -----------------------------------------------------------
+                    if data and isinstance(data, dict) and 'passcode' in data and len(data) == 1:
+                        passcode_value = data.get('passcode')
+                        logger.info(f"Passcode verification request for code: {passcode_value}")
+                        
+                        try:
+                            from app.models import ClientPasscode
+                            matching = db.session.query(ClientPasscode).filter_by(passcode=passcode_value).all()
+                            clients_list = [p.to_dict() for p in matching]
+                            logger.info(f"Verification found {len(clients_list)} matching passcodes")
+                            return jsonify({"message": "Success", "clients": clients_list}), 200
+                        except Exception as e:
+                            logger.error(f"Database error during passcode verification: {str(e)}")
+                            logger.exception("Detailed error:")
+                            return jsonify({"message": "Error verifying passcode", "clients": [], "error": str(e)}), 500
+                    
+                    # For anything else, this is the admin passcode creation flow
                     # Verify admin auth from headers
                     auth_header = request.headers.get('Authorization', '')
                     admin_cookie = request.cookies.get('admin', '')
@@ -532,21 +556,6 @@ def create_app():
                         logger.warning("No data provided")
                         return jsonify({"message": "No data provided"}), 200
 
-                    # Check if this is a passcode verification request
-                    if 'passcode' in data and len(data) == 1:
-                        logger.info(f"Passcode verification request: {data['passcode']}")
-                        # This is a verify-passcode request from frontend
-                        try:
-                            from app.models import ClientPasscode
-                            passcode = data.get('passcode')
-                            passcodes = db.session.query(ClientPasscode).filter_by(passcode=passcode).all()
-                            passcode_list = [p.to_dict() for p in passcodes]
-                            logger.info(f"Found {len(passcode_list)} matching passcodes")
-                            return jsonify({"clients": passcode_list, "message": "Success"}), 200
-                        except Exception as e:
-                            logger.error(f"Error verifying passcode: {str(e)}")
-                            return jsonify({"message": "Error verifying passcode", "clients": []}), 200
-                        
                     # Otherwise, treat it as a create passcode request
                     business_id = data.get('business_id')
                     passcode = data.get('passcode')
