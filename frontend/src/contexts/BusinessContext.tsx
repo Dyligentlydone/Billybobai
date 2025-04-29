@@ -6,6 +6,7 @@ interface BusinessPermissions {
     analytics: boolean;
     settings: boolean;
     api_access: boolean;
+    dashboard: boolean;
   };
   analytics: {
     sms: {
@@ -59,7 +60,37 @@ interface BusinessContextType {
 const defaultContext: BusinessContextType = {
   selectedBusinessId: null,
   setSelectedBusinessId: () => {},
-  permissions: null,
+  permissions: {
+    navigation: {
+      workflows: false,
+      analytics: false,
+      settings: false,
+      api_access: false,
+      dashboard: false,
+    },
+    analytics: {
+      sms: {
+        response_time: false,
+        message_volume: false,
+        success_rate: false,
+        cost_per_message: false,
+        ai_usage: false,
+        recent_conversations: false,
+      },
+      voice: {
+        call_duration: false,
+        call_volume: false,
+        success_rate: false,
+        cost_per_call: false,
+      },
+      email: {
+        delivery_rate: false,
+        open_rate: false,
+        response_rate: false,
+        cost_per_email: false,
+      },
+    },
+  },
   setPermissions: () => {},
   hasPermission: () => false,
   canViewMetric: () => false,
