@@ -65,7 +65,9 @@ function App() {
               <Route
                 path="dashboard"
                 element={
-                  <Dashboard />
+                  <PermissionGuard requiredPermission="navigation.dashboard">
+                    <Dashboard />
+                  </PermissionGuard>
                 }
               />
               
@@ -108,7 +110,9 @@ function App() {
               <Route
                 path="analytics"
                 element={
-                  <Analytics />
+                  <PermissionGuard requiredPermission="navigation.analytics">
+                    <Analytics />
+                  </PermissionGuard>
                 }
               />
             </Route>

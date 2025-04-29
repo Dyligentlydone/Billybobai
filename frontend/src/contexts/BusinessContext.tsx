@@ -129,17 +129,17 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
   const isAdmin = business?.is_admin ?? false;
 
   const hasPermission = (permission: string): boolean => {
-    console.log('hasPermission called for:', permission);
-    
+    console.log('hasPermission check for:', permission);
+
     // Admin users have access to everything
     if (isAdmin) {
-      console.log('Admin access granted automatically');
+      console.log('Admin access granted');
       return true;
     }
     
     // Check if permissions object exists
     if (!permissions) {
-      console.log('No permissions object found, denying access');
+      console.log('No permissions object found');
       return false;
     }
     
@@ -147,36 +147,23 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
     const parts = permission.split('.');
     console.log('Permission parts:', parts);
     
-    let current: any = { ...permissions };
+    let current: any = permissions;
+    console.log('Current permissions object:', current);
     
-    // Special case handling for common permissions
-    if (permission === 'navigation.dashboard' && current?.navigation?.dashboard === true) {
-      console.log('Dashboard access granted via navigation.dashboard permission');
-      return true;
-    }
-    
-    if (permission === 'navigation.analytics' && current?.navigation?.analytics === true) {
-      console.log('Analytics access granted via navigation.analytics permission');
-      return true;
-    }
-    
-    // Regular permission path traversal
-    try {
-      for (const part of parts) {
-        if (current[part] === undefined) {
-          console.log(`Permission denied: part "${part}" not found in current permissions object`, current);
-          return false;
-        }
-        current = current[part];
+    // Handle regular permission path traversal
+    for (const part of parts) {
+      console.log(`Checking for part: "${part}" in:`, current);
+      if (current[part] === undefined) {
+        console.log(`Part "${part}" not found`);
+        return false;
       }
-      
-      const result = Boolean(current);
-      console.log('Permission check result:', result);
-      return result;
-    } catch (error) {
-      console.error('Error checking permission:', error);
-      return false;
+      current = current[part];
+      console.log(`Found "${part}", new current:`, current);
     }
+    
+    const result = Boolean(current);
+    console.log('Permission result:', result);
+    return result;
   };
 
   const canViewMetric = (metric: string): boolean => {
