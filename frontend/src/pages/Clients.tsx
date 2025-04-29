@@ -112,9 +112,9 @@ export default function Clients() {
         client={modalClient}
         open={Boolean(modalClient)}
         onClose={() => setModalClient(null)}
-        onSave={(perms, passcode, nickname) => {
+        onSave={(p, passcode, nickname) => {
           if (modalClient) {
-            updateMutation.mutate({ id: modalClient.id, perms: perms, passcode, nickname });
+            updateMutation.mutate({ id: modalClient.id, perms: p, passcode, nickname });
           }
         }}
       />
