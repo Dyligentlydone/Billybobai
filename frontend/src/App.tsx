@@ -65,7 +65,9 @@ function App() {
               <Route
                 path="dashboard"
                 element={
-                  <Dashboard />
+                  <PermissionGuard requiredPermission="navigation.dashboard">
+                    <Dashboard />
+                  </PermissionGuard>
                 }
               />
               

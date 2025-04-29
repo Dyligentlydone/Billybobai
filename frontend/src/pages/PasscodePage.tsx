@@ -18,6 +18,8 @@ interface Business {
       settings: boolean;
       api_access: boolean;
       dashboard: boolean;
+      clients: boolean;
+      voice_setup: boolean;
     };
     analytics: {
       sms: {
@@ -54,6 +56,8 @@ interface ClientPasscode {
       settings: boolean;
       api_access: boolean;
       dashboard: boolean;
+      clients: boolean;
+      voice_setup: boolean;
     };
     analytics: {
       sms: {
@@ -109,7 +113,9 @@ export default function PasscodePage() {
             analytics: true,
             settings: true,
             api_access: true,
-            dashboard: true
+            dashboard: true,
+            clients: true,
+            voice_setup: true
           },
           analytics: {
             sms: {
@@ -182,13 +188,16 @@ export default function PasscodePage() {
             return flatPermissions;
           }
           
+          // Create a default permissions structure with all permissions set to false
           const nestedPermissions: any = {
             navigation: {
               dashboard: false,
               workflows: false,
               analytics: false,
               settings: false,
-              api_access: false
+              api_access: false,
+              clients: false,
+              voice_setup: false
             },
             analytics: {
               sms: {
@@ -214,34 +223,48 @@ export default function PasscodePage() {
             }
           };
           
-          // Process each flattened permission key
+          // First pass: set default permissions based on access level
+          // If dashboard or analytics are true, we'll enable all their sub-permissions by default
+          if (flatPermissions["navigation.dashboard"] === true) {
+            nestedPermissions.navigation.dashboard = true;
+          }
+          
+          if (flatPermissions["navigation.analytics"] === true) {
+            nestedPermissions.navigation.analytics = true;
+            
+            // When analytics is enabled, enable all sub-analytics by default
+            Object.keys(nestedPermissions.analytics).forEach(channel => {
+              Object.keys(nestedPermissions.analytics[channel]).forEach(metric => {
+                nestedPermissions.analytics[channel][metric] = true;
+              });
+            });
+          }
+          
+          // Second pass: process each flattened permission key for specific overrides
           Object.keys(flatPermissions).forEach(key => {
-            const value = flatPermissions[key];
+            const value = Boolean(flatPermissions[key]);
             console.log(`Processing permission key: ${key} = ${value}`);
             
             const parts = key.split('.');
             console.log(`Split into parts:`, parts);
             
+            // Handle navigation permissions (e.g., navigation.dashboard)
             if (parts.length === 2 && parts[0] === 'navigation') {
-              // Handle navigation permissions
-              console.log(`Setting navigation.${parts[1]} = ${Boolean(value)}`);
-              nestedPermissions.navigation[parts[1]] = Boolean(value);
-            } else if (parts.length === 3 && parts[0] === 'analytics') {
-              // Handle analytics permissions
-              console.log(`Setting analytics.${parts[1]}.${parts[2]} = ${Boolean(value)}`);
-              nestedPermissions.analytics[parts[1]][parts[2]] = Boolean(value);
+              console.log(`Setting navigation.${parts[1]} = ${value}`);
+              nestedPermissions.navigation[parts[1]] = value;
+            } 
+            // Handle analytics permissions (e.g., analytics.sms.message_volume)
+            else if (parts.length === 3 && parts[0] === 'analytics') {
+              if (nestedPermissions.analytics[parts[1]]) {
+                console.log(`Setting analytics.${parts[1]}.${parts[2]} = ${value}`);
+                nestedPermissions.analytics[parts[1]][parts[2]] = value;
+              }
             }
           });
           
-          // Handle special case for direct dashboard permission
-          if (flatPermissions["navigation.dashboard"] !== undefined) {
-            console.log(`Setting direct navigation.dashboard = ${Boolean(flatPermissions["navigation.dashboard"])}`);
-            nestedPermissions.navigation.dashboard = Boolean(flatPermissions["navigation.dashboard"]);
-          }
+          console.log("Final nested permissions:", JSON.stringify(nestedPermissions, null, 2));
           
-          console.log("Final nested permissions:", nestedPermissions);
-          
-          // Verify navigation permissions are set properly
+          // Verify key permissions are set properly
           console.log("Dashboard permission:", nestedPermissions.navigation.dashboard);
           console.log("Analytics permission:", nestedPermissions.navigation.analytics);
           
