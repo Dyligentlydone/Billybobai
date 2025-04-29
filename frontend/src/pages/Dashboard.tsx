@@ -61,8 +61,9 @@ export default function Dashboard() {
     async () => {
       if (!selectedBusinessId) return MOCK_STATS;
       try {
-        const { data } = await axios.get(`/api/analytics/${selectedBusinessId}`, {
+        const { data } = await axios.get('/api/analytics', {
           params: {
+            clientId: selectedBusinessId,
             startDate: start.toISOString().split('T')[0],
             endDate: end.toISOString().split('T')[0]
           }
