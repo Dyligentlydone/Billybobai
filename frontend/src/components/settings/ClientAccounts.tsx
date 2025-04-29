@@ -12,6 +12,7 @@ interface ClientPasscode {
       analytics: boolean;
       settings: boolean;
       api_access: boolean;
+      dashboard: boolean;
     };
     analytics: {
       sms: {
@@ -52,8 +53,9 @@ const PERMISSION_SECTIONS: PermissionSection[] = [
     title: 'Navigation Access',
     key: 'navigation',
     items: [
+      { key: 'dashboard', label: 'Dashboard' },
       { key: 'workflows', label: 'Workflows' },
-      { key: 'analytics', label: 'Analytics Dashboard' },
+      { key: 'analytics', label: 'Analytics' },
       { key: 'settings', label: 'Settings' },
       { key: 'api_access', label: 'API Access' }
     ]
@@ -97,10 +99,11 @@ const defaultClientState: ClientPasscode = {
   passcode: '',
   permissions: {
     navigation: {
+      dashboard: true,
       workflows: false,
       analytics: true,
       settings: false,
-      api_access: false
+      api_access: false,
     },
     analytics: {
       sms: {
