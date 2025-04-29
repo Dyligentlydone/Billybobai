@@ -144,7 +144,7 @@ export default function PasscodePage() {
       try {
         // First, find the business_id by passcode
         console.log(`Verifying passcode ${passcode} against backend: ${BACKEND_URL}`);
-        const passcodesResponse = await api.post('/auth/passcodes', { passcode });
+        const passcodesResponse = await api.post('/api/auth/passcodes', { passcode });
         const { clients } = await passcodesResponse.data;
         
         const clientPasscode = clients.find((c: ClientPasscode) => c.passcode === passcode);
@@ -156,7 +156,7 @@ export default function PasscodePage() {
         }
 
         // Then get the full business data
-        const businessResponse = await api.get(`/auth/businesses/${clientPasscode.business_id}`);
+        const businessResponse = await api.get(`/api/auth/businesses/${clientPasscode.business_id}`);
         if (!businessResponse.data) {
           setError('Failed to load business data');
           setIsLoading(false);
