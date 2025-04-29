@@ -64,29 +64,64 @@ def get_passcodes():
 
 @auth.route('/auth/passcodes', methods=['POST'])
 def create_passcode():
-    """Create a new client access passcode."""
-    logger.info("Creating new client passcode")
+    """Create a new client access passcode or verify a client passcode (no admin auth required)."""
+    logger.info("Creating new client passcode / Verifying passcode request")
     try:
+        # Parse request data early so we can detect simple passcode-verification payloads
+        data = request.get_json()
+        logger.info(f"Received data: {data}")
+
+        # ------------------------------------------------------------------
+        # 1.  PASSCODE VERIFICATION (CLIENT LOGIN)  ------------------------
+        # ------------------------------------------------------------------
+        # If payload only contains a 'passcode' field we treat this request
+        # as a *verification* query coming from the client login screen.
+        # This MUST require *no* admin authentication.
+        # ------------------------------------------------------------------
+        if data and isinstance(data, dict) and set(data.keys()) == {"passcode"}:
+            passcode_value = data.get("passcode")
+            logger.info(f"Passcode verification request for code: {passcode_value}")
+
+            if not passcode_value:
+                logger.warning("Passcode missing from verification payload")
+                return jsonify({"message": "Passcode is required", "clients": []}), 400
+
+            try:
+                matching = db.session.query(ClientPasscode).filter_by(passcode=passcode_value).all()
+                clients_list = [p.to_dict() for p in matching]
+                logger.info(f"Verification query returned {len(clients_list)} client(s)")
+                return jsonify({"message": "Success", "clients": clients_list}), 200
+            except Exception as e:
+                logger.error(f"Database error during passcode verification: {str(e)}")
+                return jsonify({"message": "Error verifying passcode", "clients": [], "error": str(e)}), 500
+
+        # ------------------------------------------------------------------
+        # 2.  NEW PASSCODE CREATION  (requires admin auth) ------------------
+        # ------------------------------------------------------------------
+        # Remaining code path (original behaviour) now proceeds exactly as
+        # before, but *after* the verification early-return above so client
+        # requests never hit the admin-guarded logic.
+        # ------------------------------------------------------------------
+
         # Check admin authentication from different sources
         admin_password = request.cookies.get('admin_password')
         auth_header = request.headers.get('Authorization')
         admin_query = request.args.get('admin')
-        
+
         logger.info(f"Headers: {dict(request.headers)}")
         logger.info(f"Cookies: {request.cookies}")
         logger.info(f"Auth header: {auth_header}")
         logger.info(f"Admin query: {admin_query}")
-        
+
         is_admin = (admin_password == "97225" or 
                    (auth_header and auth_header.replace('Bearer ', '') == "97225") or
                    admin_query == "97225")
-        
+
         if not is_admin:
             logger.warning("Unauthorized access attempt to create passcode")
             return jsonify({"message": "Unauthorized access - admin authentication required"}), 401
             
         # Parse request data
-        data = request.get_json()
         logger.info(f"Received data: {data}")
         
         if not data:
