@@ -16,6 +16,8 @@ const api = axios.create({
   },
 });
 
+export default api;
+
 // API interfaces
 export interface MessageRequest {
   to: string;

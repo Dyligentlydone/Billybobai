@@ -2,7 +2,8 @@ import React, { useState, ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useBusiness } from '../contexts/BusinessContext';
-import axios from 'axios';
+import api from '../services/api';
+import { BACKEND_URL } from '../config';
 
 interface Business {
   id: string;
@@ -142,7 +143,8 @@ export default function PasscodePage() {
     } else {
       try {
         // First, find the business_id by passcode
-        const passcodesResponse = await axios.post('/api/auth/passcodes', { passcode });
+        console.log(`Verifying passcode ${passcode} against backend: ${BACKEND_URL}`);
+        const passcodesResponse = await api.post('/auth/passcodes', { passcode });
         const { clients } = await passcodesResponse.data;
         
         const clientPasscode = clients.find((c: ClientPasscode) => c.passcode === passcode);
@@ -154,7 +156,7 @@ export default function PasscodePage() {
         }
 
         // Then get the full business data
-        const businessResponse = await axios.get(`/api/auth/businesses/${clientPasscode.business_id}`);
+        const businessResponse = await api.get(`/auth/businesses/${clientPasscode.business_id}`);
         if (!businessResponse.data) {
           setError('Failed to load business data');
           setIsLoading(false);
