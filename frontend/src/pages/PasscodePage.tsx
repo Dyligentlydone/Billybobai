@@ -150,6 +150,9 @@ export default function PasscodePage() {
         navigate('/');
       }, 800);
     } else {
+      console.log("==== CLIENT LOGIN ATTEMPT ====");
+      console.log("Passcode entered:", passcode);
+      
       try {
         // First, find the business_id by passcode
         console.log(`Verifying passcode ${passcode} against backend: ${BACKEND_URL}`);
@@ -158,6 +161,11 @@ export default function PasscodePage() {
         
         const clientPasscode = clients.find((c: ClientPasscode) => c.passcode === passcode);
         
+        console.log("==== PASSCODE VERIFICATION SUCCESSFUL ====");
+        console.log("Client passcode data:", JSON.stringify(clientPasscode, null, 2));
+        console.log("Business ID:", clientPasscode.business_id);
+        console.log("RAW permissions object:", clientPasscode.permissions);
+
         if (!clientPasscode) {
           setError('Invalid passcode');
           setIsLoading(false);
@@ -173,6 +181,8 @@ export default function PasscodePage() {
         }
 
         const businessData = businessResponse.data;
+        console.log("==== BUSINESS DATA RECEIVED ====");
+        console.log("Business data:", JSON.stringify(businessData, null, 2));
         
         // Enhanced console logging
         console.log("Raw client permissions from DB:", clientPasscode.permissions);
