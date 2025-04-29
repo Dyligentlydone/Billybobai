@@ -26,7 +26,19 @@ export default function ClientPermissionsModal({ client, open, onClose, onSave }
   useEffect(() => {
     if (client) {
       try {
-        const p = convertFlattenedPermissions(client.permissions || {});
+        console.log("Raw client permissions:", client.permissions);
+        // Handle if permissions is a string (JSON string)
+        let permissionsObj = client.permissions;
+        if (typeof permissionsObj === 'string') {
+          try {
+            permissionsObj = JSON.parse(permissionsObj);
+          } catch (e) {
+            console.error("Failed to parse permissions string:", e);
+            permissionsObj = {};
+          }
+        }
+        const p = convertFlattenedPermissions(permissionsObj || {});
+        console.log("Converted permissions:", p);
         // Merge with defaults so we always have full shape
         setPerms(p);
       } catch {
