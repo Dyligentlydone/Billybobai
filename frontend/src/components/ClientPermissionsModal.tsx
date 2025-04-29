@@ -3,6 +3,7 @@ import { Client } from '../services/api';
 import {
   BusinessPermissions,
   DEFAULT_PERMISSIONS,
+  convertFlattenedPermissions,
 } from '../utils/permissions';
 
 interface Props {
@@ -25,9 +26,9 @@ export default function ClientPermissionsModal({ client, open, onClose, onSave }
   useEffect(() => {
     if (client) {
       try {
-        const p = (client.permissions || {}) as BusinessPermissions;
+        const p = convertFlattenedPermissions(client.permissions || {});
         // Merge with defaults so we always have full shape
-        setPerms({ ...DEFAULT_PERMISSIONS, ...p });
+        setPerms(p);
       } catch {
         setPerms(DEFAULT_PERMISSIONS);
       }
