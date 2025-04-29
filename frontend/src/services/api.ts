@@ -153,3 +153,26 @@ export const getWebhookUrls = (): WebhookUrls => {
     zendesk: `${API_URL}/webhooks/zendesk/webhook`,
   };
 };
+
+// ================== Client Passcode Endpoints =====================
+export interface Client {
+  id: number;
+  business_id: string;
+  passcode: string;
+  permissions: Record<string, any>;
+}
+
+export const listClients = async (businessId: string): Promise<Client[]> => {
+  const { data } = await api.get('/api/clients', { params: { business_id: businessId, admin: '97225' } });
+  return data.clients || [];
+};
+
+export const updateClientPermissions = async (clientId: number, permissions: Record<string, any>): Promise<Client> => {
+  const { data } = await api.put(`/api/clients/${clientId}/permissions`, { permissions }, { params: { admin: '97225' } });
+  return data.client;
+};
+
+export const createClient = async (payload: { business_id: string; passcode: string; permissions: Record<string, any> }): Promise<Client> => {
+  const { data } = await api.post('/api/clients', payload, { params: { admin: '97225' } });
+  return data.client;
+};

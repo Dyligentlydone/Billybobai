@@ -436,6 +436,13 @@ def create_app():
                     import traceback
                     logger.error(traceback.format_exc())
 
+                try:
+                    from .routes.client_routes import clients_bp
+                    app.register_blueprint(clients_bp)  # prefix already defined in blueprint
+                    logger.info("Clients blueprint registered successfully")
+                except Exception as e:
+                    logger.error(f"Failed to register clients blueprint: {str(e)}")
+
                 # Add other blueprints here as needed
             except Exception as e:
                 logger.error(f"Error in register_blueprints: {str(e)}")
