@@ -133,7 +133,7 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
   
   if (isAuthenticated && business) {
-    return <Navigate to="/analytics" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;

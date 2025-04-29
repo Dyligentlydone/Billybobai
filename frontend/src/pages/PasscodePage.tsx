@@ -181,10 +181,10 @@ export default function PasscodePage() {
         
         // Navigate based on permissions
         setTimeout(() => {
-          if (clientPasscode.permissions.navigation.analytics) {
-            navigate('/analytics');
-          } else if (clientPasscode.permissions.navigation.dashboard) {
+          if (clientPasscode.permissions.navigation.dashboard) {
             navigate('/dashboard');
+          } else if (clientPasscode.permissions.navigation.analytics) {
+            navigate('/analytics');
           } else if (clientPasscode.permissions.navigation.workflows) {
             navigate('/workflows');
           } else if (clientPasscode.permissions.navigation.settings) {
