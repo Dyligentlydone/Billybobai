@@ -156,7 +156,7 @@ export default function PasscodePage() {
         }
 
         // Then get the full business data
-        const businessResponse = await api.get(`/api/auth/businesses/${clientPasscode.business_id}`);
+        const businessResponse = await api.get(`/api/businesses/${clientPasscode.business_id}`);
         if (!businessResponse.data) {
           setError('Failed to load business data');
           setIsLoading(false);
