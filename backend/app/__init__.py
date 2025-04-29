@@ -531,7 +531,23 @@ def create_app():
                     if not data:
                         logger.warning("No data provided")
                         return jsonify({"message": "No data provided"}), 200
+
+                    # Check if this is a passcode verification request
+                    if 'passcode' in data and len(data) == 1:
+                        logger.info(f"Passcode verification request: {data['passcode']}")
+                        # This is a verify-passcode request from frontend
+                        try:
+                            from app.models import ClientPasscode
+                            passcode = data.get('passcode')
+                            passcodes = db.session.query(ClientPasscode).filter_by(passcode=passcode).all()
+                            passcode_list = [p.to_dict() for p in passcodes]
+                            logger.info(f"Found {len(passcode_list)} matching passcodes")
+                            return jsonify({"clients": passcode_list, "message": "Success"}), 200
+                        except Exception as e:
+                            logger.error(f"Error verifying passcode: {str(e)}")
+                            return jsonify({"message": "Error verifying passcode", "clients": []}), 200
                         
+                    # Otherwise, treat it as a create passcode request
                     business_id = data.get('business_id')
                     passcode = data.get('passcode')
                     permissions = data.get('permissions')
