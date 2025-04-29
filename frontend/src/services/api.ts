@@ -154,6 +154,17 @@ export const getWebhookUrls = (): WebhookUrls => {
   };
 };
 
+// ================== Business Endpoints =====================
+export interface BusinessSummary {
+  id: string;
+  name: string;
+}
+
+export const listBusinesses = async (): Promise<BusinessSummary[]> => {
+  const { data } = await api.get('/api/businesses', { params: { admin: '97225' } });
+  return data;
+};
+
 // ================== Client Passcode Endpoints =====================
 export interface Client {
   id: number;
