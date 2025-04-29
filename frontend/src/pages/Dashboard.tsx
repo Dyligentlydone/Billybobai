@@ -77,7 +77,7 @@ export default function Dashboard() {
       }));
       
       // Create daily costs from opt out trends (just as an example since we don't have cost data)
-      const dailyCosts = optOutTrends.map(trend => ({
+      const dailyCosts = optOutTrends.map((trend: { date: string, count: number }) => ({
         date: trend.date,
         cost: Math.random() * 100 // Placeholder since we don't have actual cost data
       }));
@@ -99,7 +99,7 @@ export default function Dashboard() {
             { name: 'Delivery', value: totalMessages > 0 ? deliveredCount / totalMessages : 0 },
             { name: 'Engagement', value: Math.random() } // Placeholder
           ],
-          responseTypes: errorDistribution.map(err => ({
+          responseTypes: errorDistribution.map((err: { error_code: string, count: number }) => ({
             type: err.error_code || 'Unknown',
             count: err.count
           })),
