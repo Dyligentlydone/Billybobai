@@ -9,7 +9,7 @@ interface Props {
   client: Client | null;
   open: boolean;
   onClose: () => void;
-  onSave: (perms: BusinessPermissions) => void;
+  onSave: (perms: BusinessPermissions, passcode: string, nickname: string) => void;
 }
 
 /**
@@ -18,6 +18,8 @@ interface Props {
  */
 export default function ClientPermissionsModal({ client, open, onClose, onSave }: Props) {
   const [perms, setPerms] = useState<BusinessPermissions>(DEFAULT_PERMISSIONS);
+  const [localPasscode, setLocalPasscode] = useState(client?.passcode || '');
+  const [nickname, setNickname] = useState(client?.nickname || '');
 
   // Sync when client changes or modal opens
   useEffect(() => {
@@ -30,6 +32,11 @@ export default function ClientPermissionsModal({ client, open, onClose, onSave }
         setPerms(DEFAULT_PERMISSIONS);
       }
     }
+  }, [client]);
+
+  useEffect(() => {
+    setLocalPasscode(client?.passcode || '');
+    setNickname(client?.nickname || '');
   }, [client]);
 
   if (!open || !client) return null;
@@ -58,13 +65,37 @@ export default function ClientPermissionsModal({ client, open, onClose, onSave }
   };
 
   const handleSave = () => {
-    onSave(perms);
+    onSave(perms, localPasscode, nickname);
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
       <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-6 shadow-lg">
-        <h2 className="mb-4 text-xl font-semibold">Edit Permissions for {client.passcode}</h2>
+        <h2 className="mb-4 text-xl font-semibold">Edit Client</h2>
+
+        {/* Passcode + Nickname */}
+        <div className="mb-4 grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-sm font-medium">Passcode</label>
+            <input
+              type="text"
+              maxLength={5}
+              pattern="[0-9]{5}"
+              value={localPasscode}
+              onChange={(e) => setLocalPasscode(e.target.value)}
+              className="w-full rounded-md border p-2"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium">Nickname</label>
+            <input
+              type="text"
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+              className="w-full rounded-md border p-2"
+            />
+          </div>
+        </div>
 
         {/* Navigation section */}
         <div className="space-y-2">

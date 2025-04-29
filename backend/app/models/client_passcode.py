@@ -9,6 +9,7 @@ class ClientPasscode(db.Model):
     # Foreign key must match type of businesses.id (Integer)
     business_id = Column(String(255), ForeignKey('businesses.id'), nullable=False)
     passcode = Column(String(5), nullable=False)  # 5-digit passcode
+    nickname = Column(String(255), nullable=True)  # Friendly label for client
     permissions = Column(JSON, nullable=False)  # Store permissions structure as JSON
     
     business = relationship("Business", back_populates="passcodes")
@@ -18,5 +19,6 @@ class ClientPasscode(db.Model):
             "id": self.id,
             "business_id": self.business_id,
             "passcode": self.passcode,
+            "nickname": self.nickname,
             "permissions": self.permissions
         }

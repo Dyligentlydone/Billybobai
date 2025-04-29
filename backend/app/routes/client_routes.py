@@ -81,6 +81,7 @@ def create_client():
     business_id = data.get("business_id")
     passcode_value = data.get("passcode")
     permissions = data.get("permissions", {})
+    nickname = data.get("nickname")
 
     # Validate required fields
     if not business_id:
@@ -115,6 +116,7 @@ def create_client():
         new_client = ClientPasscode(
             business_id=business_id,
             passcode=passcode_value,
+            nickname=nickname,
             permissions=permissions,
         )
         db.session.add(new_client)
@@ -140,8 +142,10 @@ def update_permissions(client_id):
 
     data = request.get_json() or {}
     permissions = data.get("permissions")
-    if permissions is None:
-        return jsonify({"message": "Permissions field is required"}), 400
+    passcode_value = data.get("passcode")
+    nickname = data.get("nickname")
+    if permissions is None and passcode_value is None and nickname is None:
+        return jsonify({"message": "At least one field is required"}), 400
 
     # Normalise permissions to dict
     if isinstance(permissions, str):
@@ -149,7 +153,7 @@ def update_permissions(client_id):
             permissions = json.loads(permissions)
         except json.JSONDecodeError:
             return jsonify({"message": "Invalid permissions JSON"}), 400
-    elif not isinstance(permissions, dict):
+    elif permissions is not None and not isinstance(permissions, dict):
         return jsonify({"message": "Invalid permissions format"}), 400
 
     try:
@@ -157,7 +161,26 @@ def update_permissions(client_id):
         if not client:
             return jsonify({"message": "Client not found"}), 404
 
-        client.permissions = permissions
+        if permissions is not None:
+            client.permissions = permissions
+
+        # Update passcode if provided (ensure uniqueness within business)
+        if passcode_value:
+            if len(str(passcode_value)) != 5 or not str(passcode_value).isdigit():
+                return jsonify({"message": "Passcode must be 5 digits"}), 400
+            duplicate = (
+                db.session.query(ClientPasscode)
+                .filter_by(business_id=client.business_id, passcode=passcode_value)
+                .first()
+            )
+            if duplicate and duplicate.id != client.id:
+                return jsonify({"message": "Passcode already in use"}), 409
+            client.passcode = passcode_value
+
+        # Update nickname
+        if nickname is not None:
+            client.nickname = nickname
+
         db.session.commit()
         logger.info("Updated permissions for client %s", client_id)
         return jsonify({"client": client.to_dict(), "message": "Permissions updated"}), 200

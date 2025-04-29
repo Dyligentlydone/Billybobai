@@ -170,6 +170,7 @@ export interface Client {
   id: number;
   business_id: string;
   passcode: string;
+  nickname?: string;
   permissions: Record<string, any>;
 }
 
@@ -178,10 +179,17 @@ export const listClients = async (businessId: string): Promise<Client[]> => {
   return data.clients || [];
 };
 
-export const updateClientPermissions = async (clientId: number, permissions: Record<string, any>): Promise<Client> => {
-  const { data } = await api.put(`/api/clients/${clientId}/permissions`, { permissions }, { params: { admin: '97225' } });
+export const updateClient = async (
+  clientId: number,
+  payload: { permissions?: Record<string, any>; passcode?: string; nickname?: string },
+): Promise<Client> => {
+  const { data } = await api.put(`/api/clients/${clientId}/permissions`, payload, { params: { admin: '97225' } });
   return data.client;
 };
+
+// Backward compatibility helper (permissions only)
+export const updateClientPermissions = async (clientId: number, permissions: Record<string, any>): Promise<Client> =>
+  updateClient(clientId, { permissions });
 
 export const createClient = async (payload: { business_id: string; passcode: string; permissions: Record<string, any> }): Promise<Client> => {
   const { data } = await api.post('/api/clients', payload, { params: { admin: '97225' } });

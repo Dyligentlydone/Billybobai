@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
-import { listClients, updateClientPermissions, listBusinesses, Client, BusinessSummary } from '../services/api';
+import { listClients, updateClient, listBusinesses, Client } from '../services/api';
 import { useBusiness } from '../contexts/BusinessContext';
 import ClientPermissionsModal from '../components/ClientPermissionsModal';
 
@@ -23,7 +23,8 @@ export default function Clients() {
   const [search, setSearch] = useState('');
 
   const updateMutation = useMutation(
-    ({ id, permissions }: { id: number; permissions: any }) => updateClientPermissions(id, permissions),
+    ({ id, perms, passcode, nickname }: { id: number; perms: any; passcode: string; nickname: string }) =>
+      updateClient(id, { permissions: perms, passcode, nickname }),
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['clients', selectedBusinessId]);
@@ -81,15 +82,17 @@ export default function Clients() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Passcode</th>
+                <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Nickname</th>
                 <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
               {clients
-                .filter((c) => c.passcode.includes(search))
+                .filter((c) => c.passcode.includes(search) || (c.nickname || '').toLowerCase().includes(search.toLowerCase()))
                 .map((client) => (
                   <tr key={client.id}>
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">{client.passcode}</td>
+                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">{client.nickname || '-'}</td>
                     <td className="whitespace-nowrap px-6 py-4 text-sm">
                       <button
                         onClick={() => setModalClient(client)}
@@ -109,9 +112,9 @@ export default function Clients() {
         client={modalClient}
         open={Boolean(modalClient)}
         onClose={() => setModalClient(null)}
-        onSave={(perms) => {
+        onSave={(perms, passcode, nickname) => {
           if (modalClient) {
-            updateMutation.mutate({ id: modalClient.id, permissions: perms });
+            updateMutation.mutate({ id: modalClient.id, perms: perms, passcode, nickname });
           }
         }}
       />
