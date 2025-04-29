@@ -167,14 +167,71 @@ export default function PasscodePage() {
         }
 
         const businessData = businessResponse.data;
+
+        // Convert flattened permissions to nested structure
+        const convertFlattenedPermissions = (flatPermissions: any): any => {
+          console.log("Converting flattened permissions:", flatPermissions);
+          
+          const nestedPermissions: any = {
+            navigation: {
+              dashboard: false,
+              workflows: false,
+              analytics: false,
+              settings: false,
+              api_access: false
+            },
+            analytics: {
+              sms: {
+                recent_conversations: false,
+                response_time: false,
+                message_volume: false,
+                success_rate: false,
+                cost_per_message: false,
+                ai_usage: false
+              },
+              voice: {
+                call_duration: false,
+                call_volume: false,
+                success_rate: false,
+                cost_per_call: false
+              },
+              email: {
+                delivery_rate: false,
+                open_rate: false,
+                response_rate: false,
+                cost_per_email: false
+              }
+            }
+          };
+          
+          // Process each flattened permission key
+          Object.keys(flatPermissions).forEach(key => {
+            const value = flatPermissions[key];
+            const parts = key.split('.');
+            
+            if (parts.length === 2 && parts[0] === 'navigation') {
+              // Handle navigation permissions
+              nestedPermissions.navigation[parts[1]] = Boolean(value);
+            } else if (parts.length === 3 && parts[0] === 'analytics') {
+              // Handle analytics permissions
+              nestedPermissions.analytics[parts[1]][parts[2]] = Boolean(value);
+            }
+          });
+          
+          console.log("Converted to nested permissions:", nestedPermissions);
+          return nestedPermissions;
+        };
+        
+        // Convert client permissions from flattened to nested structure
+        const nestedPermissions = convertFlattenedPermissions(clientPasscode.permissions);
         
         // Set business data and selected business id
         setBusiness({
           ...businessData,
           is_admin: false,
-          permissions: clientPasscode.permissions
+          permissions: nestedPermissions
         });
-        setPermissions(clientPasscode.permissions);
+        setPermissions(nestedPermissions);
         setSelectedBusinessId(clientPasscode.business_id);
 
         localStorage.setItem('isAuthenticated', 'true');
