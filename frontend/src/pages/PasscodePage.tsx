@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { useBusiness } from '../contexts/BusinessContext';
 import api from '../services/api';
 import { BACKEND_URL } from '../config';
+import { BusinessPermissions, convertFlattenedPermissions } from '../utils/permissions';
 
 interface Business {
   id: string;
@@ -11,39 +12,7 @@ interface Business {
   domain: string;
   business_id: string;
   is_admin: boolean;
-  permissions: {
-    navigation: {
-      workflows: boolean;
-      analytics: boolean;
-      settings: boolean;
-      api_access: boolean;
-      dashboard: boolean;
-      clients: boolean;
-      voice_setup: boolean;
-    };
-    analytics: {
-      sms: {
-        recent_conversations: boolean;
-        response_time: boolean;
-        message_volume: boolean;
-        success_rate: boolean;
-        cost_per_message: boolean;
-        ai_usage: boolean;
-      };
-      voice: {
-        call_duration: boolean;
-        call_volume: boolean;
-        success_rate: boolean;
-        cost_per_call: boolean;
-      };
-      email: {
-        delivery_rate: boolean;
-        open_rate: boolean;
-        response_rate: boolean;
-        cost_per_email: boolean;
-      };
-    };
-  };
+  permissions: BusinessPermissions;
 }
 
 interface ClientPasscode {
@@ -188,101 +157,10 @@ export default function PasscodePage() {
         console.log("Raw client permissions from DB:", clientPasscode.permissions);
         console.log("Permission keys:", Object.keys(clientPasscode.permissions));
 
-        // Convert flattened permissions to nested structure
-        const convertFlattenedPermissions = (flatPermissions: any): any => {
-          console.log("Converting flattened permissions:", flatPermissions);
-          
-          // Check if permissions are already in a nested format
-          if (flatPermissions.navigation && typeof flatPermissions.navigation === 'object') {
-            console.log("Permissions already nested, using as is");
-            return flatPermissions;
-          }
-          
-          // Create a default permissions structure with all permissions set to false
-          const nestedPermissions: any = {
-            navigation: {
-              dashboard: false,
-              workflows: false,
-              analytics: false,
-              settings: false,
-              api_access: false,
-              clients: false,
-              voice_setup: false
-            },
-            analytics: {
-              sms: {
-                recent_conversations: false,
-                response_time: false,
-                message_volume: false,
-                success_rate: false,
-                cost_per_message: false,
-                ai_usage: false
-              },
-              voice: {
-                call_duration: false,
-                call_volume: false,
-                success_rate: false,
-                cost_per_call: false
-              },
-              email: {
-                delivery_rate: false,
-                open_rate: false,
-                response_rate: false,
-                cost_per_email: false
-              }
-            }
-          };
-          
-          // First pass: set default permissions based on access level
-          // If dashboard or analytics are true, we'll enable all their sub-permissions by default
-          if (flatPermissions["navigation.dashboard"] === true) {
-            nestedPermissions.navigation.dashboard = true;
-          }
-          
-          if (flatPermissions["navigation.analytics"] === true) {
-            nestedPermissions.navigation.analytics = true;
-            
-            // When analytics is enabled, enable all sub-analytics by default
-            Object.keys(nestedPermissions.analytics).forEach(channel => {
-              Object.keys(nestedPermissions.analytics[channel]).forEach(metric => {
-                nestedPermissions.analytics[channel][metric] = true;
-              });
-            });
-          }
-          
-          // Second pass: process each flattened permission key for specific overrides
-          Object.keys(flatPermissions).forEach(key => {
-            const value = Boolean(flatPermissions[key]);
-            console.log(`Processing permission key: ${key} = ${value}`);
-            
-            const parts = key.split('.');
-            console.log(`Split into parts:`, parts);
-            
-            // Handle navigation permissions (e.g., navigation.dashboard)
-            if (parts.length === 2 && parts[0] === 'navigation') {
-              console.log(`Setting navigation.${parts[1]} = ${value}`);
-              nestedPermissions.navigation[parts[1]] = value;
-            } 
-            // Handle analytics permissions (e.g., analytics.sms.message_volume)
-            else if (parts.length === 3 && parts[0] === 'analytics') {
-              if (nestedPermissions.analytics[parts[1]]) {
-                console.log(`Setting analytics.${parts[1]}.${parts[2]} = ${value}`);
-                nestedPermissions.analytics[parts[1]][parts[2]] = value;
-              }
-            }
-          });
-          
-          console.log("Final nested permissions:", JSON.stringify(nestedPermissions, null, 2));
-          
-          // Verify key permissions are set properly
-          console.log("Dashboard permission:", nestedPermissions.navigation.dashboard);
-          console.log("Analytics permission:", nestedPermissions.navigation.analytics);
-          
-          return nestedPermissions;
-        };
-        
         // Convert client permissions from flattened to nested structure
-        const nestedPermissions = convertFlattenedPermissions(clientPasscode.permissions);
+        const nestedPermissions: BusinessPermissions = convertFlattenedPermissions(
+          clientPasscode.permissions,
+        );
         
         console.log("Final permissions before storing:", nestedPermissions);
         

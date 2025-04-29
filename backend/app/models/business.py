@@ -3,7 +3,8 @@ from app.db import db
 class Business(db.Model):
     __tablename__ = 'businesses'
 
-    id = db.Column(db.Integer, primary_key=True)
+    # Use String to align with existing DB schema and migrations
+    id = db.Column(db.String(255), primary_key=True)
     name = db.Column(db.String(255), nullable=False)
     description = db.Column(db.String(1000))
     domain = db.Column(db.String(255), nullable=False, default="example.com") 
@@ -15,7 +16,8 @@ class BusinessConfig(db.Model):
     __tablename__ = 'business_configs'
 
     id = db.Column(db.Integer, primary_key=True)
-    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id'), nullable=False)
+    # Use String to align with existing DB schema and migrations
+    business_id = db.Column(db.String(255), db.ForeignKey('businesses.id'), nullable=False)
     business = db.relationship("Business", back_populates="config")
     
     # Brand voice settings
