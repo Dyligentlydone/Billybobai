@@ -17,6 +17,7 @@ interface Business {
       analytics: boolean;
       settings: boolean;
       api_access: boolean;
+      dashboard: boolean;
     };
     analytics: {
       sms: {
@@ -52,6 +53,7 @@ interface ClientPasscode {
       analytics: boolean;
       settings: boolean;
       api_access: boolean;
+      dashboard: boolean;
     };
     analytics: {
       sms: {
@@ -83,7 +85,7 @@ export default function PasscodePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
-  const { setBusiness, setPermissions } = useBusiness();
+  const { setBusiness, setPermissions, setSelectedBusinessId } = useBusiness();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,7 +108,8 @@ export default function PasscodePage() {
             workflows: true,
             analytics: true,
             settings: true,
-            api_access: true
+            api_access: true,
+            dashboard: true
           },
           analytics: {
             sms: {
@@ -165,19 +168,22 @@ export default function PasscodePage() {
 
         const businessData = businessResponse.data;
         
-        // Set business data with permissions
+        // Set business data and selected business id
         setBusiness({
           ...businessData,
           is_admin: false,
           permissions: clientPasscode.permissions
         });
         setPermissions(clientPasscode.permissions);
+        setSelectedBusinessId(clientPasscode.business_id);
 
         localStorage.setItem('isAuthenticated', 'true');
         
         // Navigate based on permissions
         setTimeout(() => {
-          if (clientPasscode.permissions.navigation.analytics) {
+          if (clientPasscode.permissions.navigation.dashboard) {
+            navigate('/dashboard');
+          } else if (clientPasscode.permissions.navigation.analytics) {
             navigate('/analytics');
           } else if (clientPasscode.permissions.navigation.workflows) {
             navigate('/workflows');
