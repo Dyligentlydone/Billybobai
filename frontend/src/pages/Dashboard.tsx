@@ -115,12 +115,13 @@ export default function Dashboard() {
     }
   };
 
-  const costBreakdown = stats.sms.dailyCosts.map(cost => ({
+  // Adding safe access to prevent errors if data structure doesn't match expectations
+  const costBreakdown = (stats?.sms?.dailyCosts || []).map(cost => ({
     name: cost.date,
     value: cost.cost
   }));
 
-  const aiMetrics = stats.sms.qualityMetrics.map(metric => ({
+  const aiMetrics = (stats?.sms?.qualityMetrics || []).map(metric => ({
     name: metric.name,
     value: metric.value
   }));
@@ -129,7 +130,7 @@ export default function Dashboard() {
   const hourlyVoiceActivity = mockData.voice.hourlyActivity;
   const hourlyEmailActivity = mockData.email.hourlyActivity;
 
-  const recentActivity = stats.sms.conversations.map(conv => ({
+  const recentActivity = (stats?.sms?.conversations || []).map(conv => ({
     name: conv.phoneNumber,
     value: conv.lastMessage
   }));
