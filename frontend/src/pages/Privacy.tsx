@@ -47,6 +47,31 @@ export default function Privacy() {
             When you register for our services, you may receive SMS messages as part of the service. Message frequency varies. 
             Message and data rates may apply. You can opt out of receiving SMS messages at any time by replying "STOP" to any message received from us.
           </p>
+          
+          <div className="mt-3 p-4 border-l-4 border-gray-300 bg-gray-50">
+            <p className="text-gray-700 font-medium">
+              "We do not share, sell, or rent mobile contact information with third parties or affiliates for marketing or promotional purposes."
+            </p>
+          </div>
+          
+          <h3 className="text-lg font-medium mt-4 mb-2">Opt-In Mechanism</h3>
+          <p className="text-gray-700">
+            Our website's opt-in process for SMS communications includes:
+          </p>
+          <ul className="list-disc pl-5 mt-2 space-y-1 text-gray-700">
+            <li>A checkbox (not pre-selected) for users to consent to receive SMS messages</li>
+            <li>A clear statement of consent:</li>
+          </ul>
+          
+          <div className="mt-2 p-4 border-l-4 border-gray-300 bg-gray-50">
+            <p className="text-gray-700 font-medium">
+              "By providing your phone number, you agree to receive text messages from Dyligent. Message and data rates may apply. Message frequency varies. Reply STOP to unsubscribe."
+            </p>
+          </div>
+          
+          <p className="text-gray-700 mt-3">
+            This opt-in process aligns with best practices for web form opt-ins and regulatory requirements.
+          </p>
         </section>
         
         <section>
