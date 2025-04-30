@@ -39,8 +39,8 @@ export default function Layout() {
           </div>
         </div>
       </nav>
-      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 flex-grow">
-        <div className="bg-white shadow rounded-lg p-6 h-full min-h-[calc(100vh-180px)]">
+      <main className="max-w-7xl w-full mx-auto py-6 px-4 sm:px-6 lg:px-8 flex-grow">
+        <div className="bg-white shadow rounded-lg p-6 w-full">
           <Outlet />
         </div>
       </main>
