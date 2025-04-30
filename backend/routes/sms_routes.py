@@ -63,6 +63,15 @@ async def sms_webhook(workflow_id):
         resp.message("You have been unsubscribed from future messages. Reply START to opt back in.")
         return str(resp)
     
+    # Check for opt-in
+    if opt_out_handler.is_opt_in_message(message_body):
+        was_opted_out = await opt_out_handler.is_opted_out(from_number, business_id)
+        if was_opted_out:
+            await opt_out_handler.handle_opt_in(from_number, business_id)
+            resp = MessagingResponse()
+            resp.message("You have been successfully re-subscribed to receive messages from Dyligent.")
+            return str(resp)
+    
     # Check if number is opted out
     if await opt_out_handler.is_opted_out(from_number, business_id):
         resp = MessagingResponse()

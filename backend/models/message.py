@@ -51,6 +51,10 @@ class Message(Base):
     topic = Column(String(100))                        # AI-categorized topic
     is_first_in_conversation = Column(Boolean, default=False)
     response_to_message_id = Column(Integer, ForeignKey('messages.id'), nullable=True)
+    
+    # Opt-out tracking
+    is_opted_out = Column(Boolean, default=False)      # Whether this number has opted out
+    opted_out_at = Column(DateTime, nullable=True)     # When the number opted out
 
     # Relationships
     workflow = relationship('Workflow', back_populates='messages')
