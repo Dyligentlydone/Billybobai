@@ -40,13 +40,13 @@ export default function Layout() {
         </div>
       </nav>
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 flex-grow">
-        <div className="bg-white shadow rounded-lg p-6">
+        <div className="bg-white shadow rounded-lg p-6 h-full min-h-[calc(100vh-180px)]">
           <Outlet />
         </div>
       </main>
       
       {/* Footer */}
-      <footer className="bg-white shadow-sm mt-auto">
+      <footer className="bg-white shadow-sm w-full mt-6">
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row md:justify-between items-center">
             <div className="mb-2 md:mb-0">
