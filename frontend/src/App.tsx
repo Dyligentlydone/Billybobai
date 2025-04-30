@@ -12,6 +12,9 @@ import VoiceSetup from './pages/VoiceSetup';
 import Layout from './components/Layout';
 import PasscodePage from './pages/PasscodePage';
 import PermissionGuard from './components/guards/PermissionGuard';
+import Privacy from './pages/Privacy';
+import Terms from './pages/Terms';
+import Contact from './pages/Contact';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
@@ -56,6 +59,11 @@ function App() {
                 <PasscodePage />
               </PublicRoute>
             } />
+            
+            {/* Legal and contact pages (public) */}
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/contact" element={<Contact />} />
             
             {/* Root redirect */}
             <Route index element={<AuthRedirect />} />
