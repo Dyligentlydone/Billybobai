@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 export default function Privacy() {
   return (
@@ -100,22 +101,18 @@ export default function Privacy() {
         </section>
         
         <section>
-          <h2 className="text-xl font-semibold mb-3">Contact Us</h2>
-          <p className="text-gray-700">
-            If you have any questions about this privacy policy or our privacy practices, please contact us at:
-          </p>
-          <div className="mt-2 text-gray-700">
-            <p>Email: privacy@dyligent.xyz</p>
-            <p>Address: 123 Business Street, San Francisco, CA 94107</p>
-          </div>
-        </section>
-        
-        <section>
           <h2 className="text-xl font-semibold mb-3">Changes to This Policy</h2>
           <p className="text-gray-700">
             We may update this privacy policy from time to time. We will notify you of any changes by posting the new privacy policy on this page.
             This policy was last updated on {new Date().toLocaleDateString()}.
           </p>
+        </section>
+        
+        {/* Contact Us Button */}
+        <section className="mt-8 text-center">
+          <Link to="/contact" className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+            Contact Us
+          </Link>
         </section>
       </div>
     </div>

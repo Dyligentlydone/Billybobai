@@ -60,10 +60,12 @@ function App() {
               </PublicRoute>
             } />
             
-            {/* Legal and contact pages (public) */}
-            <Route path="/privacy" element={<Privacy />} />
-            <Route path="/terms" element={<Terms />} />
-            <Route path="/contact" element={<Contact />} />
+            {/* Legal and contact pages (with Layout) */}
+            <Route element={<Layout />}>
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/contact" element={<Contact />} />
+            </Route>
             
             {/* Root redirect */}
             <Route index element={<AuthRedirect />} />
