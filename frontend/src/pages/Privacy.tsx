@@ -7,7 +7,7 @@ export default function Privacy() {
       
       <div className="space-y-6">
         <section>
-          <h2 className="text-xl font-semibold mb-3">1. Introduction</h2>
+          <h2 className="text-xl font-semibold mb-3">Introduction</h2>
           <p className="text-gray-700">
             Dyligent ("we", "our", or "us") respects your privacy and is committed to protecting your personal data. 
             This privacy policy will inform you about how we look after your personal data when you visit our website 
@@ -16,7 +16,7 @@ export default function Privacy() {
         </section>
         
         <section>
-          <h2 className="text-xl font-semibold mb-3">2. Data We Collect</h2>
+          <h2 className="text-xl font-semibold mb-3">Data Collected</h2>
           <p className="text-gray-700">
             We may collect, use, store and transfer different kinds of personal data about you which we have grouped together as follows:
           </p>
@@ -29,7 +29,7 @@ export default function Privacy() {
         </section>
         
         <section>
-          <h2 className="text-xl font-semibold mb-3">3. How We Use Your Data</h2>
+          <h2 className="text-xl font-semibold mb-3">How We Use the Data</h2>
           <p className="text-gray-700">
             We will only use your personal data when the law allows us to. Most commonly, we will use your personal data in the following circumstances:
           </p>
@@ -42,7 +42,7 @@ export default function Privacy() {
         </section>
         
         <section>
-          <h2 className="text-xl font-semibold mb-3">4. SMS & Messaging Communications</h2>
+          <h2 className="text-xl font-semibold mb-3">SMS & Messaging Communications</h2>
           <p className="text-gray-700">
             When you register for our services, you may receive SMS messages as part of the service. Message frequency varies. 
             Message and data rates may apply. You can opt out of receiving SMS messages at any time by replying "STOP" to any message received from us.
@@ -75,7 +75,7 @@ export default function Privacy() {
         </section>
         
         <section>
-          <h2 className="text-xl font-semibold mb-3">5. Data Security</h2>
+          <h2 className="text-xl font-semibold mb-3">Data Security</h2>
           <p className="text-gray-700">
             We have put in place appropriate security measures to prevent your personal data from being accidentally lost, used, or 
             accessed in an unauthorized way, altered, or disclosed. We limit access to your personal data to those employees, agents, 
@@ -84,7 +84,7 @@ export default function Privacy() {
         </section>
         
         <section>
-          <h2 className="text-xl font-semibold mb-3">6. Your Legal Rights</h2>
+          <h2 className="text-xl font-semibold mb-3">Legal Rights</h2>
           <p className="text-gray-700">
             Under certain circumstances, you have rights under data protection laws in relation to your personal data, including the right to:
           </p>
@@ -100,7 +100,7 @@ export default function Privacy() {
         </section>
         
         <section>
-          <h2 className="text-xl font-semibold mb-3">7. Contact Us</h2>
+          <h2 className="text-xl font-semibold mb-3">Contact Us</h2>
           <p className="text-gray-700">
             If you have any questions about this privacy policy or our privacy practices, please contact us at:
           </p>
@@ -111,7 +111,7 @@ export default function Privacy() {
         </section>
         
         <section>
-          <h2 className="text-xl font-semibold mb-3">8. Changes to This Policy</h2>
+          <h2 className="text-xl font-semibold mb-3">Changes to This Policy</h2>
           <p className="text-gray-700">
             We may update this privacy policy from time to time. We will notify you of any changes by posting the new privacy policy on this page.
             This policy was last updated on {new Date().toLocaleDateString()}.
