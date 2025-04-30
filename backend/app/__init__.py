@@ -22,16 +22,15 @@ def create_app():
     app = Flask(__name__)
     # Allow CORS with proper headers for Authentication
     CORS(app, 
-         resources={r"/api/*": {
-             "origins": [
+         resources={r"/*": {"origins": [
+                 "http://localhost:3000",
+                 "http://localhost:5173",
+                 "http://localhost:4173",
+                 "http://127.0.0.1:5173",
                  "https://billybobai-production-6713.up.railway.app",
                  "https://billybobai-production.up.railway.app",
-                 "http://localhost:5173",
-                 "http://localhost:3000",
-                 "http://127.0.0.1:5173",
-                 "http://127.0.0.1:3000"
-             ]
-         }},
+                 "https://www.dyligent.xyz",
+             ]}},
          supports_credentials=False,  # Changed to avoid preflight issues
          allow_headers=["Content-Type", "Authorization", "Accept"])
 

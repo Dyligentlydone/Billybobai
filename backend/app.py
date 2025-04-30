@@ -18,12 +18,14 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 # Configure CORS
-CORS(app, origins=[
+origins = [
+    "http://localhost:5173",
+    "http://localhost:3000",
     "https://billybobai-production-6713.up.railway.app",
     "https://billybobai-production.up.railway.app",
-    "http://localhost:5173",
-    "http://localhost:3000"
-], supports_credentials=True)
+    "https://www.dyligent.xyz",
+]
+CORS(app, origins=origins, supports_credentials=True)
 
 # Configure database
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///whys.db')

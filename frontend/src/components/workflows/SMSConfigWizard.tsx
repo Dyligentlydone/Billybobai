@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 
 // Instead of importing from config, define URL here for now
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://billybobai-production.up.railway.app';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://api.dyligent.xyz';
 console.log('Using backend URL:', BACKEND_URL);
 
 interface BrandToneConfig {

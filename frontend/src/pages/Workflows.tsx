@@ -10,7 +10,7 @@ import { WizardProvider } from '../contexts/WizardContext';
 import { Dialog, DialogContent, DialogActions, Button } from '@mui/material';
 
 // API URL configuration
-const API_BASE_URL = 'https://billybobai-production.up.railway.app';
+const API_BASE_URL = 'https://api.dyligent.xyz';
 
 // Create axios instance with consistent configuration
 const api = axios.create({

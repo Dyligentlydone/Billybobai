@@ -4,7 +4,7 @@
 // misconfigured during deploy).
 export const BACKEND_URL =
   import.meta.env.VITE_BACKEND_URL ||
-  'https://billybobai-production.up.railway.app';
+  'https://api.dyligent.xyz';
 
 // Other configuration constants can be added here
 export const DEFAULT_RETRY_COUNT = 3;
