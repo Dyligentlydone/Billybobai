@@ -69,7 +69,8 @@ def create_app():
     logger.info("Importing models for database initialization...")
     try:
         from app.models import Business, Workflow, ClientPasscode
-        logger.info("Business, Workflow, and ClientPasscode models imported successfully for metadata registration")
+        from app.models.email import EmailThread, InboundEmail
+        logger.info("Business, Workflow, ClientPasscode, EmailThread, and InboundEmail models imported successfully for metadata registration")
     except ImportError as ie:
         logger.error(f"Failed to import models: {str(ie)}")
         import traceback
