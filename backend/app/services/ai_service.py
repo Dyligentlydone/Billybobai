@@ -92,6 +92,7 @@ class AIService:
                 - IMPORTANT: DO NOT start with 'How can I assist you' or similar phrases; just answer the query directly
                 - IMPORTANT: DO NOT include any template placeholders like "{{steps}}" or "{{name}}" in your response
                 - IMPORTANT: DO NOT end with phrases like "Here are the next steps:" or "Best regards"
+                - IMPORTANT: DO NOT include phrases like "I'm here to help" or "How can I assist you today"
                 - Words to avoid: {', '.join(words_to_avoid) if words_to_avoid else 'N/A'}
                 - Keep responses under 160 characters when possible
                 - Be helpful, concise, and accurate
@@ -102,6 +103,16 @@ class AIService:
                 - IMPORTANT: Your response will be used as the "Main Content" section of a structured message
                 - Other sections like Greeting, Next Steps, and Sign Off will be handled separately
                 - You should ONLY provide the direct answer to the user's question
+                
+                Response Format:
+                YOU MUST return a valid JSON object with this structure:
+                {
+                    "message": "Your direct response to the user without any greetings or sign-offs",
+                    "twilio": {
+                        "include_greeting": boolean indicating if greeting should be included,
+                        "include_sign_off": boolean indicating if sign-off should be included
+                    }
+                }
                 
                 FAQ Knowledge:
                 {json.dumps(qa_pairs) if qa_pairs else "No specific FAQ data provided."}
@@ -162,19 +173,39 @@ class AIService:
                     
                     try:
                         # Parse JSON response
-                        result = json.loads(message_content)
+                        response_obj = json.loads(message_content)
                         
-                        # Add twilio flag if missing
-                        if "twilio" not in result:
-                            result["twilio"] = True
-                            
-                        return result
-                    except json.JSONDecodeError as json_error:
-                        logger.error(f"Failed to parse JSON response: {str(json_error)}")
-                        # Return a proper structured response even if JSON parsing fails
+                        # Extract the actual response text
+                        response_text = response_obj.get('message', '')
+                        logger.info(f"Extracted response text: {response_text[:50]}...")
+                        
+                        # First clean the response text of any common greeting patterns
+                        response_text = self.clean_common_greetings(response_text)
+                        
+                        # Get structure flags
+                        twilio_data = response_obj.get('twilio', {})
+                        include_greeting = twilio_data.get('include_greeting', is_new_conversation)
+                        include_sign_off = twilio_data.get('include_sign_off', True)
+                        
                         return {
-                            "message": message_content,  # Use the raw message as fallback
-                            "twilio": True
+                            'message': response_text,
+                            'twilio': {
+                                'include_greeting': include_greeting,
+                                'include_sign_off': include_sign_off
+                            }
+                        }
+                    except Exception as json_err:
+                        logger.error(f"Failed to parse JSON response: {str(json_err)}")
+                        # If parsing fails, clean the response and return with default structure
+                        cleaned_response = self.clean_common_greetings(message_content)
+                        logger.info(f"Using cleaned fallback response: {cleaned_response[:50]}...")
+                        
+                        return {
+                            'message': cleaned_response,
+                            'twilio': {
+                                'include_greeting': is_new_conversation,
+                                'include_sign_off': True
+                            }
                         }
                 except Exception as api_error:
                     logger.error(f"OpenAI API error: {str(api_error)}")
@@ -207,74 +238,6 @@ class AIService:
                         "twilio": True
                     }
                 
-                # Clean any common greetings from the AI response that might have been included despite instructions
-                def clean_common_greetings(text):
-                    import re
-                    # List of common greeting patterns to remove
-                    greeting_patterns = [
-                        r'^Hello!?\s+',
-                        r'^Hi!?\s+',
-                        r'^Hey!?\s+',
-                        r'^Greetings!?\s+',
-                        r'^Good\s+(morning|afternoon|evening|day)!?\s+',
-                        r'(Hello|Hi|Hey)!?,?\s+how\s+(can\s+I\s+|may\s+I\s+|I\s+can\s+)?(help|assist)\s+you\s+(today|now|with\s+that)?\??',
-                        r'How\s+can\s+I\s+(help|assist)\s+you\s+(today|now|with\s+that)?\??',
-                        # Common closing templates
-                        r'Here\s+are\s+the\s+next\s+steps:?\s*(\{steps\})?.*',
-                        r'Best\s+regards,?.*$',
-                        r'Sincerely,?.*$',
-                        r'Thank\s+you.*,?.*$',
-                        r'Thanks,?.*$',
-                        r'Regards,?.*$',
-                        r'Kind(ly|est)?\s+regards,?.*$',
-                    ]
-                    
-                    # Apply each pattern
-                    result = text
-                    for pattern in greeting_patterns:
-                        result = re.sub(pattern, '', result, flags=re.IGNORECASE)
-                    
-                    return result.strip()
-                
-                # Try to parse the AI response as JSON to extract metadata
-                try:
-                    response_obj = json.loads(message_content)
-                    
-                    # Extract the actual response text
-                    if isinstance(response_obj, dict):
-                        # Get the response text from the JSON
-                        ai_message = response_obj.get('response', response_obj.get('message', ''))
-                        
-                        # Extract metadata about which sections to include
-                        include_next_steps = response_obj.get('include_next_steps', 
-                                                             response_obj.get('needs_next_steps', False))
-                        include_sign_off = response_obj.get('include_sign_off', 
-                                                           response_obj.get('is_conversation_ending', False))
-                        
-                        # Clean any remaining greetings
-                        ai_message = clean_common_greetings(ai_message)
-                        
-                        # Return structured response with metadata
-                        return {
-                            "message": ai_message,
-                            "include_next_steps": include_next_steps,
-                            "include_sign_off": include_sign_off,
-                            "twilio": True
-                        }
-                except (json.JSONDecodeError, AttributeError, TypeError) as json_error:
-                    logger.warning(f"Failed to parse AI response as JSON: {str(json_error)}")
-                    # Fall back to treating the whole response as a message
-                
-                # Clean any greetings from the message content
-                message_content = clean_common_greetings(message_content)
-                
-                # Return the AI generated message
-                return {
-                    "message": message_content,
-                    "include_next_steps": False,  # Default values when parsing fails
-                    "include_sign_off": False,
-                    "twilio": True  # Indicate this is a Twilio response
-                }
             else:
                 # Original workflow config generation logic
                 # Use system OpenAI key if available
@@ -464,3 +427,36 @@ class AIService:
 
         except Exception as e:
             raise Exception(f"Failed to extract email variables: {str(e)}")
+
+    def clean_common_greetings(self, text):
+        import re
+        # List of common greeting patterns to remove
+        greeting_patterns = [
+            r'^Hello!?\s+',
+            r'^Hi!?\s+',
+            r'^Hey!?\s+',
+            r'^Greetings!?\s+',
+            r'^Good\s+(morning|afternoon|evening|day)!?\s+',
+            r'(Hello|Hi|Hey)!?,?\s+how\s+(can\s+I\s+|may\s+I\s+|I\s+can\s+)?(help|assist)\s+you\s+(today|now|with\s+that)?\??',
+            r'How\s+can\s+I\s+(help|assist)\s+you\s+(today|now|with\s+that)?\??',
+            r"I('m| am)\s+here\s+to\s+help.*?\.",
+            r"I('m| am)\s+here\s+to\s+assist.*?\.",
+            r"I\s+can\s+help\s+you\s+with.*?\.",
+            # Common closing templates
+            r'Here\s+are\s+the\s+next\s+steps:?\s*(\{steps\})?.*',
+            r'Best\s+regards,?.*$',
+            r'Sincerely,?.*$',
+            r'Thank\s+you.*,?.*$',
+            r'Thanks,?.*$',
+            r'Regards,?.*$',
+            r'Kind(ly|est)?\s+regards,?.*$',
+            r'Let\s+me\s+know\s+if\s+you\s+have\s+any\s+other\s+questions.*?$',
+            r'.*?feel\s+free\s+to\s+ask.*?$'
+        ]
+        
+        # Apply each pattern
+        result = text
+        for pattern in greeting_patterns:
+            result = re.sub(pattern, '', result, flags=re.IGNORECASE)
+        
+        return result.strip()
