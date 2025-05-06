@@ -74,7 +74,7 @@ def create_app():
         from app.models.client_passcode import ClientPasscode
         from app.models.sms_consent import SMSConsent
         from app.models.sms_settings import SMSNotificationSettings
-        from app.models.message import Message, MessageDirection, MessageChannel, MessageStatus
+        # from app.models.message import Message, MessageDirection, MessageChannel, MessageStatus  # File missing, import removed to allow app startup
         # Add other models here if needed
         logger.info("All major models imported successfully for metadata registration")
     except ImportError as ie:
