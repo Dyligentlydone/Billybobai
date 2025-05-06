@@ -284,48 +284,48 @@ def business_specific_webhook(business_id):
             if not consent_record:
                 logger.info("No consent record found, creating new one")
                 try:
-                    # Use ORM to create record
-                    from sqlalchemy import text
-                    # Create SQL to insert directly, avoiding any ID issues
-                    sql = text("""
-                        INSERT INTO sms_consents 
-                        (phone_number, business_id, status, created_at, updated_at)
-                        VALUES (:phone, :business, 'PENDING', NOW(), NOW())
-                        ON CONFLICT (phone_number, business_id) DO NOTHING
-                    """)
+                    # Create new consent record the proper way with SQLAlchemy ORM
+                    if not business or not hasattr(business, 'id'):
+                        logger.error("Cannot create consent record: Business object is invalid")
+                        resp.message("An error occurred. Please try again later.")
+                        return str(resp)
                     
-                    logger.info(f"Executing SQL: {sql} with params: {{'phone': {from_number}, 'business': {business_id}}}")
-                    db.session.execute(sql, {'phone': from_number, 'business': business_id})
+                    # Create a new consent record with proper values
+                    new_consent = SMSConsent(
+                        phone_number=from_number,
+                        business_id=business_id,
+                        status='PENDING'
+                    )
+                    
+                    # Add and commit
+                    logger.info(f"Adding new consent record: {new_consent}")
+                    db.session.add(new_consent)
                     db.session.commit()
-                    logger.info("SQL executed and committed successfully")
+                    logger.info("Successfully created consent record")
                     
-                    # Now fetch the record we just created
-                    logger.info("Fetching newly created consent record")
+                    # Fetch the record we just created to confirm
                     consent_record = SMSConsent.query.filter_by(
                         phone_number=from_number,
                         business_id=business_id
                     ).first()
-                    logger.info(f"Fetched consent record: {consent_record}")
-                    logger.info("Created new SMSConsent record with PENDING status")
+                    
+                    # Safety check - verify the record exists
+                    if not consent_record:
+                        logger.error("Failed to retrieve newly created consent record")
+                        resp.message("An error occurred. Please try again later.")
+                        return str(resp)
+                    
+                    logger.info(f"Confirmed new consent record: {consent_record}")
                 except Exception as e:
+                    # Log the error with full traceback
                     logger.error(f"Failed to create consent record: {str(e)}")
                     import traceback
                     logger.error(f"Exception traceback: {traceback.format_exc()}")
-                    # Continue with response generation even if consent tracking fails
-                    # Set a default consent record to avoid NoneType errors
-                    from collections import namedtuple
-                    ConsentRecord = namedtuple('ConsentRecord', ['status'])
-                    consent_record = ConsentRecord(status='PENDING')
-                    logger.info(f"Created fallback consent record: {consent_record}")
-            
-            # Add safety check - if we still don't have a consent record, create a dummy one
-            if not consent_record:
-                logger.error("Still no consent record after attempted creation, using fallback")
-                from collections import namedtuple
-                ConsentRecord = namedtuple('ConsentRecord', ['status'])
-                consent_record = ConsentRecord(status='PENDING')
-                logger.info(f"Created emergency fallback consent record: {consent_record}")
-            
+                    
+                    # Return error message instead of proceeding with a dummy record
+                    resp.message("An error occurred with opt-in tracking. Please try again later.")
+                    return str(resp)
+
             # Handle explicit YES/STOP replies
             body_upper = body.strip().upper() if body else ''
 
@@ -343,9 +343,8 @@ def business_specific_webhook(business_id):
                 resp.message("You have been opted out and will no longer receive automated SMS. Reply YES to opt back in.")
                 return str(resp)
 
-            # If user has opted-out, do not send automated AI responses
-            # Only check status if we have a valid consent_record 
-            if consent_record and consent_record.status == 'DECLINED':
+            # The consent record exists at this point, check opt-out status
+            if consent_record.status == 'DECLINED':
                 resp.message("You are currently opted out of SMS messages. Reply YES to opt back in.")
                 return str(resp)
 
