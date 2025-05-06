@@ -16,6 +16,7 @@ from ..db import db
 from models.message import Message, MessageDirection, MessageChannel, MessageStatus
 from datetime import datetime
 import uuid
+from config.database import SessionLocal
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -403,18 +404,27 @@ def business_specific_webhook(business_id):
                 
                 try:
                     # Store incoming message in the database
-                    incoming_message = Message(
-                        workflow_id=workflow.id,
-                        direction=MessageDirection.INBOUND,
-                        channel=MessageChannel.SMS,
-                        content=body,
-                        phone_number=from_number,
-                        conversation_id=current_conversation_id,
-                        is_first_in_conversation=is_new_conversation,
-                        status=MessageStatus.DELIVERED  # Inbound messages are already delivered
-                    )
-                    db.session.add(incoming_message)
-                    db.session.commit()
+                    session = SessionLocal()
+                    try:
+                        incoming_message = Message(
+                            workflow_id=workflow.id,
+                            direction=MessageDirection.INBOUND,
+                            channel=MessageChannel.SMS,
+                            content=body,
+                            phone_number=from_number,
+                            conversation_id=current_conversation_id,
+                            is_first_in_conversation=is_new_conversation,
+                            status=MessageStatus.DELIVERED  # Inbound messages are already delivered
+                        )
+                        session.add(incoming_message)
+                        session.commit()
+                        incoming_message_id = incoming_message.id
+                    except Exception as db_error:
+                        logger.error(f"Error storing incoming message: {str(db_error)}")
+                        incoming_message_id = None
+                        session.rollback()
+                    finally:
+                        session.close()
                     
                     # Prepare conversation history for the AI
                     conversation_history = []
@@ -508,18 +518,24 @@ def business_specific_webhook(business_id):
                     resp.message(response_text)
                     
                     # Store outgoing message in the database
-                    outgoing_message = Message(
-                        workflow_id=workflow.id,
-                        direction=MessageDirection.OUTBOUND,
-                        channel=MessageChannel.SMS,
-                        content=response_text,
-                        phone_number=from_number,
-                        conversation_id=current_conversation_id,
-                        response_to_message_id=incoming_message.id,
-                        status=MessageStatus.SENT
-                    )
-                    db.session.add(outgoing_message)
-                    db.session.commit()
+                    try:
+                        session = SessionLocal()
+                        outgoing_message = Message(
+                            workflow_id=workflow.id,
+                            direction=MessageDirection.OUTBOUND,
+                            channel=MessageChannel.SMS,
+                            content=response_text,
+                            phone_number=from_number,
+                            conversation_id=current_conversation_id,
+                            response_to_message_id=incoming_message_id if incoming_message_id else None,
+                            status=MessageStatus.SENT
+                        )
+                        session.add(outgoing_message)
+                        session.commit()
+                    except Exception as db_error:
+                        logger.error(f"Error storing outgoing message: {str(db_error)}")
+                    finally:
+                        session.close()
                     
                     logger.info(f"SUCCESSFULLY PROCESSED MESSAGE FOR BUSINESS ID: {business_id}")
                 except Exception as ai_error:
