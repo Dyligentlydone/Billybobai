@@ -3,10 +3,10 @@ SQLAlchemy models for business-related functionality.
 """
 from datetime import datetime
 from sqlalchemy import Column, String, DateTime, JSON, Boolean, ForeignKey
-from sqlalchemy.orm import relationship
-from .base import Base
+from app.db import db
+import sqlalchemy as db
 
-class Business(Base):
+class Business(db.Base):
     """Model for business entities."""
     __tablename__ = 'businesses'
     __table_args__ = {'extend_existing': True}
@@ -20,12 +20,11 @@ class Business(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    users = relationship('User', back_populates='business')
-    workflows = relationship('Workflow', back_populates='business')
-    # Remove back_populates to break circular dependency
-    email_threads = relationship('EmailThread')
-    inbound_emails = relationship('InboundEmail', back_populates='business')
-    integrations = relationship('Integration', back_populates='business')
+    users = db.relationship('User', back_populates='business')
+    workflows = db.relationship('Workflow', back_populates='business')
+    email_threads = db.relationship('EmailThread', back_populates='business', cascade='all, delete-orphan')
+    inbound_emails = db.relationship('InboundEmail', back_populates='business')
+    integrations = db.relationship('Integration', back_populates='business')
 
     def __repr__(self):
         return f'<Business {self.name}>'
