@@ -280,14 +280,30 @@ def business_specific_webhook(business_id):
             ).first()
 
             if not consent_record:
-                consent_record = SMSConsent(
-                    phone_number=from_number,
-                    business_id=business_id,
-                    status='PENDING'
-                )
-                db.session.add(consent_record)
-                db.session.commit()
-                logger.info("Created new SMSConsent record with PENDING status")
+                try:
+                    # Use direct SQL execution to create record (bypassing ORM issues with ID)
+                    sql = """
+                    INSERT INTO sms_consents (phone_number, business_id, status, created_at, updated_at)
+                    VALUES (:phone_number, :business_id, :status, NOW(), NOW())
+                    ON CONFLICT (phone_number, business_id) DO NOTHING
+                    """
+                    db.session.execute(sql, {
+                        'phone_number': from_number,
+                        'business_id': business_id,
+                        'status': 'PENDING'
+                    })
+                    db.session.commit()
+                    
+                    # Now fetch the record we just created
+                    consent_record = SMSConsent.query.filter_by(
+                        phone_number=from_number,
+                        business_id=business_id
+                    ).first()
+                    logger.info("Created new SMSConsent record with PENDING status")
+                except Exception as e:
+                    logger.error(f"Failed to create consent record: {str(e)}")
+                    # Continue with response generation even if consent tracking fails
+                    pass
 
             # Handle explicit YES/STOP replies
             body_upper = body.strip().upper() if body else ''
