@@ -13,6 +13,9 @@ from ..services.zendesk_service import ZendeskService
 from ..services.ai_service import AIService
 from functools import wraps
 from ..db import db
+from models.message import Message, MessageDirection, MessageChannel, MessageStatus
+from datetime import datetime
+import uuid
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -235,7 +238,6 @@ def business_specific_webhook(business_id):
         try:
             # Import models here to avoid circular import
             from ..models import Business, Workflow, SMSConsent
-            from ..db import db
             
             logger.info("Attempting database query for business and workflow")
             
@@ -360,14 +362,84 @@ def business_specific_webhook(business_id):
                     ai_service = AIService()
                     logger.info("AI service initialized for SMS processing")
                 
+                # Check for conversation context to determine which sections to include
+                # Find recent messages with this phone number for this business
+                recent_messages = Message.query.filter_by(
+                    phone_number=from_number, 
+                    workflow_id=workflow.id
+                ).order_by(Message.created_at.desc()).limit(10).all()
+                
+                # Determine conversation context
+                is_first_message = len(recent_messages) == 0
+                
+                # Look at the most recent message timestamps to determine if this is a new conversation
+                # (e.g., if more than 30 minutes passed since the last message)
+                conversation_timeout_minutes = workflow.actions.get('response', {}).get('conversationTimeoutMinutes', 30)
+                is_new_conversation = is_first_message
+                current_conversation_id = None
+                
+                if not is_first_message:
+                    last_message_time = recent_messages[0].created_at
+                    time_difference = (datetime.utcnow() - last_message_time).total_seconds() / 60
+                    is_new_conversation = time_difference > conversation_timeout_minutes
+                    # Use existing conversation ID if within timeout
+                    if not is_new_conversation and recent_messages[0].conversation_id:
+                        current_conversation_id = recent_messages[0].conversation_id
+                
+                # Generate new conversation ID if needed
+                if is_new_conversation or not current_conversation_id:
+                    import uuid
+                    current_conversation_id = str(uuid.uuid4())
+                
+                # Now determine which message structure sections to include
+                include_greeting = is_new_conversation
+                include_next_steps = False  # The AI will tell us if next steps are needed
+                include_sign_off = False    # The AI will tell us if sign off is appropriate
+                
                 try:
+                    # Store incoming message in the database
+                    incoming_message = Message(
+                        workflow_id=workflow.id,
+                        direction=MessageDirection.INBOUND,
+                        channel=MessageChannel.SMS,
+                        content=body,
+                        phone_number=from_number,
+                        conversation_id=current_conversation_id,
+                        is_first_in_conversation=is_new_conversation,
+                        status=MessageStatus.DELIVERED  # Inbound messages are already delivered
+                    )
+                    db.session.add(incoming_message)
+                    db.session.commit()
+                    
+                    # Prepare conversation history for the AI
+                    conversation_history = []
+                    if not is_new_conversation and len(recent_messages) > 0:
+                        # Convert to format expected by AI service
+                        for msg in recent_messages[:5]:  # Last 5 messages
+                            conversation_history.append({
+                                "role": "user" if msg.direction == MessageDirection.INBOUND else "assistant",
+                                "content": msg.content
+                            })
+                        # Reverse to get chronological order
+                        conversation_history.reverse()
+                    
                     # Generate AI response based on workflow configuration
                     logger.info("CALLING AI SERVICE TO GENERATE RESPONSE...")
-                    workflow_response = ai_service.analyze_requirements(body, workflow.actions)
+                    workflow_response = ai_service.analyze_requirements(
+                        body, 
+                        workflow.actions, 
+                        conversation_history=conversation_history,
+                        is_new_conversation=is_new_conversation
+                    )
                     logger.info(f"AI SERVICE RESPONSE: {workflow_response}")
                     
                     # Get response text from AI or fallback message
                     ai_response_text = workflow_response.get('message', '')
+                    
+                    # Check if AI detected need for next steps or sign off
+                    if isinstance(workflow_response, dict):
+                        include_next_steps = workflow_response.get('include_next_steps', False)
+                        include_sign_off = workflow_response.get('include_sign_off', False)
                     
                     # Apply message structure template from workflow configuration
                     response_text = ""
@@ -380,18 +452,29 @@ def business_specific_webhook(business_id):
                         # Build response using the configured structure
                         for section in message_structure:
                             if section.get('enabled', True):
-                                section_name = section.get('name', '')
+                                section_name = section.get('name', '').lower()
                                 section_content = section.get('defaultContent', '')
                                 
+                                # Skip sections based on conversation context
+                                if section_name == 'greeting' and not include_greeting:
+                                    continue
+                                elif section_name == 'next steps' and not include_next_steps:
+                                    continue
+                                elif section_name == 'sign off' and not include_sign_off:
+                                    continue
+                                
                                 # If this is the main content section, use the AI response
-                                if section_name.lower() == 'main content':
+                                if section_name == 'main content':
                                     section_text = ai_response_text or section_content
                                 else:
                                     section_text = section_content
                                 
                                 # Add the section to the response if it has content
                                 if section_text:
-                                    response_text += section_text + " "
+                                    # Add a line break between sections for readability
+                                    if response_text:
+                                        response_text += "\n"
+                                    response_text += section_text
                         
                         # Trim any extra spaces
                         response_text = response_text.strip()
@@ -403,7 +486,7 @@ def business_specific_webhook(business_id):
                             workflow.actions.get('response', {}).get('fallbackMessage') or
                             "Thank you for your message. We'll respond shortly."
                         )
-                    
+                     
                     # Append opt-in prompt (if consent pending)
                     if include_opt_in_prompt:
                         opt_in_prompt = (
@@ -418,6 +501,21 @@ def business_specific_webhook(business_id):
                     
                     # Add the response to the TwiML
                     resp.message(response_text)
+                    
+                    # Store outgoing message in the database
+                    outgoing_message = Message(
+                        workflow_id=workflow.id,
+                        direction=MessageDirection.OUTBOUND,
+                        channel=MessageChannel.SMS,
+                        content=response_text,
+                        phone_number=from_number,
+                        conversation_id=current_conversation_id,
+                        response_to_message_id=incoming_message.id,
+                        status=MessageStatus.SENT
+                    )
+                    db.session.add(outgoing_message)
+                    db.session.commit()
+                    
                     logger.info(f"SUCCESSFULLY PROCESSED MESSAGE FOR BUSINESS ID: {business_id}")
                 except Exception as ai_error:
                     logger.error(f"AI SERVICE ERROR: {str(ai_error)}")

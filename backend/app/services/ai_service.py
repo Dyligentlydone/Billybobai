@@ -18,13 +18,15 @@ class AIService:
         Given a business description and requirements, generate a workflow configuration using Twilio, SendGrid, and Zendesk.
         Focus on practical, efficient solutions that improve customer experience."""
 
-    def analyze_requirements(self, description: str, actions=None) -> Union[WorkflowConfig, Dict]:
+    def analyze_requirements(self, description: str, actions=None, conversation_history=None, is_new_conversation=False) -> Union[WorkflowConfig, Dict]:
         """Analyze natural language requirements and generate workflow configuration or response."""
         try:
             # Enhanced logging for troubleshooting
             logger = logging.getLogger(__name__)
             logger.info(f"AI Service analyzing: {description[:50]}...")
             logger.info(f"Actions provided: {bool(actions)}")
+            logger.info(f"Conversation history provided: {bool(conversation_history)}")
+            logger.info(f"Is new conversation: {is_new_conversation}")
             
             # Handle SMS response generation with actions provided from workflow
             if actions:
@@ -67,6 +69,17 @@ class AIService:
                 context_data = actions.get('context', {})
                 qa_pairs = actions.get('aiTraining', {}).get('qaPairs', [])
                 
+                # Get message structure info for context
+                message_structure = actions.get('response', {}).get('messageStructure', [])
+                has_structure = bool(message_structure and isinstance(message_structure, list))
+                
+                # Build structure info for the prompt
+                structure_info = ""
+                if has_structure:
+                    section_names = [section.get('name', '').lower() for section in message_structure 
+                                   if section.get('enabled', True)]
+                    structure_info = "Message sections available: " + ", ".join(section_names)
+                
                 # Create a comprehensive system prompt
                 system_prompt = f"""
                 You are an AI assistant providing {voice_type} responses via SMS.
@@ -75,17 +88,28 @@ class AIService:
                 - Use a {voice_type} tone
                 - IMPORTANT: DO NOT include any greeting (like 'Hello' or 'Hi') in your response; greetings are handled separately
                 - IMPORTANT: DO NOT start with 'How can I assist you' or similar phrases; just answer the query directly
-                - IMPORTANT: DO NOT include any template placeholders like "{steps}" or "{name}" in your response
+                - IMPORTANT: DO NOT include any template placeholders like "{{steps}}" or "{{name}}" in your response
                 - IMPORTANT: DO NOT end with phrases like "Here are the next steps:" or "Best regards"
                 - Words to avoid: {', '.join(words_to_avoid) if words_to_avoid else 'N/A'}
                 - Keep responses under 160 characters when possible
                 - Be helpful, concise, and accurate
+                
+                Conversation Context:
+                - This is a {("new conversation" if is_new_conversation else "continuing conversation")}
+                - {structure_info}
+                - IMPORTANT: Your response will be used as the "Main Content" section of a structured message
+                - Other sections like Greeting, Next Steps, and Sign Off will be handled separately
+                - You should ONLY provide the direct answer to the user's question
                 
                 FAQ Knowledge:
                 {json.dumps(qa_pairs) if qa_pairs else "No specific FAQ data provided."}
                 
                 Context Information:
                 {json.dumps(context_data) if context_data else "No specific context provided."}
+                
+                Along with your response, provide metadata about which sections should be included:
+                - Indicate if the user appears to be asking for instructions or next steps
+                - Indicate if the message seems like it's ending the conversation
                 
                 Respond directly to the user's message.
                 """
@@ -95,16 +119,24 @@ class AIService:
                 # Call OpenAI API with explicit client
                 logger.info("Calling OpenAI API...")
                 
+                # Build message list with conversation history
+                messages = [{"role": "system", "content": system_prompt}]
+                
+                # Add conversation history if available
+                if conversation_history and len(conversation_history) > 0:
+                    messages.extend(conversation_history)
+                
+                # Add the current user message
+                messages.append({"role": "user", "content": description})
+                
                 try:
                     # Try new OpenAI client format first
                     response = client.chat.completions.create(
                         model="gpt-3.5-turbo",
-                        messages=[
-                            {"role": "system", "content": system_prompt},
-                            {"role": "user", "content": description}
-                        ],
+                        messages=messages,
                         temperature=0.7,
-                        max_tokens=500
+                        max_tokens=500,
+                        response_format={"type": "json_object"}
                     )
                     
                     # Parse response from new client format
@@ -117,10 +149,7 @@ class AIService:
                     try:
                         response = client.ChatCompletion.create(
                             model="gpt-3.5-turbo",
-                            messages=[
-                                {"role": "system", "content": system_prompt},
-                                {"role": "user", "content": description}
-                            ],
+                            messages=messages,
                             temperature=0.7,
                             max_tokens=500
                         )
@@ -188,43 +217,75 @@ class AIService:
                     
                     return result.strip()
                 
+                # Try to parse the AI response as JSON to extract metadata
+                try:
+                    import json
+                    response_obj = json.loads(message_content)
+                    
+                    # Extract the actual response text
+                    if isinstance(response_obj, dict):
+                        # Get the response text from the JSON
+                        ai_message = response_obj.get('response', response_obj.get('message', ''))
+                        
+                        # Extract metadata about which sections to include
+                        include_next_steps = response_obj.get('include_next_steps', 
+                                                             response_obj.get('needs_next_steps', False))
+                        include_sign_off = response_obj.get('include_sign_off', 
+                                                           response_obj.get('is_conversation_ending', False))
+                        
+                        # Clean any remaining greetings
+                        ai_message = clean_common_greetings(ai_message)
+                        
+                        # Return structured response with metadata
+                        return {
+                            "message": ai_message,
+                            "include_next_steps": include_next_steps,
+                            "include_sign_off": include_sign_off,
+                            "twilio": True
+                        }
+                except (json.JSONDecodeError, AttributeError, TypeError) as json_error:
+                    logger.warning(f"Failed to parse AI response as JSON: {str(json_error)}")
+                    # Fall back to treating the whole response as a message
+                
                 # Clean any greetings from the message content
                 message_content = clean_common_greetings(message_content)
                 
                 # Return the AI generated message
                 return {
                     "message": message_content,
+                    "include_next_steps": False,  # Default values when parsing fails
+                    "include_sign_off": False,
                     "twilio": True  # Indicate this is a Twilio response
                 }
-            
-            # Original workflow config generation logic
-            # Use system OpenAI key if available
-            logger.info("Using system OpenAI API key")
-            api_key = os.getenv('OPENAI_API_KEY')
-            if not api_key:
-                logger.error("No OpenAI API key found in environment")
-                return WorkflowConfig()
+            else:
+                # Original workflow config generation logic
+                # Use system OpenAI key if available
+                logger.info("Using system OpenAI API key")
+                api_key = os.getenv('OPENAI_API_KEY')
+                if not api_key:
+                    logger.error("No OpenAI API key found in environment")
+                    return WorkflowConfig()
+                    
+                client = openai.OpenAI(api_key=api_key)
                 
-            client = openai.OpenAI(api_key=api_key)
-            
-            response = client.chat.completions.create(
-                model="gpt-4",
-                messages=[
-                    {"role": "system", "content": self.system_prompt},
-                    {"role": "user", "content": description}
-                ],
-                temperature=0.7,
-                max_tokens=1500
-            )
+                response = client.chat.completions.create(
+                    model="gpt-4",
+                    messages=[
+                        {"role": "system", "content": self.system_prompt},
+                        {"role": "user", "content": description}
+                    ],
+                    temperature=0.7,
+                    max_tokens=1500
+                )
 
-            # Parse the AI response into structured workflow config
-            config = self._parse_ai_response(response.choices[0].message.content)
-            
-            # Generate setup instructions
-            instructions = self._generate_setup_instructions(config)
-            config.instructions = instructions
-            
-            return config
+                # Parse the AI response into structured workflow config
+                config = self._parse_ai_response(response.choices[0].message.content)
+                
+                # Generate setup instructions
+                instructions = self._generate_setup_instructions(config)
+                config.instructions = instructions
+                
+                return config
         except Exception as e:
             # Log the error but return a fallback response to prevent system failures
             logger = logging.getLogger(__name__)
