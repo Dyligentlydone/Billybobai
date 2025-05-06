@@ -348,6 +348,9 @@ def business_specific_webhook(business_id):
                 resp.message("You are currently opted out of SMS messages. Reply YES to opt back in.")
                 return str(resp)
 
+            # Flag for opt-in prompt if consent still pending (we will append after AI response)
+            include_opt_in_prompt = consent_record.status == 'PENDING'
+
             # Process the message using the AI service
             if body:
                 global ai_service
@@ -400,6 +403,18 @@ def business_specific_webhook(business_id):
                             workflow.actions.get('response', {}).get('fallbackMessage') or
                             "Thank you for your message. We'll respond shortly."
                         )
+                    
+                    # Append opt-in prompt (if consent pending)
+                    if include_opt_in_prompt:
+                        opt_in_prompt = (
+                            workflow.actions.get('twilio', {}).get('optInPrompt') or
+                            f"Reply YES to receive SMS updates. Reply STOP to opt out."
+                        )
+                        # Ensure spacing/newline separation
+                        if response_text:
+                            response_text = f"{response_text}\n\n{opt_in_prompt}"
+                        else:
+                            response_text = opt_in_prompt
                     
                     # Add the response to the TwiML
                     resp.message(response_text)
