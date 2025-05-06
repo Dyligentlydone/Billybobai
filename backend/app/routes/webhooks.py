@@ -274,12 +274,15 @@ def business_specific_webhook(business_id):
             # --------------------------------------------------
             # SMS Consent Handling
             # --------------------------------------------------
+            logger.info(f"Checking consent status for {from_number} with business {business_id}")
             consent_record = SMSConsent.query.filter_by(
                 phone_number=from_number,
                 business_id=business_id
             ).first()
+            logger.info(f"Existing consent record: {consent_record}")
 
             if not consent_record:
+                logger.info("No consent record found, creating new one")
                 try:
                     # Use ORM to create record
                     from sqlalchemy import text
@@ -291,22 +294,37 @@ def business_specific_webhook(business_id):
                         ON CONFLICT (phone_number, business_id) DO NOTHING
                     """)
                     
+                    logger.info(f"Executing SQL: {sql} with params: {{'phone': {from_number}, 'business': {business_id}}}")
                     db.session.execute(sql, {'phone': from_number, 'business': business_id})
                     db.session.commit()
+                    logger.info("SQL executed and committed successfully")
                     
                     # Now fetch the record we just created
+                    logger.info("Fetching newly created consent record")
                     consent_record = SMSConsent.query.filter_by(
                         phone_number=from_number,
                         business_id=business_id
                     ).first()
+                    logger.info(f"Fetched consent record: {consent_record}")
                     logger.info("Created new SMSConsent record with PENDING status")
                 except Exception as e:
                     logger.error(f"Failed to create consent record: {str(e)}")
+                    import traceback
+                    logger.error(f"Exception traceback: {traceback.format_exc()}")
                     # Continue with response generation even if consent tracking fails
                     # Set a default consent record to avoid NoneType errors
                     from collections import namedtuple
                     ConsentRecord = namedtuple('ConsentRecord', ['status'])
                     consent_record = ConsentRecord(status='PENDING')
+                    logger.info(f"Created fallback consent record: {consent_record}")
+            
+            # Add safety check - if we still don't have a consent record, create a dummy one
+            if not consent_record:
+                logger.error("Still no consent record after attempted creation, using fallback")
+                from collections import namedtuple
+                ConsentRecord = namedtuple('ConsentRecord', ['status'])
+                consent_record = ConsentRecord(status='PENDING')
+                logger.info(f"Created emergency fallback consent record: {consent_record}")
             
             # Handle explicit YES/STOP replies
             body_upper = body.strip().upper() if body else ''
