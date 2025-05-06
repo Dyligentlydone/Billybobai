@@ -36,8 +36,8 @@ class EmailThread(Base):
     thread_metadata = Column(JSON, default={})  # Renamed from metadata to thread_metadata
 
     # Relationships
-    business = relationship('Business', back_populates='email_threads')
-    inbound_emails = relationship('InboundEmail', back_populates='thread')
+    business = relationship('Business')
+    inbound_emails = relationship('InboundEmail')
 
 class InboundEmail(Base):
     """Model for incoming emails."""
@@ -62,5 +62,5 @@ class InboundEmail(Base):
 
     # Relationships
     attachments = relationship('Attachment', back_populates='email')
-    thread = relationship('EmailThread', back_populates='inbound_emails')
+    thread = relationship('EmailThread')
     business = relationship('Business', back_populates='inbound_emails')
