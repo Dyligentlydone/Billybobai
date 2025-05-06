@@ -68,9 +68,15 @@ def create_app():
     # Import models to ensure they're registered
     logger.info("Importing models for database initialization...")
     try:
-        from app.models import Business, Workflow, ClientPasscode
+        from app.models.business import Business, BusinessConfig
         from app.models.email import EmailThread, InboundEmail
-        logger.info("Business, Workflow, ClientPasscode, EmailThread, and InboundEmail models imported successfully for metadata registration")
+        from app.models.workflow import Workflow, WorkflowNode, WorkflowEdge, WorkflowExecution
+        from app.models.client_passcode import ClientPasscode
+        from app.models.sms_consent import SMSConsent
+        from app.models.sms_settings import SMSSettings
+        from app.models.message import Message, MessageDirection, MessageChannel, MessageStatus
+        # Add other models here if needed
+        logger.info("All major models imported successfully for metadata registration")
     except ImportError as ie:
         logger.error(f"Failed to import models: {str(ie)}")
         import traceback
