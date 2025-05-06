@@ -157,7 +157,26 @@ class AIService:
                         # Parse response from old client format
                         message_content = response.choices[0].message.content.strip()
                     
-                    logger.info(f"OpenAI response received (old format): {message_content[:50]}...")
+                    # Log the raw response for debugging
+                    logger.info(f"Raw OpenAI response: {message_content[:100]}...")
+                    
+                    try:
+                        # Parse JSON response - handle with explicit json import
+                        import json  # Import json again here to ensure it's in scope
+                        result = json.loads(message_content)
+                        
+                        # Add twilio flag if missing
+                        if "twilio" not in result:
+                            result["twilio"] = True
+                            
+                        return result
+                    except json.JSONDecodeError as json_error:
+                        logger.error(f"Failed to parse JSON response: {str(json_error)}")
+                        # Return a proper structured response even if JSON parsing fails
+                        return {
+                            "message": message_content,  # Use the raw message as fallback
+                            "twilio": True
+                        }
                 except Exception as api_error:
                     logger.error(f"OpenAI API error: {str(api_error)}")
                     

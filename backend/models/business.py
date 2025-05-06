@@ -22,7 +22,8 @@ class Business(Base):
     # Relationships
     users = relationship('User', back_populates='business')
     workflows = relationship('Workflow', back_populates='business')
-    email_threads = relationship('EmailThread', back_populates='business')
+    # Remove back_populates to break circular dependency
+    email_threads = relationship('EmailThread')
     inbound_emails = relationship('InboundEmail', back_populates='business')
     integrations = relationship('Integration', back_populates='business')
 
