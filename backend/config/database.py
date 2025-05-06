@@ -20,7 +20,7 @@ Base = declarative_base()
 def init_db():
     """Initialize the database, creating all tables."""
     # Import all models to ensure they're registered
-    from models import User, APIIntegration, Workflow, Message, WorkflowExecution
+    from app.models import User, APIIntegration, Workflow, Message, WorkflowExecution
     
     # Create all tables
     Base.metadata.create_all(bind=engine)

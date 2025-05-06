@@ -4,8 +4,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy.orm import Session
 from config.database import engine
-from models.user import User
-from models.api_integration import APIIntegration
+from app.models.user import User
+from app.models.api_integration import APIIntegration
 from datetime import datetime
 
 def test_database_setup():

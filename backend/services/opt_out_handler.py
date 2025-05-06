@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
-from models.message import Message
+from app.models.message import Message
 from sqlalchemy import update, select, func, case
 
 class OptOutHandler:

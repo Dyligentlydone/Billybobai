@@ -13,7 +13,7 @@ from ..services.zendesk_service import ZendeskService
 from ..services.ai_service import AIService
 from functools import wraps
 from ..db import db
-from models.message import Message, MessageDirection, MessageChannel, MessageStatus
+from app.models.message import Message, MessageDirection, MessageChannel, MessageStatus
 from datetime import datetime
 import uuid
 from config.database import SessionLocal
@@ -238,7 +238,9 @@ def business_specific_webhook(business_id):
         
         try:
             # Import models here to avoid circular import
-            from ..models import Business, Workflow, SMSConsent
+            from app.models.business import Business
+            from app.models.workflow import Workflow
+            from app.models.sms_consent import SMSConsent
             
             logger.info("Attempting database query for business and workflow")
             

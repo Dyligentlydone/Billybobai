@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import os
-from app.models import Base
+from app.db import db
 
 # Use SQLite for development
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///app.db")
@@ -15,7 +15,7 @@ def init_database():
     from app.models.workflow import Workflow, WorkflowExecution, WorkflowNode, WorkflowEdge
     
     # Create all tables
-    Base.metadata.create_all(bind=engine)
+    db.metadata.create_all(bind=engine)
     
     # Create session factory
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

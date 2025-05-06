@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 from datetime import datetime, timedelta
 from sqlalchemy import func, desc
-from models.message import Message, MessageDirection, CustomerSentiment
+from app.models.message import Message, MessageDirection, CustomerSentiment
 from database import get_db
 from utils.message_quality import analyze_conversation_topic
 import logging

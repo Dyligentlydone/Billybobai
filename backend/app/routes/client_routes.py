@@ -1,7 +1,8 @@
 import logging
 from flask import Blueprint, request, jsonify
 from app.db import db
-from app.models import Business, ClientPasscode
+from app.models.business import Business
+from app.models.client_passcode import ClientPasscode
 import json
 from sqlalchemy import inspect, text
 

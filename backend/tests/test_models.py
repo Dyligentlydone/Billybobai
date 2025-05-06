@@ -11,12 +11,12 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from config.database import DATABASE_URL
-from models import (
+from app.models import (
     Base, Business, User,
     Integration, CalendlyIntegration, TwilioIntegration,
     SendGridIntegration, OpenAIIntegration
 )
-from models.schemas.integration import IntegrationStatus
+from app.models.schemas.integration import IntegrationStatus
 
 def test_models():
     """Test the database models."""
