@@ -364,10 +364,15 @@ def business_specific_webhook(business_id):
                 
                 # Check for conversation context to determine which sections to include
                 # Find recent messages with this phone number for this business
-                recent_messages = Message.query.filter_by(
-                    phone_number=from_number, 
-                    workflow_id=workflow.id
-                ).order_by(Message.created_at.desc()).limit(10).all()
+                try:
+                    # Use db.session.query instead of Message.query
+                    recent_messages = db.session.query(Message).filter_by(
+                        phone_number=from_number, 
+                        workflow_id=workflow.id
+                    ).order_by(Message.created_at.desc()).limit(10).all()
+                except Exception as msg_error:
+                    logger.error(f"Error querying message history: {str(msg_error)}")
+                    recent_messages = []
                 
                 # Determine conversation context
                 is_first_message = len(recent_messages) == 0
