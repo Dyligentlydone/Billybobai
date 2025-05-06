@@ -234,7 +234,7 @@ def business_specific_webhook(business_id):
         
         try:
             # Import models here to avoid circular import
-            from ..models import Business, Workflow
+            from ..models import Business, Workflow, SMSConsent
             from .. import db
             
             logger.info("Attempting database query for business and workflow")
@@ -271,6 +271,46 @@ def business_specific_webhook(business_id):
                 resp.message("Thank you for your message. A representative will get back to you soon. (No active workflow)")
                 return str(resp)
             
+            # --------------------------------------------------
+            # SMS Consent Handling
+            # --------------------------------------------------
+            consent_record = SMSConsent.query.filter_by(
+                phone_number=from_number,
+                business_id=business_id
+            ).first()
+
+            if not consent_record:
+                consent_record = SMSConsent(
+                    phone_number=from_number,
+                    business_id=business_id,
+                    status='PENDING'
+                )
+                db.session.add(consent_record)
+                db.session.commit()
+                logger.info("Created new SMSConsent record with PENDING status")
+
+            # Handle explicit YES/STOP replies
+            body_upper = body.strip().upper() if body else ''
+
+            if body_upper == 'YES':
+                if consent_record.status != 'CONFIRMED':
+                    consent_record.status = 'CONFIRMED'
+                    db.session.commit()
+                resp.message("Thanks! You've opted in to receive SMS updates. Reply STOP to opt out anytime.")
+                return str(resp)
+
+            if body_upper == 'STOP':
+                if consent_record.status != 'DECLINED':
+                    consent_record.status = 'DECLINED'
+                    db.session.commit()
+                resp.message("You have been opted out and will no longer receive automated SMS. Reply YES to opt back in.")
+                return str(resp)
+
+            # If user has opted-out, do not send automated AI responses
+            if consent_record.status == 'DECLINED':
+                resp.message("You are currently opted out of SMS messages. Reply YES to opt back in.")
+                return str(resp)
+
             # Process the message using the AI service
             if body:
                 global ai_service
