@@ -281,17 +281,17 @@ def business_specific_webhook(business_id):
 
             if not consent_record:
                 try:
-                    # Use direct SQL execution to create record (bypassing ORM issues with ID)
-                    sql = """
-                    INSERT INTO sms_consents (phone_number, business_id, status, created_at, updated_at)
-                    VALUES (:phone_number, :business_id, :status, NOW(), NOW())
-                    ON CONFLICT (phone_number, business_id) DO NOTHING
-                    """
-                    db.session.execute(sql, {
-                        'phone_number': from_number,
-                        'business_id': business_id,
-                        'status': 'PENDING'
-                    })
+                    # Use ORM to create record
+                    from sqlalchemy import text
+                    # Create SQL to insert directly, avoiding any ID issues
+                    sql = text("""
+                        INSERT INTO sms_consents 
+                        (phone_number, business_id, status, created_at, updated_at)
+                        VALUES (:phone, :business, 'PENDING', NOW(), NOW())
+                        ON CONFLICT (phone_number, business_id) DO NOTHING
+                    """)
+                    
+                    db.session.execute(sql, {'phone': from_number, 'business': business_id})
                     db.session.commit()
                     
                     # Now fetch the record we just created
@@ -303,8 +303,11 @@ def business_specific_webhook(business_id):
                 except Exception as e:
                     logger.error(f"Failed to create consent record: {str(e)}")
                     # Continue with response generation even if consent tracking fails
-                    pass
-
+                    # Set a default consent record to avoid NoneType errors
+                    from collections import namedtuple
+                    ConsentRecord = namedtuple('ConsentRecord', ['status'])
+                    consent_record = ConsentRecord(status='PENDING')
+            
             # Handle explicit YES/STOP replies
             body_upper = body.strip().upper() if body else ''
 
@@ -323,7 +326,8 @@ def business_specific_webhook(business_id):
                 return str(resp)
 
             # If user has opted-out, do not send automated AI responses
-            if consent_record.status == 'DECLINED':
+            # Only check status if we have a valid consent_record 
+            if consent_record and consent_record.status == 'DECLINED':
                 resp.message("You are currently opted out of SMS messages. Reply YES to opt back in.")
                 return str(resp)
 
