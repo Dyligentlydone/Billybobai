@@ -4,6 +4,7 @@ import openai
 from pydantic import BaseModel
 import json
 import logging
+import re
 
 class WorkflowConfig(BaseModel):
     twilio: Dict[str, str] = {}
@@ -72,7 +73,8 @@ class AIService:
                 
                 Voice Guidelines:
                 - Use a {voice_type} tone
-                - Greetings to use: {', '.join(greetings) if greetings else 'Be natural and friendly'}
+                - IMPORTANT: DO NOT include any greeting (like 'Hello' or 'Hi') in your response; greetings are handled separately
+                - IMPORTANT: DO NOT start with 'How can I assist you' or similar phrases; just answer the query directly
                 - Words to avoid: {', '.join(words_to_avoid) if words_to_avoid else 'N/A'}
                 - Keep responses under 160 characters when possible
                 - Be helpful, concise, and accurate
@@ -154,6 +156,30 @@ class AIService:
                         "message": "Thank you for your message. We've received it and will respond shortly.",
                         "twilio": True
                     }
+                
+                # Clean any common greetings from the AI response that might have been included despite instructions
+                def clean_common_greetings(text):
+                    import re
+                    # List of common greeting patterns to remove
+                    greeting_patterns = [
+                        r'^Hello!?\s+',
+                        r'^Hi!?\s+',
+                        r'^Hey!?\s+',
+                        r'^Greetings!?\s+',
+                        r'^Good\s+(morning|afternoon|evening|day)!?\s+',
+                        r'(Hello|Hi|Hey)!?,?\s+how\s+(can\s+I\s+|may\s+I\s+|I\s+can\s+)?(help|assist)\s+you\s+(today|now|with\s+that)?\??',
+                        r'How\s+can\s+I\s+(help|assist)\s+you\s+(today|now|with\s+that)?\??',
+                    ]
+                    
+                    # Apply each pattern
+                    result = text
+                    for pattern in greeting_patterns:
+                        result = re.sub(pattern, '', result, flags=re.IGNORECASE)
+                    
+                    return result.strip()
+                
+                # Clean any greetings from the message content
+                message_content = clean_common_greetings(message_content)
                 
                 # Return the AI generated message
                 return {
