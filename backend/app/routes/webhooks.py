@@ -12,7 +12,7 @@ from ..services.sendgrid_service import SendGridService
 from ..services.zendesk_service import ZendeskService
 from ..services.ai_service import AIService
 from functools import wraps
-from .. import db
+from ..db import db
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -235,7 +235,7 @@ def business_specific_webhook(business_id):
         try:
             # Import models here to avoid circular import
             from ..models import Business, Workflow, SMSConsent
-            from .. import db
+            from ..db import db
             
             logger.info("Attempting database query for business and workflow")
             
