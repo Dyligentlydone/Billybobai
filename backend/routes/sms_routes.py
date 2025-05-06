@@ -29,7 +29,7 @@ def get_sms_processor(workflow_id: str) -> SMSProcessor:
                 business_id=workflow.business_id,
                 workflow_id=workflow_id,
                 workflow_name=workflow.name,
-                config=workflow.actions.get('twilio', {}),
+                config=workflow.actions,
                 quality_analyzer=quality_analyzer,
                 cost_tracker=cost_tracker
             )
