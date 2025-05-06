@@ -12,6 +12,7 @@ from ..services.sendgrid_service import SendGridService
 from ..services.zendesk_service import ZendeskService
 from ..services.ai_service import AIService
 from functools import wraps
+from .. import db
 
 # Set up logging
 logger = logging.getLogger(__name__)
