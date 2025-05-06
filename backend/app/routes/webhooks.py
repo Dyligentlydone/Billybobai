@@ -286,15 +286,46 @@ def business_specific_webhook(business_id):
                     logger.info(f"AI SERVICE RESPONSE: {workflow_response}")
                     
                     # Get response text from AI or fallback message
-                    response_text = (workflow_response.get('message') or 
-                                   workflow.actions.get('twilio', {}).get('fallbackMessage') or
-                                   workflow.actions.get('response', {}).get('fallbackMessage') or
-                                   "Thank you for your message. We'll respond shortly.")
+                    ai_response_text = workflow_response.get('message', '')
+                    
+                    # Apply message structure template from workflow configuration
+                    response_text = ""
+                    message_structure = workflow.actions.get('response', {}).get('messageStructure', [])
+                    
+                    # Check if there's a defined message structure to use
+                    if message_structure and isinstance(message_structure, list):
+                        logger.info(f"Using configured message structure with {len(message_structure)} sections")
+                        
+                        # Build response using the configured structure
+                        for section in message_structure:
+                            if section.get('enabled', True):
+                                section_name = section.get('name', '')
+                                section_content = section.get('defaultContent', '')
+                                
+                                # If this is the main content section, use the AI response
+                                if section_name.lower() == 'main content':
+                                    section_text = ai_response_text or section_content
+                                else:
+                                    section_text = section_content
+                                
+                                # Add the section to the response if it has content
+                                if section_text:
+                                    response_text += section_text + " "
+                        
+                        # Trim any extra spaces
+                        response_text = response_text.strip()
+                        logger.info(f"Applied template structure, final response: {response_text[:50]}...")
+                    else:
+                        # Fall back to just the AI response if no structure defined
+                        response_text = ai_response_text or (
+                            workflow.actions.get('twilio', {}).get('fallbackMessage') or
+                            workflow.actions.get('response', {}).get('fallbackMessage') or
+                            "Thank you for your message. We'll respond shortly."
+                        )
                     
                     # Add the response to the TwiML
                     resp.message(response_text)
                     logger.info(f"SUCCESSFULLY PROCESSED MESSAGE FOR BUSINESS ID: {business_id}")
-                    
                 except Exception as ai_error:
                     logger.error(f"AI SERVICE ERROR: {str(ai_error)}")
                     import traceback
