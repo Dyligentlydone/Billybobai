@@ -1,7 +1,6 @@
 from datetime import datetime
 from typing import List, Optional
-from sqlalchemy import Column, Integer, String, DateTime, JSON, ForeignKey, LargeBinary
-from sqlalchemy.orm import relationship
+from sqlalchemy import Integer, String, DateTime, JSON, ForeignKey, LargeBinary
 from pydantic import BaseModel, EmailStr
 from ..database import db
 
@@ -24,18 +23,18 @@ class AttachmentModel(BaseModel):
 class EmailThread(db.Model):
     __tablename__ = 'email_threads'
     
-    id = Column(Integer, primary_key=True)
-    thread_id = Column(String(255), unique=True, index=True)
+    id = db.Column(Integer, primary_key=True)
+    thread_id = db.Column(String(255), unique=True, index=True)
     # Link to Business
-    business_id = Column(String(255), ForeignKey('businesses.id'))
-    subject = Column(String(255))
-    customer_email = Column(String(255))
-    last_updated = Column(DateTime, default=datetime.utcnow)
-    messages = Column(JSON)
-    thread_metadata = Column(JSON, default={})  
+    business_id = db.Column(String(255), ForeignKey('businesses.id'))
+    subject = db.Column(String(255))
+    customer_email = db.Column(String(255))
+    last_updated = db.Column(DateTime, default=datetime.utcnow)
+    messages = db.Column(JSON)
+    thread_metadata = db.Column(JSON, default={})  
 
     # Relationship back to Business
-    business = relationship('Business', back_populates='email_threads')
+    business = db.relationship('Business', back_populates='email_threads')
 
 class EmailThreadModel(BaseModel):
     thread_id: str
