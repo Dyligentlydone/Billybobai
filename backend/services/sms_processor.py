@@ -33,6 +33,7 @@ class SMSProcessor:
         self.workflow_id = workflow_id
         self.workflow_name = workflow_name
         self.config = config
+        logging.info(f"[SMS_PROCESSOR] Loaded config for workflow_id={workflow_id}: {json.dumps(config, indent=2, default=str)}")
         
         # Initialize OpenAI
         # Robustly fetch OpenAI API key from config['aiTraining']['openAIKey'],
