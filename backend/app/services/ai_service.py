@@ -75,6 +75,8 @@ class AIService:
                 - Use a {voice_type} tone
                 - IMPORTANT: DO NOT include any greeting (like 'Hello' or 'Hi') in your response; greetings are handled separately
                 - IMPORTANT: DO NOT start with 'How can I assist you' or similar phrases; just answer the query directly
+                - IMPORTANT: DO NOT include any template placeholders like "{steps}" or "{name}" in your response
+                - IMPORTANT: DO NOT end with phrases like "Here are the next steps:" or "Best regards"
                 - Words to avoid: {', '.join(words_to_avoid) if words_to_avoid else 'N/A'}
                 - Keep responses under 160 characters when possible
                 - Be helpful, concise, and accurate
@@ -169,6 +171,14 @@ class AIService:
                         r'^Good\s+(morning|afternoon|evening|day)!?\s+',
                         r'(Hello|Hi|Hey)!?,?\s+how\s+(can\s+I\s+|may\s+I\s+|I\s+can\s+)?(help|assist)\s+you\s+(today|now|with\s+that)?\??',
                         r'How\s+can\s+I\s+(help|assist)\s+you\s+(today|now|with\s+that)?\??',
+                        # Common closing templates
+                        r'Here\s+are\s+the\s+next\s+steps:?\s*(\{steps\})?.*',
+                        r'Best\s+regards,?.*$',
+                        r'Sincerely,?.*$',
+                        r'Thank\s+you.*,?.*$',
+                        r'Thanks,?.*$',
+                        r'Regards,?.*$',
+                        r'Kind(ly|est)?\s+regards,?.*$',
                     ]
                     
                     # Apply each pattern
