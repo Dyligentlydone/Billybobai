@@ -28,6 +28,23 @@ class AIService:
             logger.info(f"Conversation history provided: {bool(conversation_history)}")
             logger.info(f"Is new conversation: {is_new_conversation}")
             
+            # Configure the OpenAI API key
+            api_key = os.getenv('OPENAI_API_KEY')
+            if not api_key:
+                raise ValueError("No OpenAI API key found in environment variables")
+                
+            # Handle different versions of OpenAI client
+            client = None
+            try:
+                # Try new format first
+                logger.info("Setting up OpenAI client with workflow API key")
+                client = openai.OpenAI(api_key=api_key)
+            except (AttributeError, TypeError) as e:
+                # Fall back to older client format
+                logger.info("Trying older OpenAI API format")
+                openai.api_key = api_key
+                client = openai
+
             # Handle SMS response generation with actions provided from workflow
             if actions:
                 # Extract OpenAI API key from actions
@@ -46,20 +63,6 @@ class AIService:
                 if not api_key:
                     logger.error("No OpenAI API key found in workflow config or environment")
                     return {"message": "I apologize, but I'm unable to process your request at this time."}
-                
-                # Set up OpenAI with the workflow's API key
-                logger.info("Setting up OpenAI client with workflow API key")
-                try:
-                    client = openai.OpenAI(api_key=api_key)
-                    logger.info("OpenAI client created successfully with new API format")
-                except Exception as openai_error:
-                    # Fallback for older OpenAI library versions
-                    logger.warning(f"Error creating OpenAI client with new format: {str(openai_error)}")
-                    logger.info("Trying older OpenAI API format")
-                    # Use the old format API for older OpenAI versions
-                    # No need to create a client, just set the API key
-                    openai.api_key = api_key
-                    client = None  # We'll handle this below
                 
                 # Build system prompt from brand voice settings
                 brand_tone = actions.get('brandTone', {})
@@ -109,8 +112,8 @@ class AIService:
                 {
                     "message": "Your direct response to the user without any greetings or sign-offs",
                     "twilio": {
-                        "include_greeting": boolean indicating if greeting should be included,
-                        "include_sign_off": boolean indicating if sign-off should be included
+                        "include_greeting": true,  # set to true if greeting should be included
+                        "include_sign_off": false  # set to false if sign-off should be excluded
                     }
                 }
                 
