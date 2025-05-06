@@ -1,13 +1,14 @@
 from ..db import db
 from datetime import datetime
-from sqlalchemy.schema import Sequence
+import time
+import random
 
 class SMSConsent(db.Model):
     """Tracks SMS opt-in status per phone number and business."""
     __tablename__ = 'sms_consents'
 
-    # Add back the ID column with sequence to auto-generate values
-    id = db.Column(db.Integer, Sequence('sms_consent_id_seq'), primary_key=True, nullable=False)
+    # Use a manually generated ID instead of a sequence
+    id = db.Column(db.Integer, primary_key=True, nullable=False)
     phone_number = db.Column(db.String(20), nullable=False)
     business_id = db.Column(db.String(255), nullable=False)
     status = db.Column(
@@ -30,3 +31,10 @@ class SMSConsent(db.Model):
 
     def __repr__(self):
         return f"<SMSConsent {self.phone_number} – {self.business_id} – {self.status}>"
+        
+    # Add a method to generate a unique ID before inserting
+    def __init__(self, **kwargs):
+        # Generate a unique ID based on timestamp and random number
+        if 'id' not in kwargs:
+            kwargs['id'] = int(time.time() * 1000) + random.randint(1, 999)
+        super(SMSConsent, self).__init__(**kwargs)
