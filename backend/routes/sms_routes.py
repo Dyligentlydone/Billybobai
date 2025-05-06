@@ -48,23 +48,29 @@ def get_opt_out_handler():
 @sms_bp.route('/api/sms/webhook/<workflow_id>', methods=['POST'])
 async def sms_webhook(workflow_id):
     """Handle incoming SMS messages for a specific workflow"""
+    logging.info(f"[SMS_WEBHOOK] ENTERED webhook handler for workflow_id={workflow_id}")
     logging.info(f"[SMS_WEBHOOK] Received webhook for workflow_id={workflow_id}")
     processor = get_sms_processor(workflow_id)
+    logging.info(f"[SMS_WEBHOOK] get_sms_processor returned: {repr(processor)} for workflow_id={workflow_id}")
     if processor is None:
         logging.error(f"[SMS_WEBHOOK] No processor found for workflow_id={workflow_id}")
+        logging.info(f"[SMS_WEBHOOK] Early return: no processor found.")
         return "Error: Processor not found", 500
     opt_out_handler = get_opt_out_handler()
+    logging.info(f"[SMS_WEBHOOK] opt_out_handler: {repr(opt_out_handler)}")
     
     # Get message details from Twilio webhook
     from_number = request.values.get('From', '')
     message_body = request.values.get('Body', '').strip()
     business_id = processor.get_business_id()
+    logging.info(f"[SMS_WEBHOOK] Extracted message_body='{message_body}', from_number='{from_number}'")
     
     # Check for opt-out
     if opt_out_handler.is_opt_out_message(message_body):
         await opt_out_handler.handle_opt_out(from_number, business_id)
         resp = MessagingResponse()
         resp.message("You have been unsubscribed from future messages. Reply START to opt back in.")
+        logging.info(f"[SMS_WEBHOOK] Early return: opt-out message. from_number={from_number}, business_id={business_id}")
         return str(resp)
     
     # Check for opt-in
@@ -74,12 +80,14 @@ async def sms_webhook(workflow_id):
             await opt_out_handler.handle_opt_in(from_number, business_id)
             resp = MessagingResponse()
             resp.message("You have been successfully re-subscribed to receive messages from Dyligent.")
+            logging.info(f"[SMS_WEBHOOK] Early return: opt-in message. from_number={from_number}, business_id={business_id}")
             return str(resp)
     
     # Check if number is opted out
     if await opt_out_handler.is_opted_out(from_number, business_id):
         resp = MessagingResponse()
         resp.message("You are currently unsubscribed. Reply START to receive messages again.")
+        logging.info(f"[SMS_WEBHOOK] Early return: user opted out. from_number={from_number}, business_id={business_id}")
         return str(resp)
     
     # Process the message normally
@@ -90,18 +98,19 @@ async def sms_webhook(workflow_id):
             message_body=message_body,
             use_twiml=True  # Use TwiML response instead of direct API call
         )
+        logging.info(f"[SMS_WEBHOOK] process_incoming_message completed successfully. Result: {result}")
     except Exception as e:
         logging.exception(f"[SMS_WEBHOOK] Exception during process_incoming_message: {e}")
+        logging.info(f"[SMS_WEBHOOK] Early return: exception in processor.")
         return "Error: Exception in processor", 500
     logging.info(f"[SMS_WEBHOOK] ProcessingResult: sent_via_api={getattr(result, 'sent_via_api', None)}, response={getattr(result, 'response', None)}")
     
     # Create TwiML response
     twiml = MessagingResponse()
-    
+    logging.info(f"[SMS_WEBHOOK] Returning TwiML response.")
     # Only add message to TwiML if it wasn't sent via API
     if not result.sent_via_api and result.response:
         twiml.message(result.response)
-    
     return str(twiml)
 
 @sms_bp.route('/api/sms/status/<workflow_id>', methods=['POST'])
