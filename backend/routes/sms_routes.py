@@ -48,7 +48,11 @@ def get_opt_out_handler():
 @sms_bp.route('/api/sms/webhook/<workflow_id>', methods=['POST'])
 async def sms_webhook(workflow_id):
     """Handle incoming SMS messages for a specific workflow"""
+    logging.info(f"[SMS_WEBHOOK] Received webhook for workflow_id={workflow_id}")
     processor = get_sms_processor(workflow_id)
+    if processor is None:
+        logging.error(f"[SMS_WEBHOOK] No processor found for workflow_id={workflow_id}")
+        return "Error: Processor not found", 500
     opt_out_handler = get_opt_out_handler()
     
     # Get message details from Twilio webhook
@@ -80,11 +84,15 @@ async def sms_webhook(workflow_id):
     
     # Process the message normally
     logging.info(f"[SMS_WEBHOOK] Processing incoming message: workflow_id={workflow_id}, message_body={message_body}")
-    result = await processor.process_incoming_message(
-        from_number=from_number,
-        message_body=message_body,
-        use_twiml=True  # Use TwiML response instead of direct API call
-    )
+    try:
+        result = await processor.process_incoming_message(
+            from_number=from_number,
+            message_body=message_body,
+            use_twiml=True  # Use TwiML response instead of direct API call
+        )
+    except Exception as e:
+        logging.exception(f"[SMS_WEBHOOK] Exception during process_incoming_message: {e}")
+        return "Error: Exception in processor", 500
     logging.info(f"[SMS_WEBHOOK] ProcessingResult: sent_via_api={getattr(result, 'sent_via_api', None)}, response={getattr(result, 'response', None)}")
     
     # Create TwiML response

@@ -13,6 +13,9 @@ from zenpy import Zenpy
 from zenpy.lib.api_objects import Ticket, User, Comment
 from .retry_handler import RetryHandler
 from .opt_out_handler import OptOutHandler
+from app.models.business import Business
+from app.models.workflow import Workflow
+from app.models.email import EmailThread, InboundEmail
 
 class ProcessingResult(NamedTuple):
     success: bool
@@ -25,6 +28,7 @@ class ProcessingResult(NamedTuple):
 class SMSProcessor:
     def __init__(self, business_id: str, workflow_id: str, workflow_name: str, config: Dict):
         """Initialize SMS processor with business and workflow info"""
+        logging.info(f"[SMS_PROCESSOR] Initializing SMSProcessor for business_id={business_id}, workflow_id={workflow_id}, workflow_name={workflow_name}")
         self.business_id = business_id
         self.workflow_id = workflow_id
         self.workflow_name = workflow_name
@@ -140,6 +144,7 @@ Business ID: {self.business_id}
         metadata: Dict[str, Any] = None
     ) -> ProcessingResult:
         """Process an incoming SMS message and optionally send AI-generated response"""
+        logging.info(f"[SMS_PROCESSOR] process_incoming_message called: business_id={self.business_id}, workflow_id={self.workflow_id}, from_number={from_number}, message_body={message_body}, use_twiml={use_twiml}")
         start_time = time.time()
         error = None
         metrics = {}
@@ -148,6 +153,14 @@ Business ID: {self.business_id}
         ticket_id = None
         
         try:
+            logging.info(f"[SMS_PROCESSOR] Attempting to load Business and Workflow from DB")
+            business = Business.query.filter_by(id=self.business_id).first()
+            workflow = Workflow.query.filter_by(id=self.workflow_id).first()
+            if not business:
+                logging.error(f"[SMS_PROCESSOR] Business not found: business_id={self.business_id}")
+            if not workflow:
+                logging.error(f"[SMS_PROCESSOR] Workflow not found: workflow_id={self.workflow_id}")
+            
             # Get business context
             context = {
                 'business_name': self.config.get('business_name', ''),
