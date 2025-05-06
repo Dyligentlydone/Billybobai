@@ -26,12 +26,16 @@ class EmailThread(db.Model):
     
     id = Column(Integer, primary_key=True)
     thread_id = Column(String(255), unique=True, index=True)
-    business_id = Column(String(255))
+    # Link to Business
+    business_id = Column(String(255), ForeignKey('businesses.id'))
     subject = Column(String(255))
     customer_email = Column(String(255))
     last_updated = Column(DateTime, default=datetime.utcnow)
     messages = Column(JSON)
     thread_metadata = Column(JSON, default={})  
+
+    # Relationship back to Business
+    business = relationship('Business', back_populates='email_threads')
 
 class EmailThreadModel(BaseModel):
     thread_id: str
