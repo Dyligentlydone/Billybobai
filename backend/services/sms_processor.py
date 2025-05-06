@@ -35,7 +35,13 @@ class SMSProcessor:
         self.config = config
         
         # Initialize OpenAI
-        init_openai(os.getenv('OPENAI_API_KEY'))
+        # Try to get OpenAI API key from config (workflow.actions['aiTraining']['openAIKey']) or environment
+        openai_key = None
+        if 'aiTraining' in config and isinstance(config['aiTraining'], dict):
+            openai_key = config['aiTraining'].get('openAIKey')
+        if not openai_key:
+            openai_key = os.getenv('OPENAI_API_KEY')
+        init_openai(openai_key)
         
         # Initialize Twilio client
         self.twilio_client = TwilioClient(
