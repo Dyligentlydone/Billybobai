@@ -79,11 +79,13 @@ async def sms_webhook(workflow_id):
         return str(resp)
     
     # Process the message normally
+    logging.info(f"[SMS_WEBHOOK] Processing incoming message: workflow_id={workflow_id}, message_body={message_body}")
     result = await processor.process_incoming_message(
         from_number=from_number,
         message_body=message_body,
         use_twiml=True  # Use TwiML response instead of direct API call
     )
+    logging.info(f"[SMS_WEBHOOK] ProcessingResult: sent_via_api={getattr(result, 'sent_via_api', None)}, response={getattr(result, 'response', None)}")
     
     # Create TwiML response
     twiml = MessagingResponse()
