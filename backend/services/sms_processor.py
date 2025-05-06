@@ -35,10 +35,15 @@ class SMSProcessor:
         self.config = config
         
         # Initialize OpenAI
-        # Try to get OpenAI API key from config (workflow.actions['aiTraining']['openAIKey']) or environment
+        # Robustly fetch OpenAI API key from config['aiTraining']['openAIKey'],
+        # or config['actions']['aiTraining']['openAIKey'], or environment
         openai_key = None
         if 'aiTraining' in config and isinstance(config['aiTraining'], dict):
             openai_key = config['aiTraining'].get('openAIKey')
+        elif 'actions' in config and isinstance(config['actions'], dict):
+            ai_training = config['actions'].get('aiTraining')
+            if isinstance(ai_training, dict):
+                openai_key = ai_training.get('openAIKey')
         if not openai_key:
             openai_key = os.getenv('OPENAI_API_KEY')
         init_openai(openai_key)
