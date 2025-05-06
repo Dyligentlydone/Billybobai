@@ -161,8 +161,7 @@ class AIService:
                     logger.info(f"Raw OpenAI response: {message_content[:100]}...")
                     
                     try:
-                        # Parse JSON response - handle with explicit json import
-                        import json  # Import json again here to ensure it's in scope
+                        # Parse JSON response
                         result = json.loads(message_content)
                         
                         # Add twilio flag if missing
@@ -239,7 +238,6 @@ class AIService:
                 
                 # Try to parse the AI response as JSON to extract metadata
                 try:
-                    import json
                     response_obj = json.loads(message_content)
                     
                     # Extract the actual response text

@@ -63,4 +63,5 @@ class InboundEmail(Base):
     # Relationships
     attachments = relationship('Attachment', back_populates='email')
     thread = relationship('EmailThread')
-    business = relationship('Business', back_populates='inbound_emails')
+    # Remove back_populates to avoid circular dependency issues
+    business = relationship('Business')
