@@ -1,11 +1,13 @@
 from ..db import db
 from datetime import datetime
+from sqlalchemy.schema import Sequence
 
 class SMSConsent(db.Model):
     """Tracks SMS opt-in status per phone number and business."""
     __tablename__ = 'sms_consents'
 
-    id = db.Column(db.Integer, primary_key=True)
+    # Use a sequence to generate IDs for existing tables that need them
+    id = db.Column(db.Integer, Sequence('sms_consent_id_seq'), primary_key=True, nullable=False)
     phone_number = db.Column(db.String(20), nullable=False)
     business_id = db.Column(db.String(255), nullable=False)
     status = db.Column(
