@@ -7,12 +7,12 @@ from ..database import db
 class Attachment(db.Model):
     __tablename__ = 'attachments'
     
-    id = Column(Integer, primary_key=True)
-    email_id = Column(Integer, ForeignKey('inbound_emails.id'))
-    filename = Column(String(255))
-    content_type = Column(String(100))
-    content = Column(LargeBinary)
-    size = Column(Integer)
+    id = db.Column(db.Integer, primary_key=True)
+    email_id = db.Column(db.Integer, db.ForeignKey('inbound_emails.id'))
+    filename = db.Column(db.String(255))
+    content_type = db.Column(db.String(100))
+    content = db.Column(db.LargeBinary)
+    size = db.Column(db.Integer)
 
 class AttachmentModel(BaseModel):
     filename: str
@@ -23,15 +23,15 @@ class AttachmentModel(BaseModel):
 class EmailThread(db.Model):
     __tablename__ = 'email_threads'
     
-    id = db.Column(Integer, primary_key=True)
-    thread_id = db.Column(String(255), unique=True, index=True)
+    id = db.Column(db.Integer, primary_key=True)
+    thread_id = db.Column(db.String(255), unique=True, index=True)
     # Link to Business
-    business_id = db.Column(String(255), ForeignKey('businesses.id'))
-    subject = db.Column(String(255))
-    customer_email = db.Column(String(255))
-    last_updated = db.Column(DateTime, default=datetime.utcnow)
-    messages = db.Column(JSON)
-    thread_metadata = db.Column(JSON, default={})  
+    business_id = db.Column(db.String(255), db.ForeignKey('businesses.id'))
+    subject = db.Column(db.String(255))
+    customer_email = db.Column(db.String(255))
+    last_updated = db.Column(db.DateTime, default=datetime.utcnow)
+    messages = db.Column(db.JSON)
+    thread_metadata = db.Column(db.JSON, default={})  
 
     # Relationship back to Business
     business = db.relationship('Business', back_populates='email_threads')
@@ -48,23 +48,23 @@ class EmailThreadModel(BaseModel):
 class InboundEmail(db.Model):
     __tablename__ = 'inbound_emails'
     
-    id = Column(Integer, primary_key=True)
-    business_id = Column(String(255))
-    thread_id = Column(String(255), ForeignKey('email_threads.thread_id'))
-    from_email = Column(String(255))
-    to_email = Column(String(255))
-    subject = Column(String(255))
-    text = Column(String)
-    html = Column(String)
-    spam_score = Column(String)
-    spam_report = Column(JSON)
-    sender_ip = Column(String)
-    headers = Column(JSON)
-    envelope = Column(JSON)
-    timestamp = Column(DateTime, default=datetime.utcnow)
-    business_metadata = Column(JSON, default={})
+    id = db.Column(db.Integer, primary_key=True)
+    business_id = db.Column(db.String(255))
+    thread_id = db.Column(db.String(255), db.ForeignKey('email_threads.thread_id'))
+    from_email = db.Column(db.String(255))
+    to_email = db.Column(db.String(255))
+    subject = db.Column(db.String(255))
+    text = db.Column(db.String)
+    html = db.Column(db.String)
+    spam_score = db.Column(db.String)
+    spam_report = db.Column(db.JSON)
+    sender_ip = db.Column(db.String)
+    headers = db.Column(db.JSON)
+    envelope = db.Column(db.JSON)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    business_metadata = db.Column(db.JSON, default={})
     
-    attachments = relationship('Attachment', backref='email')
+    attachments = db.relationship('Attachment', backref='email')
 
 class InboundEmailModel(BaseModel):
     business_id: str
