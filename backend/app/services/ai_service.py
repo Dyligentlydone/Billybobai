@@ -7,6 +7,18 @@ import logging
 import re
 from utils.api_keys import get_openai_api_key
 
+# Constants for JSON templates to prevent f-string formatting issues
+JSON_RESPONSE_TEMPLATE = '''
+{
+    "message": "Your direct response to the user without any greetings or sign-offs",
+    "twilio": {
+        "include_greeting": true,
+        "include_sign_off": false
+    }
+}
+'''
+
+
 class WorkflowConfig(BaseModel):
     twilio: Dict[str, str] = {}
     sendgrid: Dict[str, str] = {}
@@ -81,23 +93,24 @@ class AIService:
                 qa_pairs_json = json.dumps(qa_pairs) if qa_pairs else "No specific FAQ data provided."
                 context_data_json = json.dumps(context_data) if context_data else "No specific context provided."
                 
-                # Create a comprehensive system prompt
-                system_prompt = f"""
+                # Create a comprehensive system prompt - use normal string first and then format it
+                # to avoid nested formatting issues
+                system_prompt_template = """
                 You are an AI assistant providing {voice_type} responses via SMS.
                 
                 Voice Guidelines:
                 - Use a {voice_type} tone
                 - IMPORTANT: DO NOT include any greeting (like 'Hello' or 'Hi') in your response; greetings are handled separately
                 - IMPORTANT: DO NOT start with 'How can I assist you' or similar phrases; just answer the query directly
-                - IMPORTANT: DO NOT include any template placeholders like "{{steps}}" or "{{name}}" in your response
+                - IMPORTANT: DO NOT include any template placeholders in your response
                 - IMPORTANT: DO NOT end with phrases like "Here are the next steps:" or "Best regards"
                 - IMPORTANT: DO NOT include phrases like "I'm here to help" or "How can I assist you today"
-                - Words to avoid: {', '.join(words_to_avoid) if words_to_avoid else 'N/A'}
+                - Words to avoid: {words_to_avoid_str}
                 - Keep responses under 160 characters when possible
                 - Be helpful, concise, and accurate
                 
                 Conversation Context:
-                - This is a {("new conversation" if is_new_conversation else "continuing conversation")}
+                - This is a {conversation_type}
                 - {structure_info}
                 - IMPORTANT: Your response will be used as the "Main Content" section of a structured message
                 - Other sections like Greeting, Next Steps, and Sign Off will be handled separately
@@ -106,13 +119,7 @@ class AIService:
                 Response Format:
                 YOU MUST return a valid JSON object with this structure:
                 ```json
-                {
-                    "message": "Your direct response to the user without any greetings or sign-offs",
-                    "twilio": {
-                        "include_greeting": true,
-                        "include_sign_off": false
-                    }
-                }
+                {JSON_RESPONSE_TEMPLATE}
                 ```
 
                 Note: Set include_greeting to true if a greeting should be included.
@@ -130,6 +137,21 @@ class AIService:
                 
                 Respond directly to the user's message.
                 """
+                
+                # Prepare all the string variables separately to avoid nested formatting issues
+                words_to_avoid_str = ', '.join(words_to_avoid) if words_to_avoid else 'N/A'
+                conversation_type = "new conversation" if is_new_conversation else "continuing conversation"
+                
+                # Apply formatting to the template
+                system_prompt = system_prompt_template.format(
+                    voice_type=voice_type,
+                    words_to_avoid_str=words_to_avoid_str,
+                    conversation_type=conversation_type,
+                    structure_info=structure_info,
+                    JSON_RESPONSE_TEMPLATE=JSON_RESPONSE_TEMPLATE,
+                    qa_pairs_json=qa_pairs_json,
+                    context_data_json=context_data_json
+                )
                 
                 logger.info(f"Using system prompt: {system_prompt[:100]}...")
                 
@@ -292,7 +314,10 @@ class AIService:
             # Return a fallback response that won't break the SMS flow
             return {
                 "message": "I apologize, but I'm having trouble understanding your request. Could you please rephrase it?",
-                "twilio": True
+                "twilio": {
+                    "include_greeting": False,
+                    "include_sign_off": True
+                }
             }
 
     def _parse_ai_response(self, response: str) -> WorkflowConfig:
