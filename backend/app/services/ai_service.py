@@ -77,6 +77,10 @@ class AIService:
                                    if section.get('enabled', True)]
                     structure_info = "Message sections available: " + ", ".join(section_names)
                 
+                # Prepare any JSON data outside the f-string to avoid formatting issues
+                qa_pairs_json = json.dumps(qa_pairs) if qa_pairs else "No specific FAQ data provided."
+                context_data_json = json.dumps(context_data) if context_data else "No specific context provided."
+                
                 # Create a comprehensive system prompt
                 system_prompt = f"""
                 You are an AI assistant providing {voice_type} responses via SMS.
@@ -101,6 +105,7 @@ class AIService:
                 
                 Response Format:
                 YOU MUST return a valid JSON object with this structure:
+                ```json
                 {
                     "message": "Your direct response to the user without any greetings or sign-offs",
                     "twilio": {
@@ -108,15 +113,16 @@ class AIService:
                         "include_sign_off": false
                     }
                 }
+                ```
 
                 Note: Set include_greeting to true if a greeting should be included.
                 Set include_sign_off to false if sign-off should be excluded.
                 
                 FAQ Knowledge:
-                {json.dumps(qa_pairs) if qa_pairs else "No specific FAQ data provided."}
+                {qa_pairs_json}
                 
                 Context Information:
-                {json.dumps(context_data) if context_data else "No specific context provided."}
+                {context_data_json}
                 
                 Along with your response, provide metadata about which sections should be included:
                 - Indicate if the user appears to be asking for instructions or next steps
