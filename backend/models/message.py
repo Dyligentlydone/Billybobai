@@ -52,9 +52,7 @@ class Message(Base):
     is_first_in_conversation = Column(Boolean, default=False)
     response_to_message_id = Column(Integer, ForeignKey('messages.id'), nullable=True)
     
-    # Opt-out tracking
-    is_opted_out = Column(Boolean, default=False)      # Whether this number has opted out
-    opted_out_at = Column(DateTime, nullable=True)     # When the number opted out
+    # Opt-out tracking is now handled by the SMSConsent table
 
     # Relationships
     workflow = relationship('Workflow', back_populates='messages')
