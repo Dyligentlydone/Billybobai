@@ -1,7 +1,10 @@
 from datetime import datetime, timedelta
+from sqlalchemy import select, update, case, func
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models.message import Message
-from sqlalchemy import update, select, func, case
+from models.message import Message
+from app.models.sms_consent import SMSConsent
+import random
+import time
 
 class OptOutHandler:
     OPT_OUT_KEYWORDS = {'stop', 'unsubscribe', 'cancel', 'end', 'quit'}
@@ -19,22 +22,32 @@ class OptOutHandler:
         return message.lower().strip() in self.OPT_IN_KEYWORDS
     
     async def handle_opt_out(self, phone_number: str, business_id: int, reason: str = None):
-        """Mark phone number as opted out in all messages"""
+        """Mark phone number as opted out using SMSConsent table"""
         now = datetime.utcnow()
         
-        # Update all messages for this phone number and business
-        stmt = (
-            update(Message)
-            .where(Message.phone_number == phone_number)
-            .where(Message.workflow_id.in_(
-                select(Message.workflow_id)
-                .join(Message.workflow)
-                .where(Message.workflow.has(business_id=business_id))
-            ))
-            .values(is_opted_out=True, opted_out_at=now)
+        # Find or create consent record
+        stmt = select(SMSConsent).where(
+            SMSConsent.phone_number == phone_number,
+            SMSConsent.business_id == str(business_id)  # Convert to string as business_id is stored as string in SMSConsent
         )
+        result = await self.db.execute(stmt)
+        consent = result.scalars().first()
         
-        await self.db.execute(stmt)
+        if consent:
+            # Update existing record
+            consent.status = 'DECLINED'
+            consent.updated_at = now
+        else:
+            # Create new record with DECLINED status
+            consent = SMSConsent(
+                id=int(time.time() * 1000) + random.randint(1, 999),  # Generate ID as done in the model
+                phone_number=phone_number,
+                business_id=str(business_id),  # Convert to string
+                status='DECLINED',
+                created_at=now,
+                updated_at=now
+            )
+            self.db.add(consent)
         
         # Also cancel any pending messages
         stmt = (
@@ -54,62 +67,64 @@ class OptOutHandler:
         return True
     
     async def handle_opt_in(self, phone_number: str, business_id: int) -> bool:
-        """Remove opt-out marking from all messages for this number"""
-        stmt = (
-            update(Message)
-            .where(Message.phone_number == phone_number)
-            .where(Message.workflow_id.in_(
-                select(Message.workflow_id)
-                .join(Message.workflow)
-                .where(Message.workflow.has(business_id=business_id))
-            ))
-            .values(is_opted_out=False, opted_out_at=None)
+        """Mark phone number as opted in using SMSConsent table"""
+        now = datetime.utcnow()
+        
+        # Find or create consent record
+        stmt = select(SMSConsent).where(
+            SMSConsent.phone_number == phone_number,
+            SMSConsent.business_id == str(business_id)  # Convert to string
         )
-        
         result = await self.db.execute(stmt)
-        await self.db.commit()
+        consent = result.scalars().first()
         
-        # Return whether any records were updated
-        return result.rowcount > 0
+        if consent:
+            # Update existing record
+            consent.status = 'CONFIRMED'
+            consent.updated_at = now
+            await self.db.commit()
+            return True
+        else:
+            # Create new record with CONFIRMED status
+            consent = SMSConsent(
+                id=int(time.time() * 1000) + random.randint(1, 999),  # Generate ID as done in the model
+                phone_number=phone_number,
+                business_id=str(business_id),  # Convert to string
+                status='CONFIRMED',
+                created_at=now,
+                updated_at=now
+            )
+            self.db.add(consent)
+            await self.db.commit()
+            return True
     
     async def is_opted_out(self, phone_number: str, business_id: int) -> bool:
-        """Check if a number is opted out for a business"""
-        stmt = (
-            select(Message)
-            .where(Message.phone_number == phone_number)
-            .where(Message.workflow_id.in_(
-                select(Message.workflow_id)
-                .join(Message.workflow)
-                .where(Message.workflow.has(business_id=business_id))
-            ))
-            .where(Message.is_opted_out == True)
-            .limit(1)
+        """Check if a number is opted out for a business using SMSConsent table"""
+        stmt = select(SMSConsent).where(
+            SMSConsent.phone_number == phone_number,
+            SMSConsent.business_id == str(business_id),  # Convert to string
+            SMSConsent.status == 'DECLINED'
         )
         
         result = await self.db.execute(stmt)
         return result.scalars().first() is not None
     
     async def get_opt_out_stats(self, business_id: int):
-        """Get opt-out statistics for a business"""
+        """Get opt-out statistics for a business using SMSConsent table"""
         thirty_days_ago = datetime.utcnow() - timedelta(days=30)
         
-        # Count of opted out messages
-        stmt = (
-            select(
-                func.count().label('total_opt_outs'),
-                func.count(
-                    case(
-                        (Message.opted_out_at >= thirty_days_ago, 1)
-                    )
-                ).label('recent_opt_outs'),
-                func.count(func.distinct(Message.phone_number)).label('unique_numbers')
-            )
-            .where(Message.workflow_id.in_(
-                select(Message.workflow_id)
-                .join(Message.workflow)
-                .where(Message.workflow.has(business_id=business_id))
-            ))
-            .where(Message.is_opted_out == True)
+        # Count of opted out numbers
+        stmt = select(
+            func.count().label('total_opt_outs'),
+            func.count(
+                case(
+                    (SMSConsent.updated_at >= thirty_days_ago, 1)
+                )
+            ).label('recent_opt_outs'),
+            func.count(func.distinct(SMSConsent.phone_number)).label('unique_numbers')
+        ).where(
+            SMSConsent.business_id == str(business_id),  # Convert to string
+            SMSConsent.status == 'DECLINED'
         )
         
         result = await self.db.execute(stmt)
