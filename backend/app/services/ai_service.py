@@ -104,10 +104,13 @@ class AIService:
                 {
                     "message": "Your direct response to the user without any greetings or sign-offs",
                     "twilio": {
-                        "include_greeting": true,  # set to true if greeting should be included
-                        "include_sign_off": false  # set to false if sign-off should be excluded
+                        "include_greeting": true,
+                        "include_sign_off": false
                     }
                 }
+
+                Note: Set include_greeting to true if a greeting should be included.
+                Set include_sign_off to false if sign-off should be excluded.
                 
                 FAQ Knowledge:
                 {json.dumps(qa_pairs) if qa_pairs else "No specific FAQ data provided."}
