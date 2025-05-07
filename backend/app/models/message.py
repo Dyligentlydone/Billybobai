@@ -31,7 +31,8 @@ class Message(db.Model):
     direction = db.Column(PgEnum(MessageDirection), nullable=False, default=MessageDirection.inbound)
     channel = db.Column(PgEnum(MessageChannel), nullable=False, default=MessageChannel.sms)
     status = db.Column(PgEnum(MessageStatus), nullable=False, default=MessageStatus.pending)
-    body = db.Column(db.Text, nullable=True)
+    content = db.Column(db.String(2000), nullable=True)  # Primary field used by the code
+    body = db.Column(db.Text, nullable=True)             # Added field for compatibility
     # Opt-out tracking is now handled by the SMSConsent table
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
