@@ -38,6 +38,8 @@ class SMSProcessor:
         
         # Initialize OpenAI
         # Robustly fetch OpenAI API key from config['aiTraining']['openAIKey'],
+        import logging
+        logging.error(f"[SMSProcessor DEBUG] config at key load: {config}")
         # or config['actions']['aiTraining']['openAIKey'], or environment
         openai_key = None
         if 'aiTraining' in config and isinstance(config['aiTraining'], dict):
