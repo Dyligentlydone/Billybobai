@@ -5,6 +5,7 @@ from pydantic import BaseModel
 import json  # Ensure json is imported at the module level
 import logging
 import re
+from utils.api_keys import get_openai_api_key
 
 class WorkflowConfig(BaseModel):
     twilio: Dict[str, str] = {}
@@ -29,7 +30,7 @@ class AIService:
             logger.info(f"Is new conversation: {is_new_conversation}")
             
             # Configure the OpenAI API key
-            api_key = os.getenv('OPENAI_API_KEY')
+            api_key = get_openai_api_key(actions)
             if not api_key:
                 raise ValueError("No OpenAI API key found in environment variables")
                 
@@ -47,18 +48,9 @@ class AIService:
 
             # Handle SMS response generation with actions provided from workflow
             if actions:
-                # Extract OpenAI API key from actions
-                api_key = actions.get('aiTraining', {}).get('openAIKey')
+                # Re-evaluate API key with helper in case actions override
+                api_key = get_openai_api_key(actions, explicit_key=api_key)
                 logger.info(f"Using OpenAI key from workflow config: {'Available' if api_key else 'Missing'}")
-                
-                if not api_key:
-                    # Try to find API key in other possible locations in the config
-                    api_key = (
-                        actions.get('openAIKey') or 
-                        actions.get('ai', {}).get('apiKey') or
-                        os.getenv('OPENAI_API_KEY')
-                    )
-                    logger.info(f"Fallback OpenAI key found: {'Yes' if api_key else 'No'}")
                 
                 if not api_key:
                     logger.error("No OpenAI API key found in workflow config or environment")

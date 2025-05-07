@@ -3,6 +3,7 @@ import logging
 from typing import Dict, Optional, NamedTuple
 from openai import AsyncOpenAI
 import tiktoken
+from utils.api_keys import get_openai_api_key
 
 class AIResponse(NamedTuple):
     text: str
@@ -17,8 +18,10 @@ client = None
 def initialize(api_key: Optional[str] = None):
     """Initialize the OpenAI client with API key"""
     global client
-    client = AsyncOpenAI(api_key=api_key or os.getenv('OPENAI_API_KEY'))
-    logging.info("Initialized OpenAI client")
+    # Prefer explicit key; otherwise fall back to helper which checks config/env vars
+    key = api_key or get_openai_api_key()
+    client = AsyncOpenAI(api_key=key)
+    logging.info("Initialized OpenAI client (key masked)")
 
 async def generate_response(
     message: str,

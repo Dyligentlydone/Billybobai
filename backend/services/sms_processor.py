@@ -6,6 +6,7 @@ import json
 import logging
 from routes.monitoring import record_message_metrics
 from utils.openai_client import initialize as init_openai, generate_response
+from utils.api_keys import get_openai_api_key
 from utils.message_quality import MessageQualityAnalyzer
 from utils.cost_tracking import CostTracker
 from twilio.rest import Client as TwilioClient
@@ -36,21 +37,10 @@ class SMSProcessor:
         self.config = config
         logging.info(f"[SMS_PROCESSOR] Loaded config for workflow_id={workflow_id}: {json.dumps(config, indent=2, default=str)}")
         
-        # Initialize OpenAI
-        # Robustly fetch OpenAI API key from config['aiTraining']['openAIKey'],
-        import logging
-        logging.error(f"[SMSProcessor DEBUG] config at key load: {config}")
-        # or config['actions']['aiTraining']['openAIKey'], or environment
-        openai_key = None
-        if 'aiTraining' in config and isinstance(config['aiTraining'], dict):
-            openai_key = config['aiTraining'].get('openAIKey')
-        elif 'actions' in config and isinstance(config['actions'], dict):
-            ai_training = config['actions'].get('aiTraining')
-            if isinstance(ai_training, dict):
-                openai_key = ai_training.get('openAIKey')
-        if not openai_key:
-            openai_key = os.getenv('OPENAI_API_KEY')
+        # Initialize OpenAI using helper
+        openai_key = get_openai_api_key(config)
         init_openai(openai_key)
+        logging.info("OpenAI client initialized for SMSProcessor (key masked)")
         
         # Initialize Twilio client
         self.twilio_client = TwilioClient(
