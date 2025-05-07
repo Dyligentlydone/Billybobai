@@ -61,6 +61,8 @@ export default function Privacy() {
           </p>
           <ul className="list-disc pl-5 mt-2 space-y-1 text-gray-700">
             <li>A checkbox (not pre-selected) for users to consent to receive SMS messages</li>
+            <li>A double opt-in confirmation system where you must reply "YES" to our initial SMS to confirm your subscription</li>
+            <li>Storage of your express written consent in compliance with TCPA requirements</li>
             <li>A clear statement of consent:</li>
           </ul>
           
