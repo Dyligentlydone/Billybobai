@@ -160,7 +160,8 @@ class AIService:
                             model="gpt-3.5-turbo",
                             messages=messages,
                             temperature=0.7,
-                            max_tokens=500
+                            max_tokens=500,
+                            response_format={"type": "json_object"}
                         )
                         
                         # Parse response from old client format
@@ -214,26 +215,38 @@ class AIService:
                         logger.error("OpenAI API quota exceeded error - using fallback message")
                         return {
                             "message": "Thank you for your message. Our AI assistant is currently unavailable. A team member will respond to you shortly.",
-                            "twilio": True
+                            "twilio": {
+                                "include_greeting": is_new_conversation,
+                                "include_sign_off": True
+                            }
                         }
                     elif "rate limit" in error_str:
                         logger.error("OpenAI API rate limit error - using fallback message")
                         return {
                             "message": "Thank you for your message. Our system is experiencing high demand. Please try again in a few minutes.",
-                            "twilio": True
+                            "twilio": {
+                                "include_greeting": is_new_conversation,
+                                "include_sign_off": True
+                            }
                         }
                     else:
                         # Generic fallback for other errors
                         logger.error(f"Unhandled OpenAI API error: {error_str}")
                         return {
                             "message": "Thank you for your message. We've received it and will respond shortly.",
-                            "twilio": True
+                            "twilio": {
+                                "include_greeting": is_new_conversation,
+                                "include_sign_off": True
+                            }
                         }
                 except Exception as general_error:
                     logger.error(f"General error calling OpenAI API: {str(general_error)}")
                     return {
                         "message": "Thank you for your message. We've received it and will respond shortly.",
-                        "twilio": True
+                        "twilio": {
+                            "include_greeting": is_new_conversation,
+                            "include_sign_off": True
+                        }
                     }
                 
             else:
