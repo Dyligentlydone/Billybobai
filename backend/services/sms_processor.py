@@ -27,6 +27,7 @@ class ProcessingResult(NamedTuple):
 
 class SMSProcessor:
     def __init__(self, business_id: str, workflow_id: str, workflow_name: str, config: Dict):
+        logging.error("SMSProcessor __init__ CALLED! [DEBUGGING LOG]")
         """Initialize SMS processor with business and workflow info"""
         logging.info(f"[SMS_PROCESSOR] Initializing SMSProcessor for business_id={business_id}, workflow_id={workflow_id}, workflow_name={workflow_name}")
         self.business_id = business_id
