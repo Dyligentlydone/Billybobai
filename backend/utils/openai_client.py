@@ -50,28 +50,90 @@ Guidelines:
 4. If you don't know something, say so
 5. Include clear next steps when needed"""
         
-        # Create chat completion
-        response = await client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": message}
-            ],
-            temperature=0.7,
-            max_tokens=150,  # Keep responses concise for SMS
-            presence_penalty=0.6,  # Encourage varied responses
-            frequency_penalty=0.2,  # Slightly reduce repetition
-        )
+        # Create chat completion with error handling for different client versions
+        try:
+            # Try the new client format first
+            response = await client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": message}
+                ],
+                temperature=0.7,
+                max_tokens=150,  # Keep responses concise for SMS
+                presence_penalty=0.6,  # Encourage varied responses
+                frequency_penalty=0.2,  # Slightly reduce repetition
+            )
+        except AttributeError as e:
+            # If 'chat' attribute error, try the legacy client format
+            logging.warning(f"Using legacy OpenAI client format: {str(e)}")
+            # For older versions of the OpenAI library
+            from openai import Completion
+            # Try with ChatCompletion first (pre-v1 API)
+            try:
+                response = await openai.ChatCompletion.acreate(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": message}
+                    ],
+                    temperature=0.7,
+                    max_tokens=150
+                )
+            except Exception as chat_error:
+                logging.error(f"Legacy ChatCompletion failed: {str(chat_error)}")
+                # Last resort fallback to even older Completion API
+                response = await openai.Completion.acreate(
+                    engine=model,
+                    prompt=f"{system_prompt}\n\nUser: {message}\nAI:",
+                    temperature=0.7,
+                    max_tokens=150
+                )
         
-        # Get response text
-        text = response.choices[0].message.content.strip()
+        # Parse response based on which client version was used
+        try:
+            # Try to get response from new client format first
+            if hasattr(response.choices[0], 'message') and hasattr(response.choices[0].message, 'content'):
+                text = response.choices[0].message.content.strip()
+            # Fall back to older format if needed
+            elif hasattr(response.choices[0], 'text'):
+                text = response.choices[0].text.strip()
+            else:
+                # Last resort generic extraction
+                text = str(response.choices[0]).strip()
+                
+            logging.info(f"Successfully extracted response text: {text[:50]}...")
+        except Exception as parse_error:
+            logging.error(f"Error parsing response: {str(parse_error)}")
+            # Return a simple fallback response if we can't parse the response
+            text = "Thank you for your message. We've received it and will respond shortly."
         
-        # Calculate token usage and cost
-        tokens_used = response.usage.total_tokens
-        cost = calculate_cost(tokens_used, model)
-        
-        # Calculate confidence (based on model's own scoring)
-        confidence = 1.0 - (response.choices[0].finish_reason == 'length')
+        # Calculate token usage and cost with error handling
+        try:
+            # Try to get token usage from response for newer client versions
+            if hasattr(response, 'usage') and hasattr(response.usage, 'total_tokens'):
+                tokens_used = response.usage.total_tokens
+            else:
+                # Estimate token count if not available in response
+                tokens_used = count_tokens(text) + count_tokens(system_prompt + message)
+                logging.info(f"Estimated token usage: {tokens_used}")
+            
+            cost = calculate_cost(tokens_used, model)
+            
+            # Calculate confidence (safely handle different response formats)
+            try:
+                if hasattr(response.choices[0], 'finish_reason'):
+                    confidence = 1.0 - (response.choices[0].finish_reason == 'length')
+                else:
+                    confidence = 0.8  # Default confidence if finish_reason not available
+            except Exception:
+                confidence = 0.8  # Default confidence value if any error occurs
+        except Exception as usage_error:
+            logging.error(f"Error calculating token usage: {str(usage_error)}")
+            # Use fallback values
+            tokens_used = 100  # Conservative estimate
+            cost = calculate_cost(tokens_used, model)
+            confidence = 0.7  # Lower confidence due to error
         
         return AIResponse(
             text=text,

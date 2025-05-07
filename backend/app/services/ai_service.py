@@ -169,31 +169,53 @@ class AIService:
                 messages.append({"role": "user", "content": description})
                 
                 try:
-                    # Check which client format to use
-                    if client:
-                        # New OpenAI client format
-                        response = client.chat.completions.create(
-                            model="gpt-3.5-turbo",
-                            messages=messages,
-                            temperature=0.7,
-                            max_tokens=500,
-                            response_format={"type": "json_object"}
-                        )
-                        
-                        # Parse response from new client format
-                        message_content = response.choices[0].message.content.strip()
-                    else:
-                        # Old OpenAI client format
-                        response = openai.ChatCompletion.create(
-                            model="gpt-3.5-turbo",
-                            messages=messages,
-                            temperature=0.7,
-                            max_tokens=500,
-                            response_format={"type": "json_object"}
-                        )
-                        
-                        # Parse response from old client format
-                        message_content = response.choices[0].message.content.strip()
+                    # Detect OpenAI version and use appropriate API calls
+                    # First try newer client format with more robust error handling
+                    try:
+                        logger.info("Using new OpenAI client format")
+                        # First check if we have a client instance already
+                        if client:
+                            response = client.chat.completions.create(
+                                model="gpt-3.5-turbo",
+                                messages=messages,
+                                temperature=0.7,
+                                max_tokens=500,
+                                response_format={"type": "json_object"}
+                            )
+                            message_content = response.choices[0].message.content.strip()
+                        else:
+                            # Try to create a client and use it (for newer versions)
+                            try:
+                                from openai import OpenAI
+                                local_client = OpenAI(api_key=api_key)
+                                response = local_client.chat.completions.create(
+                                    model="gpt-3.5-turbo",
+                                    messages=messages,
+                                    temperature=0.7,
+                                    max_tokens=500,
+                                    response_format={"type": "json_object"}
+                                )
+                                message_content = response.choices[0].message.content.strip()
+                            except Exception as new_client_error:
+                                logger.error(f"Error with new client format: {str(new_client_error)}")
+                                raise
+                    except Exception as e:
+                        # Fall back to legacy format
+                        logger.info(f"New client format failed, trying legacy format: {str(e)}")
+                        # Legacy OpenAI API call (prior to 1.0.0)
+                        try:
+                            # Fallback to even older format without response_format
+                            response = openai.ChatCompletion.create(
+                                model="gpt-3.5-turbo",
+                                messages=messages,
+                                temperature=0.7,
+                                max_tokens=500
+                            )
+                            
+                            message_content = response.choices[0].message.content.strip()
+                        except Exception as legacy_error:
+                            logger.error(f"Error with legacy client format: {str(legacy_error)}")
+                            raise
                     
                     # Log the raw response for debugging
                     logger.info(f"Raw OpenAI response: {message_content[:100]}...")
