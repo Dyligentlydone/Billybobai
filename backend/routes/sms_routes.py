@@ -25,6 +25,7 @@ def get_sms_processor(workflow_id: str) -> SMSProcessor:
             workflow = Workflow.query.get_or_404(workflow_id)
             
             # Create processor with workflow-specific configuration
+            logging.error("About to instantiate SMSProcessor [DEBUGGING LOG]")
             processor_cache[workflow_id] = SMSProcessor(
                 business_id=workflow.business_id,
                 workflow_id=workflow_id,
@@ -47,6 +48,7 @@ def get_opt_out_handler():
 
 @sms_bp.route('/api/sms/webhook/<workflow_id>', methods=['POST'])
 async def sms_webhook(workflow_id):
+    logging.error("sms_webhook CALLED! [DEBUGGING LOG]")
     """Handle incoming SMS messages for a specific workflow"""
     logging.info(f"[SMS_WEBHOOK] ENTERED webhook handler for workflow_id={workflow_id}")
     logging.info(f"[SMS_WEBHOOK] Received webhook for workflow_id={workflow_id}")
