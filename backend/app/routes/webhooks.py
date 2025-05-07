@@ -422,7 +422,11 @@ def business_specific_webhook(business_id):
                         session.commit()
                         incoming_message_id = incoming_message.id
                     except Exception as db_error:
+                        import traceback
+                        error_trace = traceback.format_exc()
                         logger.error(f"Error storing incoming message: {str(db_error)}")
+                        logger.error(f"Detailed error traceback: {error_trace}")
+                        logger.error(f"Message data: workflow_id={workflow.id}, phone={from_number}, content={body}")
                         incoming_message_id = None
                         session.rollback()
                     finally:
