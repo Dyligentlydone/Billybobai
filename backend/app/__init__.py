@@ -413,6 +413,14 @@ def create_app():
         logger.error(traceback.format_exc())
 
     try:
+        # Register SMS routes blueprint
+        try:
+            from app.routes.sms_routes import sms_bp
+            app.register_blueprint(sms_bp)
+            logger.info("SMS routes registered successfully")
+        except Exception as e:
+            logger.error(f"Failed to register SMS routes: {str(e)}")
+
         # Register blueprints with better error handling
         def register_blueprints_with_error_handling(app):
             try:
