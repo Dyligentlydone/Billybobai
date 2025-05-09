@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
 from sqlalchemy.orm import Session
 from ..database import get_db
+import re
 
 router = APIRouter(prefix="/api/webhooks", tags=["webhooks"])
 
@@ -81,7 +82,6 @@ async def sms_webhook(business_id: str, request: Request, db: Session = Depends(
         from app.services.ai_service import AIService
         ai_service = AIService()
         logger.info(f"AI DEBUG: Sending user message to AI: body='{body}'")
-        logger.info(f"AI DEBUG: Sending conversation_history to AI: {conversation_history}")
         if not body or not body.strip():
             logger.warning("AI DEBUG: User message (body) is empty. Skipping AI call and using fallback.")
             ai_response_text = workflow.actions.get('twilio', {}).get('fallbackMessage') or workflow.actions.get('response', {}).get('fallbackMessage') or "Thank you for your message. We'll respond shortly."
@@ -131,6 +131,8 @@ async def sms_webhook(business_id: str, request: Request, db: Session = Depends(
                 else:
                     conversation_history.append({"role": "assistant", "content": msg.content})
             conversation_history.append({"role": "user", "content": body})
+
+            logger.info(f"AI DEBUG: Prepared conversation_history for AI: {conversation_history}")
 
             # Call AI service
             workflow_response = ai_service.analyze_requirements(
@@ -236,7 +238,7 @@ async def sms_webhook(business_id: str, request: Request, db: Session = Depends(
                             "Reply YES to receive SMS updates. Reply STOP to opt out."
                         )
                         def normalize(text):
-                            return ''.join(text.lower().split())
+                            return re.sub(r'[^a-z0-9]', '', (text or '').lower())
                         if not ai_text_to_use or normalize(ai_text_to_use) == normalize(opt_in_prompt):
                             logger.warning(f"AI response was empty or matched opt-in prompt, using fallback.")
                             ai_text_to_use = workflow.actions.get('twilio', {}).get('fallbackMessage') or workflow.actions.get('response', {}).get('fallbackMessage') or "Thank you for your message. We'll respond shortly."
@@ -261,12 +263,23 @@ async def sms_webhook(business_id: str, request: Request, db: Session = Depends(
             )
             # Only append if not already present (case-insensitive, whitespace-insensitive)
             def normalize(text):
-                return ''.join(text.lower().split())
+                return re.sub(r'[^a-z0-9]', '', (text or '').lower())
             if normalize(opt_in_prompt) not in normalize(response_text):
                 if response_text:
                     response_text = f"{response_text}\n\n{opt_in_prompt}"
                 else:
                     response_text = opt_in_prompt
+        # Final deduplication: ensure opt-in prompt appears only once
+        norm_prompt = normalize(opt_in_prompt)
+        lines = []
+        seen_prompt = False
+        for ln in response_text.split("\n"):
+            if normalize(ln) == norm_prompt:
+                if seen_prompt:
+                    continue
+                seen_prompt = True
+            lines.append(ln)
+        response_text = "\n".join(lines).strip()
         logger.info(f"AI response used: {ai_response_text}")
         logger.info(f"Final SMS body: {response_text}")
         resp.message(response_text)
