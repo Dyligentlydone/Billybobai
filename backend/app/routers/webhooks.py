@@ -145,7 +145,11 @@ async def sms_webhook(business_id: str, request: Request, db: Session = Depends(
                     elif section_name == 'sign off' and not include_sign_off:
                         continue
                     if section_name == 'main content':
-                        section_text = ai_response_text or section_content
+                        # Replace {content} in template with AI response
+                        if '{content}' in section_content:
+                            section_text = section_content.replace('{content}', ai_response_text or '')
+                        else:
+                            section_text = ai_response_text or section_content
                     else:
                         section_text = section_content
                     if section_text:
@@ -164,10 +168,12 @@ async def sms_webhook(business_id: str, request: Request, db: Session = Depends(
                 workflow.actions.get('twilio', {}).get('optInPrompt') or
                 "Reply YES to receive SMS updates. Reply STOP to opt out."
             )
-            if response_text:
-                response_text = f"{response_text}\n\n{opt_in_prompt}"
-            else:
-                response_text = opt_in_prompt
+            # Only append if not already present
+            if opt_in_prompt not in response_text:
+                if response_text:
+                    response_text = f"{response_text}\n\n{opt_in_prompt}"
+                else:
+                    response_text = opt_in_prompt
         resp.message(response_text)
         # Store outgoing message
         session = SessionLocal()
