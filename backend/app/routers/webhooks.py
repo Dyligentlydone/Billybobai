@@ -80,6 +80,67 @@ async def sms_webhook(business_id: str, request: Request, db: Session = Depends(
         # AI Service
         from app.services.ai_service import AIService
         ai_service = AIService()
+        logger.info(f"AI DEBUG: Sending user message to AI: body='{body}'")
+        logger.info(f"AI DEBUG: Sending conversation_history to AI: {conversation_history}")
+        if not body or not body.strip():
+            logger.warning("AI DEBUG: User message (body) is empty. Skipping AI call and using fallback.")
+            ai_response_text = workflow.actions.get('twilio', {}).get('fallbackMessage') or workflow.actions.get('response', {}).get('fallbackMessage') or "Thank you for your message. We'll respond shortly."
+            workflow_response = {'message': ai_response_text}
+        else:
+            # Conversation history
+            recent_messages = db.query(Message).filter(Message.phone_number == from_number, Message.workflow_id == workflow.id).order_by(Message.created_at.desc()).limit(10).all()
+            is_first_message = len(recent_messages) == 0
+            conversation_timeout_minutes = workflow.actions.get('response', {}).get('conversationTimeoutMinutes', 30)
+            is_new_conversation = is_first_message
+            current_conversation_id = None
+            if not is_first_message:
+                last_message_time = recent_messages[0].created_at
+                time_difference = (datetime.utcnow() - last_message_time).total_seconds() / 60
+                is_new_conversation = time_difference > conversation_timeout_minutes
+                if not is_new_conversation and recent_messages[0].conversation_id:
+                    current_conversation_id = recent_messages[0].conversation_id
+            if is_new_conversation or not current_conversation_id:
+                current_conversation_id = str(uuid.uuid4())
+            # Store incoming message
+            session = SessionLocal()
+            try:
+                incoming_message = Message(
+                    workflow_id=workflow.id,
+                    direction=MessageDirection.INBOUND,
+                    channel=MessageChannel.SMS,
+                    content=body,
+                    phone_number=from_number,
+                    conversation_id=current_conversation_id,
+                    status=MessageStatus.RECEIVED
+                )
+                session.add(incoming_message)
+                session.commit()
+                incoming_message_id = incoming_message.id
+            except Exception as db_error:
+                logger.error(f"Error storing incoming message: {str(db_error)}")
+                session.rollback()
+                incoming_message_id = None
+            finally:
+                session.close()
+
+            # Build conversation history for AI
+            conversation_history = []
+            for msg in reversed(recent_messages):
+                if msg.direction == MessageDirection.INBOUND:
+                    conversation_history.append({"role": "user", "content": msg.content})
+                else:
+                    conversation_history.append({"role": "assistant", "content": msg.content})
+            conversation_history.append({"role": "user", "content": body})
+
+            # Call AI service
+            workflow_response = ai_service.analyze_requirements(
+                body,
+                workflow.actions,
+                conversation_history=conversation_history,
+                is_new_conversation=is_new_conversation
+            )
+            ai_response_text = workflow_response.get('message', '')
+            # (rest of the original logic continues here)
         # Conversation history
         recent_messages = db.query(Message).filter(Message.phone_number == from_number, Message.workflow_id == workflow.id).order_by(Message.created_at.desc()).limit(10).all()
         is_first_message = len(recent_messages) == 0
