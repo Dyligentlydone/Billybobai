@@ -522,5 +522,8 @@ class AIService:
         result = text
         for pattern in greeting_patterns:
             result = re.sub(pattern, '', result, flags=re.IGNORECASE)
-        
-        return result.strip()
+        result = result.strip()
+        # If cleaning removes everything, fall back to original text
+        if not result and text.strip():
+            return text.strip()
+        return result
