@@ -133,15 +133,12 @@ async def sms_webhook(business_id: str, request: Request, db: Session = Depends(
         # Template/message structure
         response_text = ""
         message_structure = workflow.actions.get('response', {}).get('messageStructure', [])
-        section_names = [section.get('name', '').lower() for section in message_structure]
-        if 'greeting' not in section_names:
-            message_structure = ([{'name': 'greeting', 'enabled': True, 'defaultContent': "Thank you for reaching out to the Gatsby advisors. How can we best service you today?"}] + message_structure)
         if message_structure and isinstance(message_structure, list):
             for section in message_structure:
                 if section.get('enabled', True):
                     section_name = section.get('name', '').lower()
                     section_content = section.get('defaultContent', '')
-                    if section_name == 'greeting' and not is_new_conversation:
+                    if section_name == 'next steps' and not include_next_steps:
                         continue
                     elif section_name == 'next steps' and not include_next_steps:
                         continue
