@@ -25,10 +25,11 @@ export default function Analytics() {
     ['analytics', selectedBusinessId],
     async () => {
       if (!selectedBusinessId) return null;
-      const response = await axios.get(`/api/analytics/${selectedBusinessId}`, {
+      const response = await axios.get(`/api/analytics`, {
         params: {
-          start_date: start.toISOString(),
-          end_date: end.toISOString()
+          clientId: selectedBusinessId,
+          startDate: start.toISOString().split('T')[0], // Format as YYYY-MM-DD
+          endDate: end.toISOString().split('T')[0]      // Format as YYYY-MM-DD
         }
       });
       return response.data;

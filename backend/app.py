@@ -55,6 +55,17 @@ except Exception as e:
     import traceback
     logger.error(traceback.format_exc())
 
+# Register additional blueprints
+try:
+    # Import and register analytics blueprint
+    from routes.analytics import analytics_bp
+    app.register_blueprint(analytics_bp)
+    logger.info("Successfully registered analytics blueprint")
+except Exception as e:
+    logger.error(f"Error registering additional blueprints: {str(e)}")
+    import traceback
+    logger.error(traceback.format_exc())
+
 # Define critical routes directly to ensure they're available
 @app.route('/health')
 def health():
