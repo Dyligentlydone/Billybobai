@@ -158,23 +158,28 @@ async def sms_webhook(business_id: str, request: Request, db: Session = Depends(
                 if section.get('enabled', True):
                     section_name = section.get('name', '').lower()
                     section_content = section.get('defaultContent', '')
+                    # Only include greeting if enabled AND new conversation
+                    if section_name == 'greeting' and not is_new_conversation:
+                        continue
                     if section_name == 'next steps' and not include_next_steps:
                         continue
-                    elif section_name == 'sign off' and not include_sign_off:
+                    if section_name == 'sign off' and not include_sign_off:
                         continue
-                    # Always include greeting if enabled
                     if section_name == 'greeting':
                         section_text = section_content
                     elif section_name == 'main content':
-                        # Robustly replace {content} with AI response
                         ai_text_to_use = ai_response_text.strip() if ai_response_text else ''
-                        if not ai_text_to_use or ai_text_to_use.lower() == '{content}':
-                            logger.warning(f"AI response was empty or just '{{content}}', using fallback.")
+                        # If AI answer is empty or matches opt-in prompt, use fallback
+                        opt_in_prompt = (
+                            workflow.actions.get('twilio', {}).get('optInPrompt') or
+                            "Reply YES to receive SMS updates. Reply STOP to opt out."
+                        )
+                        def normalize(text):
+                            return ''.join(text.lower().split())
+                        if not ai_text_to_use or normalize(ai_text_to_use) == normalize(opt_in_prompt):
+                            logger.warning(f"AI response was empty or matched opt-in prompt, using fallback.")
                             ai_text_to_use = workflow.actions.get('twilio', {}).get('fallbackMessage') or workflow.actions.get('response', {}).get('fallbackMessage') or "Thank you for your message. We'll respond shortly."
-                        if '{content}' in section_content:
-                            section_text = section_content.replace('{content}', ai_text_to_use)
-                        else:
-                            section_text = ai_text_to_use or section_content
+                        section_text = ai_text_to_use or section_content
                     else:
                         section_text = section_content
                     if section_text:
