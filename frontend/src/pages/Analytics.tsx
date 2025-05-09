@@ -3,6 +3,7 @@ import { useQuery } from 'react-query';
 import axios from 'axios';
 import { useBusiness } from '../contexts/BusinessContext';
 import BusinessSelector from '../components/business/BusinessSelector';
+import { useSMSAnalytics } from '../hooks/useSMSAnalytics';
 import { Tab } from '@headlessui/react';
 import SMSAnalytics from '../components/analytics/SMSAnalytics';
 import VoiceAnalytics from '../components/analytics/VoiceAnalytics';
@@ -21,50 +22,16 @@ export default function Analytics() {
   const start = new Date();
   start.setDate(start.getDate() - 30);
 
-  const { data: analyticsData, isLoading, error } = useQuery(
-    ['analytics', selectedBusinessId],
-    async () => {
-      if (!selectedBusinessId) return null;
-      
-      // Log the request for debugging
-      console.log(`Fetching analytics for clientId=${selectedBusinessId}`);
-      
-      // Try alternate URL approach - directly in path
-      try {
-        const response = await axios.get(`/api/analytics/${selectedBusinessId}`, {
-          params: {
-            startDate: start.toISOString().split('T')[0],
-            endDate: end.toISOString().split('T')[0]
-          }
-        });
-        console.log('Analytics API response:', response.data);
-        return response.data;
-      } catch (apiError) {
-        console.error('Error fetching analytics:', apiError);
-        // Return mock data to prevent UI errors
-        return {
-          message_metrics: {
-            total_messages: 25,
-            delivered_count: 22,
-            failed_count: 3,
-            retried_count: 1,
-            avg_retries: 0.3,
-            opt_out_count: 0,
-            avg_delivery_time: 1.8
-          },
-          hourly_stats: {},
-          opt_out_trends: [],
-          error_distribution: []
-        };
-      }
-    },
-    {
-      enabled: !!selectedBusinessId,
-      staleTime: 5 * 60 * 1000 // Consider data fresh for 5 minutes
-    }
-  );
+  // Use new SMS analytics hook for metrics
+  const { metrics, loading: smsLoading, error: smsError } = useSMSAnalytics(selectedBusinessId || '', selectedBusinessId || '');
 
-  if (error) {
+  // Fetch business list for selector (using new endpoint)
+  const { data: businessList } = useQuery(['businesses'], async () => {
+    const res = await axios.get('/api/businesses');
+    return res.data;
+  });
+
+  if (smsError) {
     return (
       <div className="p-4">
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
@@ -74,7 +41,7 @@ export default function Analytics() {
     );
   }
 
-  if (isLoading) {
+  if (smsLoading) {
     return (
       <div className="p-4">
         <div className="animate-pulse space-y-4">
