@@ -2,7 +2,10 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from config.database import init_db, get_db
-from .routers import analytics, business as business_router, conversations, messages, webhooks
+from .routers import (
+    analytics, business as business_router, conversations,
+    auth, clients, workflow, calendly, webhooks, integrations, root
+)
 
 app = FastAPI(title="SMS Automation Hub API")
 
@@ -21,11 +24,16 @@ async def startup_event():
     init_db()
 
 # Include routers
-app.include_router(analytics.router, prefix="/api", tags=["analytics"])
+app.include_router(root.router)
+app.include_router(auth.router)
+app.include_router(analytics.router)
 app.include_router(business_router.router)
-app.include_router(conversations.router, prefix="/api", tags=["conversations"])
-app.include_router(messages.router, prefix="/api")
-app.include_router(webhooks.router, prefix="/api")
+app.include_router(conversations.router)
+app.include_router(workflow.router)
+app.include_router(clients.router)
+app.include_router(calendly.router)
+app.include_router(webhooks.router)
+app.include_router(integrations.router)
 
 @app.get("/")
 async def root():
