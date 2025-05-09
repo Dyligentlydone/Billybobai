@@ -1222,6 +1222,38 @@ def create_app():
         # For all other paths
         return jsonify({"message": "Path not found", "path": subpath}), 200
 
+    # Add direct analytics endpoint
+    @app.route('/api/analytics', methods=['GET'])
+    def get_analytics():
+        """Get analytics data for a specific business"""
+        client_id = request.args.get('clientId')
+        start_date = request.args.get('startDate')
+        end_date = request.args.get('endDate')
+        
+        logger.info(f"GET /api/analytics with clientId={client_id}, startDate={start_date}, endDate={end_date}")
+        
+        if not all([client_id, start_date, end_date]):
+            return jsonify({'error': 'Missing required parameters'}), 400
+        
+        # Return sample data for now
+        return jsonify({
+            'message_metrics': {
+                'total_messages': 10,
+                'delivered_count': 8,
+                'failed_count': 2,
+                'retried_count': 1,
+                'avg_retries': 0.5,
+                'opt_out_count': 0,
+                'avg_delivery_time': 2.5
+            },
+            'hourly_stats': {
+                '10': {'delivered': 3, 'failed': 1},
+                '14': {'delivered': 5, 'failed': 1}
+            },
+            'opt_out_trends': [],
+            'error_distribution': []
+        })
+    
     logger.info("Application creation completed successfully")
     return app
 
