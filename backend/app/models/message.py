@@ -5,22 +5,22 @@ import enum
 from datetime import datetime
 
 class MessageDirection(enum.Enum):
-    inbound = 'inbound'
-    outbound = 'outbound'
+    INBOUND = 'INBOUND'
+    OUTBOUND = 'OUTBOUND'
 
 class MessageStatus(enum.Enum):
-    pending = 'pending'
-    queued = 'queued'
-    scheduled = 'scheduled'
-    sent = 'sent'
-    delivered = 'delivered'
-    failed = 'failed'
-    cancelled = 'cancelled'
+    PENDING = 'PENDING'
+    QUEUED = 'QUEUED'
+    SCHEDULED = 'SCHEDULED'
+    SENT = 'SENT'
+    DELIVERED = 'DELIVERED'
+    FAILED = 'FAILED'
+    CANCELLED = 'CANCELLED'
 
 class MessageChannel(enum.Enum):
-    sms = 'sms'
-    whatsapp = 'whatsapp'
-    email = 'email'
+    SMS = 'SMS'
+    WHATSAPP = 'WHATSAPP'
+    EMAIL = 'EMAIL'
 
 class Message(db.Model):
     __tablename__ = 'messages'
@@ -28,9 +28,9 @@ class Message(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     workflow_id = db.Column(db.String(36), db.ForeignKey('workflows.id'), nullable=False)
     phone_number = db.Column(db.String(32), nullable=False)
-    direction = db.Column(PgEnum(MessageDirection), nullable=False, default=MessageDirection.inbound)
-    channel = db.Column(PgEnum(MessageChannel), nullable=False, default=MessageChannel.sms)
-    status = db.Column(PgEnum(MessageStatus), nullable=False, default=MessageStatus.pending)
+    direction = db.Column(PgEnum(MessageDirection), nullable=False, default=MessageDirection.INBOUND)
+    channel = db.Column(PgEnum(MessageChannel), nullable=False, default=MessageChannel.SMS)
+    status = db.Column(PgEnum(MessageStatus), nullable=False, default=MessageStatus.PENDING)
     content = db.Column(db.String(2000), nullable=True)  # Primary field used by the code
     body = db.Column(db.Text, nullable=True)             # Added field for compatibility
     # Conversation tracking fields
