@@ -6,8 +6,70 @@ from datetime import datetime, timedelta
 from ..database import get_db
 from ..models import Business, Message
 from ..schemas.analytics import AnalyticsData
+from fastapi import Query
+from sqlalchemy import func
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
+
+
+@router.get("/conversations/metrics/{business_id}")
+def get_conversation_metrics(business_id: str, db: Session = Depends(get_db)):
+    business = db.query(Business).filter(Business.id == business_id).first()
+    if not business:
+        raise HTTPException(status_code=404, detail="Business not found")
+    # Get all messages for this business
+    messages = db.query(Message).filter(Message.business_id == business_id).all()
+    total_messages = len(messages)
+    # Aggregate response times
+    response_times = [m.response_time for m in messages if hasattr(m, 'response_time') and m.response_time is not None]
+    avg_response = sum(response_times) / len(response_times) if response_times else 0
+    # Topics (mocked for now)
+    topics = []
+    # Hourly activity (mocked for now)
+    hourly_activity = [0]*24
+    for m in messages:
+        if hasattr(m, 'created_at') and m.created_at:
+            hour = m.created_at.hour
+            hourly_activity[hour] += 1
+    return {
+        "total_messages": total_messages,
+        "response_times": {
+            "average": avg_response,
+            "all": response_times
+        },
+        "topics": topics,
+        "hourly_activity": hourly_activity
+    }
+
+@router.get("/conversations/{business_id}")
+def get_conversations(business_id: str, page: int = Query(1, ge=1), per_page: int = Query(5, ge=1, le=100), db: Session = Depends(get_db)):
+    business = db.query(Business).filter(Business.id == business_id).first()
+    if not business:
+        raise HTTPException(status_code=404, detail="Business not found")
+    # Paginate messages by conversation_id
+    query = db.query(Message).filter(Message.business_id == business_id).order_by(Message.created_at.desc())
+    total = query.count()
+    messages = query.offset((page-1)*per_page).limit(per_page).all()
+    # Group by conversation_id (mocked as flat list for now)
+    conversations = []
+    for m in messages:
+        conversations.append({
+            "id": getattr(m, 'conversation_id', None),
+            "messages": [
+                {
+                    "id": m.id,
+                    "content": getattr(m, 'content', None) or getattr(m, 'body', None),
+                    "status": str(m.status),
+                    "created_at": m.created_at.isoformat() if m.created_at else None
+                }
+            ]
+        })
+    return {
+        "conversations": conversations,
+        "total": total,
+        "page": page,
+        "per_page": per_page
+    }
 
 def calculate_metrics(messages: list[Message], start_date: datetime) -> Dict[str, Any]:
     total_messages = len(messages)
