@@ -29,7 +29,8 @@ class AIService:
     def __init__(self):
         self.system_prompt = """You are an AI assistant that helps create customer service automation workflows.
         Given a business description and requirements, generate a workflow configuration using Twilio, SendGrid, and Zendesk.
-        Focus on practical, efficient solutions that improve customer experience."""
+        Focus on practical, efficient solutions that improve customer experience.
+        IMPORTANT: When asked to answer a user question for SMS, ONLY provide the direct answer to the user's question. DO NOT include any template placeholders (such as {content}) or opt-in prompts (such as 'Reply YES to receive SMS updates'). DO NOT include greetings or sign-offs unless specifically requested. DO NOT repeat or reference any template language. Your response will be inserted directly into the message body by the system."""
 
     def analyze_requirements(self, description: str, actions=None, conversation_history=None, is_new_conversation=False) -> Union[WorkflowConfig, Dict]:
         """Analyze natural language requirements and generate workflow configuration or response."""
