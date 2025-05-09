@@ -128,6 +128,26 @@ async def sms_webhook(business_id: str, request: Request, db: Session = Depends(
         # AI response
         workflow_response = ai_service.analyze_requirements(body, workflow.actions, conversation_history=conversation_history, is_new_conversation=is_new_conversation)
         ai_response_text = workflow_response.get('message', '')
+        if not ai_response_text:
+            import json
+            # Try to extract from stringified JSON or fallback to string
+            try:
+                if isinstance(workflow_response, str):
+                    try:
+                        parsed = json.loads(workflow_response)
+                        ai_response_text = parsed.get('message', '')
+                    except Exception:
+                        ai_response_text = workflow_response
+                elif isinstance(workflow_response, dict):
+                    # Try to find any non-empty string value
+                    for v in workflow_response.values():
+                        if isinstance(v, str) and v.strip():
+                            ai_response_text = v
+                            break
+                if not ai_response_text:
+                    logger.error(f"AI response extraction failed. Full response: {workflow_response}")
+            except Exception as err:
+                logger.error(f"AI response extraction error: {err}, full response: {workflow_response}")
         include_next_steps = workflow_response.get('include_next_steps', False)
         include_sign_off = workflow_response.get('include_sign_off', False)
         # Template/message structure
