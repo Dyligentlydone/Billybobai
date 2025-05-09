@@ -33,6 +33,10 @@ class Message(db.Model):
     status = db.Column(PgEnum(MessageStatus), nullable=False, default=MessageStatus.pending)
     content = db.Column(db.String(2000), nullable=True)  # Primary field used by the code
     body = db.Column(db.Text, nullable=True)             # Added field for compatibility
+    # Conversation tracking fields
+    conversation_id = db.Column(db.String(36), nullable=True, index=True)  # Group messages in conversations
+    is_first_in_conversation = db.Column(db.Boolean, default=False)        # Flag for conversation starters
+    response_to_message_id = db.Column(db.Integer, db.ForeignKey('messages.id'), nullable=True)  # For threading
     # Opt-out tracking is now handled by the SMSConsent table
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

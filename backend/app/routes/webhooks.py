@@ -410,13 +410,13 @@ def business_specific_webhook(business_id):
                     try:
                         incoming_message = Message(
                             workflow_id=workflow.id,
-                            direction=MessageDirection.INBOUND,
-                            channel=MessageChannel.SMS,
+                            direction=MessageDirection.inbound,
+                            channel=MessageChannel.sms,
                             content=body,
                             phone_number=from_number,
                             conversation_id=current_conversation_id,
                             is_first_in_conversation=is_new_conversation,
-                            status=MessageStatus.DELIVERED  # Inbound messages are already delivered
+                            status=MessageStatus.delivered  # Inbound messages are already delivered
                         )
                         session.add(incoming_message)
                         session.commit()
@@ -528,13 +528,13 @@ def business_specific_webhook(business_id):
                         session = SessionLocal()
                         outgoing_message = Message(
                             workflow_id=workflow.id,
-                            direction=MessageDirection.OUTBOUND,
-                            channel=MessageChannel.SMS,
+                            direction=MessageDirection.outbound,
+                            channel=MessageChannel.sms,
                             content=response_text,
                             phone_number=from_number,
                             conversation_id=current_conversation_id,
                             response_to_message_id=incoming_message_id if incoming_message_id else None,
-                            status=MessageStatus.SENT
+                            status=MessageStatus.sent
                         )
                         session.add(outgoing_message)
                         session.commit()
