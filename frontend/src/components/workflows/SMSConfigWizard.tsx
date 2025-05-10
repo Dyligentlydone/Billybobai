@@ -794,7 +794,7 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
     }));
   };
 
-  const handleComplete = async () => {
+  const handleComplete = () => {
     // Validate required fields before submitting
     const missingFields = [];
     if (!config.twilio.businessId) missingFields.push('Business ID');
@@ -810,8 +810,6 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
     // AI settings
     if (!config.aiTraining || !config.aiTraining.qaPairs) missingFields.push('AI Training Q&A Pairs');
 
-    // Add more checks as needed for your backend requirements
-
     if (missingFields.length > 0) {
       alert(`Please fill in the following required fields before completing:\n- ${missingFields.join('\n- ')}`);
       return;
@@ -825,121 +823,25 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
         throw new Error('Business ID must be a valid number');
       }
       
-      // Safe access to twilio properties using optional chaining
-      const workflowData = {
-        business_id: businessId,  // Explicitly converted to number
-        name: `SMS Automation ${config.twilio.businessId}`,
-        status: 'draft',
-        actions: {
-          twilio: {
-            ...config.twilio,
-            // Ensure the phone number is accessible via both field names
-            phoneNumber: config.twilio?.phoneNumber || '',
-            twilioPhoneNumber: config.twilio?.phoneNumber || ''
-          },
-          brandTone: config.brandTone,
-          aiTraining: config.aiTraining,
-          context: config.context,
-          response: config.response,
-          monitoring: config.monitoring,
-          systemIntegration: config.systemIntegration
-        },
-        conditions: {
-          trigger: 'sms_received'
-        },
+      // Create a normalized version of config to pass to parent
+      const normalizedConfig = {
+        ...config,
         twilio: {
           ...config.twilio,
-          // Ensure these fields exist even if they're empty
+          // Ensure the phone number is accessible via both field names
           phoneNumber: config.twilio?.phoneNumber || '',
-          accountSid: config.twilio?.accountSid || '',
-          authToken: config.twilio?.authToken || ''
-        },
-        brandTone: config.brandTone,
-        aiTraining: config.aiTraining,
-        ai: {
-          model: 'gpt-4',
-          maxTokens: 300,
-          temperature: 0.7
-        },
-        fallbackMessage: config.response.fallbackMessage
+          twilioPhoneNumber: config.twilio?.phoneNumber || ''
+        }
       };
 
-      console.log('Saving workflow to:', `${BACKEND_URL}/api/workflows`);
-      console.log('Workflow data:', JSON.stringify(workflowData, null, 2));
+      console.log('Passing configuration to parent component');
       
-      // Add a timestamp to avoid caching issues
-      const timestamp = new Date().getTime();
+      // Only call onComplete - the parent component will handle the API interaction
+      onComplete(normalizedConfig);
       
-      // Use the correct API endpoint
-      const url = `${BACKEND_URL}/api/workflows?t=${timestamp}`;
-      
-      try {
-        console.log('Trying URL:', url);
-        
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
-          body: JSON.stringify(workflowData),
-        });
-        
-        console.log(`Response from ${url}:`, response.status);
-        
-        if (response.ok) {
-          const responseData = await response.json();
-          console.log('Success response:', responseData);
-          
-          // Get the workflow ID from the response
-          const workflowId = responseData._id || responseData.id;
-          
-          if (workflowId) {
-            // Call the activation endpoint to change status from draft to active
-            console.log('Activating workflow:', workflowId);
-            try {
-              const activateUrl = `${BACKEND_URL}/api/workflows/${workflowId}/activate`;
-              const activateResponse = await fetch(activateUrl, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Accept': 'application/json',
-                },
-              });
-              
-              if (activateResponse.ok) {
-                console.log('Workflow activated successfully');
-              } else {
-                console.error('Failed to activate workflow:', await activateResponse.text());
-              }
-            } catch (activateError) {
-              console.error('Error activating workflow:', activateError);
-            }
-          }
-          
-          // Call the onComplete callback with the final config
-          const completeConfig = {
-            ...config,
-            twilio: {
-              ...config.twilio,
-              phoneNumber: config.twilio?.phoneNumber || '',
-              twilioPhoneNumber: config.twilio?.phoneNumber || '',
-            }
-          };
-          onComplete(completeConfig);
-          return; // Exit the function on success
-        }
-        
-        const errorText = await response.text();
-        console.error(`Error response from ${url}:`, errorText);
-        throw new Error(`Failed to save configuration. Error: ${errorText}`);
-      } catch (fetchError) {
-        console.error(`Fetch error for ${url}:`, fetchError);
-        throw new Error(`Failed to save configuration. Error: ${String(fetchError)}`);
-      }
     } catch (error) {
-      console.error('Error saving configuration:', error);
-      alert('Failed to save configuration. Please try again. Error: ' + (error instanceof Error ? error.message : String(error)));
+      console.error('Error preparing configuration:', error);
+      alert(`Error: ${error instanceof Error ? error.message : String(error)}`);
       
       // As a last resort, try to complete anyway
       try {
