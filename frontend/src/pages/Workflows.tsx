@@ -49,7 +49,7 @@ const Workflows: React.FC = () => {
   const [showSMSWizard, setShowSMSWizard] = useState(false);
   const [showEmailWizard, setShowEmailWizard] = useState(false);
   const [showVoiceWizard, setShowVoiceWizard] = useState(false);
-  const [smsConfig, setSMSConfig] = useState<any>(null);
+  // Removed smsConfig state as it's not needed and may cause duplicate workflow creation
   const [isCreating, setIsCreating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingWorkflowId, setEditingWorkflowId] = useState<string | null>(null);
@@ -185,12 +185,12 @@ const Workflows: React.FC = () => {
         // Clear editing state
         setEditingWorkflowId(null);
         setSelectedWorkflowData(null);
+        // IMPORTANT: Close the dialog first before any state changes that might trigger other effects
+        setShowSMSWizard(false);
       })
       .catch(error => {
         toast.error(`Failed to ${isEditing ? 'update' : 'create'} SMS workflow`);
         console.error(`Error ${isEditing ? 'updating' : 'creating'} workflow:`, error);
-      })
-      .finally(() => {
         setShowSMSWizard(false);
       });
   };
@@ -390,7 +390,6 @@ const Workflows: React.FC = () => {
         </div>
         <WorkflowBuilder
           workflowId={selectedWorkflow || undefined}
-          smsConfig={smsConfig}
         />
       </div>
     );
@@ -401,7 +400,6 @@ const Workflows: React.FC = () => {
       {selectedWorkflow ? (
         <WorkflowBuilder
           workflowId={selectedWorkflow}
-          smsConfig={smsConfig}
         />
       ) : (
         <>
