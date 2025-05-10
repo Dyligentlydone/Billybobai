@@ -75,7 +75,6 @@ interface ResponseConfig {
     description: string;
   }>;
   fallbackMessage: string;
-  optInPrompt: string; // Adding opt-in prompt field
   messageStructure: Array<{
     id: string;
     name: string;
@@ -120,6 +119,7 @@ interface TwilioConfig {
   fallbackUrl?: string;
   statusCallback?: string;
   retryCount: number;
+  optInPrompt: string; // Message sent to users requesting their opt-in consent
 }
 
 interface Config {
@@ -148,7 +148,8 @@ const INITIAL_CONFIG: Config = {
     webhookUrl: '',
     fallbackUrl: '',
     statusCallback: '',
-    retryCount: 3
+    retryCount: 3,
+    optInPrompt: 'Reply YES to receive SMS updates. Reply STOP to opt out.' // Match backend default
   },
   brandTone: {
     voiceType: 'professional',
@@ -171,7 +172,6 @@ const INITIAL_CONFIG: Config = {
   response: {
     templates: [],
     fallbackMessage: "I apologize, but I'm having trouble understanding your request. Could you please rephrase it?",
-    optInPrompt: "Reply YES to opt in to receive SMS messages from us. Standard messaging rates may apply. Reply STOP to opt out at any time.",
     messageStructure: [
       {
         id: 'greeting',
@@ -349,7 +349,8 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
             webhookUrl: twilioConfig.webhookUrl || '',
             fallbackUrl: twilioConfig.fallbackUrl || '',
             statusCallback: twilioConfig.statusCallback || '',
-            retryCount: twilioConfig.retryCount || 3
+            retryCount: twilioConfig.retryCount || 3,
+            optInPrompt: twilioConfig.optInPrompt || 'Reply YES to receive SMS updates. Reply STOP to opt out.'
           },
           brandTone: {
             voiceType: brandTone.voiceType || 'professional',
@@ -372,7 +373,6 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
           response: {
             templates: response.templates || [],
             fallbackMessage: response.fallbackMessage || 'I apologize, but I am unable to process your request at the moment. Please try again later or contact our support team.',
-            optInPrompt: response.optInPrompt || 'Reply YES to opt in to receive SMS messages from us. Standard messaging rates may apply. Reply STOP to opt out at any time.',
             messageStructure: response.messageStructure || [],
             characterLimit: response.characterLimit || 160
           },
@@ -1388,11 +1388,11 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
             This message will be sent to users when they first interact with your system, requesting their consent to receive messages.
           </p>
           <textarea
-            value={config.response.optInPrompt}
+            value={config.twilio.optInPrompt}
             onChange={(e) => setConfig(prev => ({
               ...prev,
-              response: {
-                ...prev.response,
+              twilio: {
+                ...prev.twilio,
                 optInPrompt: e.target.value
               }
             }))}
