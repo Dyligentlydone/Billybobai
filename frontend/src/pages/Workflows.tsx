@@ -133,15 +133,25 @@ const Workflows: React.FC = () => {
     const workflowId = isEditing ? editingWorkflowId : generateUUID();
     
     // Make sure we get the business ID from the right place
-    // If we're editing, get it from the original selectedWorkflowData first
+    // Priority: 1. Direct business_id from config, 2. Existing workflow data, 3. Twilio config, 4. Default
     let businessId;
-    if (isEditing && selectedWorkflowData) {
+    if (config.business_id) {
+      // If the SMSConfigWizard provided a top-level business_id, use that
+      businessId = config.business_id;
+      console.log('Using business ID from normalized config:', businessId);
+    } else if (isEditing && selectedWorkflowData) {
+      // If editing, get from the original workflow data
       businessId = selectedWorkflowData.business_id || selectedWorkflowData.client_id || '1';
       console.log('Using business ID from existing workflow:', businessId);
     } else {
+      // Last resort: use from the form input or default to 1
       businessId = config.twilio.businessId || '1';
-      console.log('Using business ID from form:', businessId);
+      console.log('Using business ID from form input:', businessId);
     }
+    
+    // Ensure it's a proper number/string (not an object or other type)
+    businessId = typeof businessId === 'object' ? JSON.stringify(businessId) : String(businessId);
+    console.log('Final normalized business ID:', businessId);
     
     // Preserve existing workflow name if editing
     let workflowName = 'SMS Workflow';

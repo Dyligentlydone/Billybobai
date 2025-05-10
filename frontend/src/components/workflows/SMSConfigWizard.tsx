@@ -324,10 +324,22 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
         const monitoring = actions.monitoring || smsActions.monitoring || {};
         const systemIntegration = actions.systemIntegration || smsActions.systemIntegration || {};
         
+        // Log all possible business ID sources for debugging
+        console.log('Business ID sources:', {
+          business_id: existingData.business_id,
+          client_id: existingData.client_id,
+          businessId: existingData.businessId,
+          actions_twilio: twilioConfig.businessId
+        });
+        
+        // Ensure we extract the business ID correctly
+        const businessId = existingData.business_id || existingData.client_id || twilioConfig.businessId || 0;
+        console.log('Using business ID for edit:', businessId);
+        
         // Create a config object from the existing data
         const existingConfig: Config = {
           twilio: {
-            businessId: existingData.business_id || existingData.client_id || existingData.businessId || 0,
+            businessId: parseInt(String(businessId), 10) || 0,
             accountSid: twilioConfig.accountSid || '',
             authToken: twilioConfig.authToken || '',
             phoneNumber: twilioConfig.phoneNumber || twilioConfig.twilioPhoneNumber || '',
@@ -428,10 +440,11 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
         // Update the state with the existing configuration
         setConfig(existingConfig);
         
-        // Set the business ID if it exists
-        if (existingData.business_id) {
-          setIntegrationState(prev => ({ ...prev, selectedBusinessId: existingData.business_id.toString() }));
-        }
+        // Always set the business ID from the extracted value to ensure it's available
+        // This should populate the field even if the user didn't explicitly enter it
+        const businessIdStr = String(businessId);
+        console.log('Setting integration state business ID to:', businessIdStr);
+        setIntegrationState(prev => ({ ...prev, selectedBusinessId: businessIdStr }));
         
       } catch (error) {
         console.error('Error parsing existing workflow data:', error);
@@ -823,16 +836,28 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
         throw new Error('Business ID must be a valid number');
       }
       
+      // Make sure we preserve the original business ID for editing
+      // This is critical for ensuring we update the correct workflow
+      // Get the business ID from the form or fall back to the initial value
+      const finalBusinessId = parseInt(String(config.twilio.businessId), 10);
+      console.log('Final business ID for completion:', finalBusinessId);
+      
       // Create a normalized version of config to pass to parent
       const normalizedConfig = {
         ...config,
+        // Add business_id at the top level to make it easier to access
+        business_id: finalBusinessId,
         twilio: {
           ...config.twilio,
+          // Ensure the business ID is consistent in all places
+          businessId: finalBusinessId,
           // Ensure the phone number is accessible via both field names
           phoneNumber: config.twilio?.phoneNumber || '',
           twilioPhoneNumber: config.twilio?.phoneNumber || ''
         }
       };
+      
+      console.log('Normalized config with business ID:', normalizedConfig);
 
       console.log('Passing configuration to parent component');
       
