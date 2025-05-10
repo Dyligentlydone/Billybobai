@@ -131,7 +131,17 @@ const Workflows: React.FC = () => {
     // Determine if we're editing an existing workflow
     const isEditing = editingWorkflowId !== null;
     const workflowId = isEditing ? editingWorkflowId : generateUUID();
-    const businessId = config.twilio.businessId || '1';
+    
+    // Make sure we get the business ID from the right place
+    // If we're editing, get it from the original selectedWorkflowData first
+    let businessId;
+    if (isEditing && selectedWorkflowData) {
+      businessId = selectedWorkflowData.business_id || selectedWorkflowData.client_id || '1';
+      console.log('Using business ID from existing workflow:', businessId);
+    } else {
+      businessId = config.twilio.businessId || '1';
+      console.log('Using business ID from form:', businessId);
+    }
     
     // Preserve existing workflow name if editing
     let workflowName = 'SMS Workflow';
@@ -214,11 +224,23 @@ const Workflows: React.FC = () => {
       
       // Store the workflow ID being edited
       setEditingWorkflowId(id);
+      console.log("Set editing workflow ID to:", id);
+      
+      // Extract and log business ID for debugging
+      const businessId = workflowData.business_id || workflowData.client_id || null;
+      console.log("Workflow business ID:", businessId);
       
       // Check workflow type to determine which editor to show
       if (workflowData.name && workflowData.name.toLowerCase().includes('sms')) {
         console.log("Loading SMS workflow in SMSConfigWizard");
-        setSelectedWorkflowData(workflowData);
+        // Make sure we're passing all the data clearly
+        setSelectedWorkflowData({
+          ...workflowData,
+          // Ensure these IDs are clearly available
+          business_id: businessId,
+          client_id: businessId,
+          id: id
+        });
         setShowSMSWizard(true);
       } else {
         console.log("Loading workflow in WorkflowBuilder");
@@ -226,6 +248,7 @@ const Workflows: React.FC = () => {
       }
     } catch (error) {
       console.error("Error editing workflow:", error);
+      toast.error("Failed to load workflow for editing");
       // Clear editing state on error
       setEditingWorkflowId(null);
     }

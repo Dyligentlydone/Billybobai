@@ -327,7 +327,7 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
         // Create a config object from the existing data
         const existingConfig: Config = {
           twilio: {
-            businessId: existingData.business_id ? parseInt(existingData.business_id) : 0,
+            businessId: existingData.business_id || existingData.client_id || existingData.businessId || 0,
             accountSid: twilioConfig.accountSid || '',
             authToken: twilioConfig.authToken || '',
             phoneNumber: twilioConfig.phoneNumber || twilioConfig.twilioPhoneNumber || '',
