@@ -2749,7 +2749,7 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
       <div className="mb-8">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium text-gray-900">
-            Step {step} of 7
+            Step {step} of {step === 8 ? '7 (Summary)' : '7'}
           </span>
           <span className="text-sm font-medium text-gray-500">
             {step === 1 && 'Twilio Configuration'}
@@ -2770,7 +2770,7 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
       </div>
 
       {/* Step content */}
-      {step < 7 ? renderStep() : renderSummaryStep()}
+      {step <= 7 ? renderStep() : renderSummaryStep()}
 
       {/* Navigation */}
       <div className="mt-8 flex justify-between">
@@ -2794,7 +2794,7 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
           <button
             type="button"
             onClick={() => {
-              if (step < 7) {
+              if (step < 8) {
                 setStep(step + 1);
               } else {
                 handleComplete();
@@ -2802,7 +2802,7 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
             }}
             className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
           >
-            {step === 7 ? 'Complete' : 'Next'}
+            {step === 8 ? 'Complete' : 'Next'}
           </button>
         </div>
       </div>
