@@ -9,6 +9,15 @@ import { VoiceWizard } from '../components/wizard/VoiceWizard';
 import { WizardProvider } from '../contexts/WizardContext';
 import { Dialog, DialogContent, DialogActions, Button } from '@mui/material';
 
+// Helper function to generate UUID
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
 // API URL configuration
 const API_BASE_URL = 'https://api.dyligent.xyz';
 
@@ -43,6 +52,7 @@ const Workflows: React.FC = () => {
   const [smsConfig, setSMSConfig] = useState<any>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [editingWorkflowId, setEditingWorkflowId] = useState<string | null>(null);
 
   // Initialize the query client for cache invalidation
   const queryClient = useQueryClient();
@@ -116,8 +126,27 @@ const Workflows: React.FC = () => {
     const greetings = (config.brandTone || {}).greetings || [];
     const wordsToAvoid = (config.brandTone || {}).wordsToAvoid || [];
     const businessHours = ((config.templates || {}).businessHours) || '{}';
+    
+    // Create workflow data that will be sent to the API
+    // Determine if we're editing an existing workflow
+    const isEditing = editingWorkflowId !== null;
+    const workflowId = isEditing ? editingWorkflowId : generateUUID();
+    const businessId = config.twilio.businessId || '1';
+    
+    // Preserve existing workflow name if editing
+    let workflowName = 'SMS Workflow';
+    if (isEditing && selectedWorkflowData && selectedWorkflowData.name) {
+      workflowName = selectedWorkflowData.name;
+    }
+    
+    console.log(`${isEditing ? 'Updating' : 'Creating'} workflow with ID: ${workflowId} and business ID: ${businessId}`);
                            
-    setSMSConfig({
+    // Construct the workflow data
+    const workflowData = {
+      workflow_id: workflowId,
+      business_id: businessId,
+      name: workflowName,
+      type: 'sms',
       twilio: {
         type: 'sms',
         aiEnabled: 'true',
@@ -131,15 +160,29 @@ const Workflows: React.FC = () => {
           - Use fallback message if unable to respond
           - Respect business hours: ${JSON.stringify(businessHours)}`,
       },
-      instructions: [
-        'Configure Twilio webhook URL',
-        'Set up monitoring alerts',
-        'Test with sample messages',
-        'Enable production mode when ready'
-      ]
-    });
-    setShowSMSWizard(false);
-    setIsCreating(true);
+      actions: config // Include the full configuration
+    };
+    
+    // Make the API call - use PUT for updates, POST for new workflows
+    const apiCall = isEditing 
+      ? api.put(`/api/workflows/${workflowId}`, workflowData) 
+      : api.post('/api/workflows', workflowData);
+    
+    apiCall
+      .then(response => {
+        toast.success(`SMS workflow ${isEditing ? 'updated' : 'created'} successfully!`);
+        queryClient.invalidateQueries('workflows'); // Refresh the list
+        // Clear editing state
+        setEditingWorkflowId(null);
+        setSelectedWorkflowData(null);
+      })
+      .catch(error => {
+        toast.error(`Failed to ${isEditing ? 'update' : 'create'} SMS workflow`);
+        console.error(`Error ${isEditing ? 'updating' : 'creating'} workflow:`, error);
+      })
+      .finally(() => {
+        setShowSMSWizard(false);
+      });
   };
 
   const handleEmailConfigComplete = () => {
@@ -169,6 +212,9 @@ const Workflows: React.FC = () => {
       const workflowData = await fetchWorkflowData(id);
       console.log("Received workflow data:", JSON.stringify(workflowData, null, 2));
       
+      // Store the workflow ID being edited
+      setEditingWorkflowId(id);
+      
       // Check workflow type to determine which editor to show
       if (workflowData.name && workflowData.name.toLowerCase().includes('sms')) {
         console.log("Loading SMS workflow in SMSConfigWizard");
@@ -180,6 +226,8 @@ const Workflows: React.FC = () => {
       }
     } catch (error) {
       console.error("Error editing workflow:", error);
+      // Clear editing state on error
+      setEditingWorkflowId(null);
     }
   };
 
