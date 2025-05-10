@@ -75,6 +75,7 @@ interface ResponseConfig {
     description: string;
   }>;
   fallbackMessage: string;
+  optInPrompt: string; // Adding opt-in prompt field
   messageStructure: Array<{
     id: string;
     name: string;
@@ -170,6 +171,7 @@ const INITIAL_CONFIG: Config = {
   response: {
     templates: [],
     fallbackMessage: "I apologize, but I'm having trouble understanding your request. Could you please rephrase it?",
+    optInPrompt: "Reply YES to opt in to receive SMS messages from us. Standard messaging rates may apply. Reply STOP to opt out at any time.",
     messageStructure: [
       {
         id: 'greeting',
@@ -370,6 +372,7 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
           response: {
             templates: response.templates || [],
             fallbackMessage: response.fallbackMessage || 'I apologize, but I am unable to process your request at the moment. Please try again later or contact our support team.',
+            optInPrompt: response.optInPrompt || 'Reply YES to opt in to receive SMS messages from us. Standard messaging rates may apply. Reply STOP to opt out at any time.',
             messageStructure: response.messageStructure || [],
             characterLimit: response.characterLimit || 160
           },
@@ -1377,6 +1380,33 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
 
   const renderResponseStep = () => (
     <div className="space-y-8">
+      {/* Opt-in Prompt Section */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Opt-in Prompt</label>
+        <div className="mt-2">
+          <p className="text-sm text-gray-500 mb-3">
+            This message will be sent to users when they first interact with your system, requesting their consent to receive messages.
+          </p>
+          <textarea
+            value={config.response.optInPrompt}
+            onChange={(e) => setConfig(prev => ({
+              ...prev,
+              response: {
+                ...prev.response,
+                optInPrompt: e.target.value
+              }
+            }))}
+            rows={3}
+            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            placeholder="Enter your opt-in prompt message..."
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            For compliance reasons, this message should include: how to opt in (e.g., "Reply YES"), info about messaging rates, and how to opt out.
+          </p>
+        </div>
+      </div>
+
+      {/* Message Structure Section */}
       <div>
         <label className="block text-sm font-medium text-gray-700">Message Structure</label>
         <div className="mt-2">
