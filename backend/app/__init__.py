@@ -458,6 +458,15 @@ def create_app():
                     logger.error(f"Failed to register clients blueprint: {str(e)}")
 
                 try:
+                    from .routes.business_routes import business_bp
+                    app.register_blueprint(business_bp)
+                    logger.info("Business blueprint registered successfully")
+                except Exception as e:
+                    logger.error(f"Failed to register business blueprint: {str(e)}")
+                    import traceback
+                    logger.error(traceback.format_exc())
+
+                try:
                     from routes.conversation_analytics import conversation_bp
                     app.register_blueprint(conversation_bp)
                     logger.info("Conversation analytics blueprint registered with prefix /api/analytics/conversations")
