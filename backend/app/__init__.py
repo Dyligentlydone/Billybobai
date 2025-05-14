@@ -1430,6 +1430,9 @@ def create_app():
             "domain": getattr(business, "domain", None)
         })
 
+    # Register all blueprints with proper error handling
+    register_blueprints_with_error_handling(app)
+    
     logger.info("Application creation completed successfully")
     return app
 
