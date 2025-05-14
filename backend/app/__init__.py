@@ -1256,14 +1256,6 @@ def create_app():
         })
     
     # Register blueprint for /api/businesses endpoints
-    from app.routes.business_routes import business_bp
-    app.register_blueprint(business_bp)
-    logger.info("Registered business_bp blueprint for /api/businesses endpoints")
-
-    # Print Flask URL map after all routes are registered
-    logger.info("Flask URL Map after blueprint registration:")
-    for rule in app.url_map.iter_rules():
-        logger.info(f"Route: {rule} -> Endpoint: {rule.endpoint}")
 
     # Add root-level /businesses endpoint (for frontend compatibility)
     @app.route('/businesses', methods=['GET'])
