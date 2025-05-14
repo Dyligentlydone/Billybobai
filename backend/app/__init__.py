@@ -284,6 +284,52 @@ def create_app():
         """Return JSON for 404 errors instead of HTML"""
         logger.warning(f"404 error: {request.path}")
         
+        # Special case for /api/businesses endpoint that's getting 404s
+        if request.path == '/api/businesses' or request.path.startswith('/api/businesses/'):
+            logger.info(f"Intercepting 404 for businesses route: {request.path} with method {request.method}")
+            from app.models.business import Business
+            from app.db import db
+            
+            # Handle business ID in path parameter
+            business_id = None
+            if request.path.startswith('/api/businesses/'):
+                business_id = request.path.split('/')[-1]
+            else:  # Handle query parameter
+                business_id = request.args.get('id')
+            
+            try:
+                if business_id:
+                    # If ID is provided, get that specific business
+                    logger.info(f"Fetching business with ID: {business_id} from 404 handler")
+                    business = db.session.query(Business).filter_by(id=business_id).first()
+                    
+                    if not business:
+                        logger.warning(f"Business with ID {business_id} not found")
+                        return jsonify({"error": "Business not found"}), 404
+                        
+                    return jsonify({
+                        "id": business.id,
+                        "name": business.name,
+                        "description": business.description,
+                        "domain": getattr(business, "domain", None)
+                    })
+                else:
+                    # Otherwise, get all businesses
+                    logger.info("Fetching all businesses from 404 handler")
+                    businesses = db.session.query(Business).all()
+                    return jsonify([{
+                        "id": business.id,
+                        "name": business.name,
+                        "description": business.description,
+                        "domain": getattr(business, "domain", None)
+                    } for business in businesses])
+                    
+            except Exception as e:
+                logger.error(f"Error in 404 handler for businesses: {str(e)}")
+                import traceback
+                logger.error(traceback.format_exc())
+                return jsonify({"error": str(e)}), 500
+        
         # Special case for auth/passcodes routes that are getting 404s
         if '/api/auth/passcodes' in request.path:
             logger.info(f"Intercepting 404 for passcodes route: {request.path}")
