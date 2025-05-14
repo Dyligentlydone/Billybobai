@@ -1223,6 +1223,7 @@ def create_app():
         return jsonify({"message": "Path not found", "path": subpath}), 200
 
     # Add direct analytics endpoint
+    @app.route('/analytics', methods=['GET'])
     @app.route('/api/analytics', methods=['GET'])
     def get_analytics():
         """Get analytics data for a specific business"""
