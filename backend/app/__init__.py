@@ -1254,6 +1254,43 @@ def create_app():
             'error_distribution': []
         })
     
+    # Register blueprint for /api/businesses endpoints
+    try:
+        from app.routes.business_routes import business_bp
+        app.register_blueprint(business_bp)
+        logger.info("Registered business_bp blueprint for /api/businesses endpoints")
+    except Exception as e:
+        logger.error(f"Failed to register business_bp blueprint: {str(e)}")
+
+    # Add root-level /businesses endpoint (for frontend compatibility)
+    @app.route('/businesses', methods=['GET'])
+    def businesses_root():
+        from app.models.business import Business
+        from app.db import db
+        businesses = db.session.query(Business).all()
+        return jsonify([
+            {
+                "id": b.id,
+                "name": b.name,
+                "description": b.description,
+                "domain": getattr(b, "domain", None)
+            } for b in businesses
+        ])
+
+    @app.route('/businesses/<business_id>', methods=['GET'])
+    def business_by_id_root(business_id):
+        from app.models.business import Business
+        from app.db import db
+        business = db.session.query(Business).filter_by(id=business_id).first()
+        if not business:
+            return jsonify({"error": "Business not found"}), 404
+        return jsonify({
+            "id": business.id,
+            "name": business.name,
+            "description": business.description,
+            "domain": getattr(business, "domain", None)
+        })
+
     logger.info("Application creation completed successfully")
     return app
 
