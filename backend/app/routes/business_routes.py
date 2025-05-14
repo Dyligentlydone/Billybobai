@@ -11,6 +11,7 @@ business_bp = Blueprint('business_bp', __name__)
 
 @business_bp.route('/api/businesses', methods=['GET'])
 def get_businesses():
+    logger.info("HIT: /api/businesses route")
     """Get all businesses or a specific business by ID"""
     logger.info("GET /api/businesses endpoint called")
     
