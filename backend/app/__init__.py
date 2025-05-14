@@ -1431,7 +1431,58 @@ def create_app():
         })
 
     # Register all blueprints with proper error handling
-    register_blueprints_with_error_handling(app)
+    try:
+        register_blueprints_with_error_handling(app)
+        logger.info("Successfully registered all blueprints")
+    except Exception as e:
+        logger.error(f"Error registering blueprints: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+    
+    # Direct route implementations to ensure critical endpoints always work
+    logger.info("Adding direct route implementations for critical endpoints")
+    
+    @app.route('/api/businesses', methods=['GET'])
+    def guaranteed_businesses():
+        """Guaranteed implementation of the /api/businesses endpoint that doesn't depend on blueprint registration"""
+        logger.info("GUARANTEED /api/businesses endpoint called")
+        from app.models.business import Business
+        from app.db import db
+        
+        try:
+            # Check if ID is provided as a query parameter
+            business_id = request.args.get('id')
+            
+            if business_id:
+                # If ID is provided, get that specific business
+                logger.info(f"Guaranteed route: Fetching business with ID: {business_id}")
+                business = db.session.query(Business).filter_by(id=business_id).first()
+                
+                if not business:
+                    logger.warning(f"Business with ID {business_id} not found")
+                    return jsonify({"error": "Business not found"}), 404
+                    
+                return jsonify({
+                    "id": business.id,
+                    "name": business.name,
+                    "description": business.description,
+                    "domain": getattr(business, "domain", None)
+                })
+            else:
+                # Otherwise, get all businesses
+                logger.info("Guaranteed route: Fetching all businesses")
+                businesses = db.session.query(Business).all()
+                return jsonify([{
+                    "id": b.id,
+                    "name": b.name,
+                    "description": b.description,
+                    "domain": getattr(b, "domain", None)
+                } for b in businesses])
+        except Exception as e:
+            logger.error(f"Error in guaranteed businesses route: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return jsonify({"error": str(e)}), 500
     
     logger.info("Application creation completed successfully")
     return app
