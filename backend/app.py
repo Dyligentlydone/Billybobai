@@ -389,7 +389,17 @@ def register_blueprints(app):
                 app.register_blueprint(business_bp)
                 logger.info("Successfully registered business routes blueprint from routes")
             except ImportError:
-                logger.warning("Business routes not found in any location, skipping")
+                try:
+                    # Try the new dedicated businesses.py file
+                    from routes.businesses import business_bp
+                    app.register_blueprint(business_bp)
+                    logger.info("Successfully registered DEDICATED business blueprint from routes.businesses")
+                except ImportError:
+                    logger.warning("Business routes not found in any location, skipping")
+                except Exception as e:
+                    logger.error(f"Error registering business routes blueprint from routes.businesses: {str(e)}")
+                    import traceback
+                    logger.error(traceback.format_exc())
             except Exception as e:
                 logger.error(f"Error registering business routes blueprint: {str(e)}")
                 import traceback
