@@ -1329,6 +1329,47 @@ def create_app():
             } for b in businesses
         ])
 
+    @app.route('/api/businesses', methods=['GET'])
+    def api_businesses():
+        """Direct implementation of the /api/businesses endpoint to bypass blueprint issues"""
+        logger.info("DIRECT API /api/businesses endpoint called")
+        from app.models.business import Business
+        from app.db import db
+        
+        # Check if ID is provided as a query parameter
+        business_id = request.args.get('id')
+        
+        try:
+            if business_id:
+                # If ID is provided, get that specific business
+                logger.info(f"Fetching business with ID: {business_id}")
+                business = Business.query.filter_by(id=business_id).first()
+                
+                if not business:
+                    logger.warning(f"Business with ID {business_id} not found")
+                    return jsonify({"error": "Business not found"}), 404
+                    
+                return jsonify({
+                    "id": business.id,
+                    "name": business.name,
+                    "description": business.description
+                })
+            else:
+                # Otherwise, get all businesses
+                logger.info("Fetching all businesses")
+                businesses = Business.query.all()
+                return jsonify([{
+                    "id": business.id,
+                    "name": business.name,
+                    "description": business.description
+                } for business in businesses])
+                
+        except Exception as e:
+            logger.error(f"Error in direct api_businesses: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return jsonify({"error": str(e)}), 500
+
     @app.route('/businesses/<business_id>', methods=['GET'])
     def business_by_id_root(business_id):
         from app.models.business import Business
