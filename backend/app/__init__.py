@@ -478,14 +478,19 @@ def create_app():
                 except ImportError:
                     logger.warning("Calendly routes not found, skipping")
                 except Exception as e:
-                    logger.error(f"Error registering Calendly blueprint: {str(e)}")
-
+                    logger.error(f"Failed to register Calendly blueprint: {str(e)}")
+                    
+                # Import and register the analytics blueprint
                 try:
-                    from .routes.api import api as api_blueprint
-                    app.register_blueprint(api_blueprint, url_prefix='/api')
-                    logger.info("API blueprint registered successfully at /api")
+                    from routes.analytics import analytics_bp
+                    app.register_blueprint(analytics_bp)
+                    logger.info("Analytics blueprint registered successfully")
+                except ImportError:
+                    logger.warning("Analytics routes not found, skipping")
                 except Exception as e:
-                    logger.error(f"Failed to register API blueprint: {str(e)}")
+                    logger.error(f"Error registering Analytics blueprint: {str(e)}")
+                    import traceback
+                    logger.error(traceback.format_exc())
 
                 try:
                     from .routes.webhooks import webhooks as webhooks_blueprint
@@ -1292,37 +1297,38 @@ def create_app():
         return jsonify({"message": "Path not found", "path": subpath}), 200
 
     # Add direct analytics endpoint
-    @app.route('/analytics', methods=['GET'])
-    @app.route('/api/analytics', methods=['GET'])
-    def get_analytics():
-        """Get analytics data for a specific business"""
-        client_id = request.args.get('clientId')
-        start_date = request.args.get('startDate')
-        end_date = request.args.get('endDate')
-        
-        logger.info(f"GET /api/analytics with clientId={client_id}, startDate={start_date}, endDate={end_date}")
-        
-        if not all([client_id, start_date, end_date]):
-            return jsonify({'error': 'Missing required parameters'}), 400
-        
-        # Return sample data for now
-        return jsonify({
-            'message_metrics': {
-                'total_messages': 10,
-                'delivered_count': 8,
-                'failed_count': 2,
-                'retried_count': 1,
-                'avg_retries': 0.5,
-                'opt_out_count': 0,
-                'avg_delivery_time': 2.5
-            },
-            'hourly_stats': {
-                '10': {'delivered': 3, 'failed': 1},
-                '14': {'delivered': 5, 'failed': 1}
-            },
-            'opt_out_trends': [],
-            'error_distribution': []
-        })
+    # Direct implementation commented out to allow blueprint implementation to be used
+# @app.route('/analytics', methods=['GET'])
+# @app.route('/api/analytics', methods=['GET'])
+# def get_analytics():
+#     """Get analytics data for a specific business"""
+#     client_id = request.args.get('clientId')
+#     start_date = request.args.get('startDate')
+#     end_date = request.args.get('endDate')
+#     
+#     logger.info(f"GET /api/analytics with clientId={client_id}, startDate={start_date}, endDate={end_date}")
+#     
+#     if not all([client_id, start_date, end_date]):
+#         return jsonify({'error': 'Missing required parameters'}), 400
+#     
+#     # Return sample data for now
+#     return jsonify({
+#         'message_metrics': {
+#             'total_messages': 10,
+#             'delivered_count': 8,
+#             'failed_count': 2,
+#             'retried_count': 1,
+#             'avg_retries': 0.5,
+#             'opt_out_count': 0,
+#             'avg_delivery_time': 2.5
+#         },
+#         'hourly_stats': {
+#             '10': {'delivered': 3, 'failed': 1},
+#             '14': {'delivered': 5, 'failed': 1}
+#         },
+#         'opt_out_trends': [],
+#         'error_distribution': []
+#     })
 
     @app.route('/analytics/<client_id>', methods=['GET'])
     @app.route('/api/analytics/<client_id>', methods=['GET'])
@@ -1375,46 +1381,47 @@ def create_app():
             } for b in businesses
         ])
 
-    @app.route('/api/businesses', methods=['GET'])
-    def api_businesses():
-        """Direct implementation of the /api/businesses endpoint to bypass blueprint issues"""
-        logger.info("DIRECT API /api/businesses endpoint called")
-        from app.models.business import Business
-        from app.db import db
-        
-        # Check if ID is provided as a query parameter
-        business_id = request.args.get('id')
-        
-        try:
-            if business_id:
-                # If ID is provided, get that specific business
-                logger.info(f"Fetching business with ID: {business_id}")
-                business = Business.query.filter_by(id=business_id).first()
-                
-                if not business:
-                    logger.warning(f"Business with ID {business_id} not found")
-                    return jsonify({"error": "Business not found"}), 404
-                    
-                return jsonify({
-                    "id": business.id,
-                    "name": business.name,
-                    "description": business.description
-                })
-            else:
-                # Otherwise, get all businesses
-                logger.info("Fetching all businesses")
-                businesses = Business.query.all()
-                return jsonify([{
-                    "id": business.id,
-                    "name": business.name,
-                    "description": business.description
-                } for business in businesses])
-                
-        except Exception as e:
-            logger.error(f"Error in direct api_businesses: {str(e)}")
-            import traceback
-            logger.error(traceback.format_exc())
-            return jsonify({"error": str(e)}), 500
+    # Commented out to allow blueprint implementation to be used
+    # @app.route('/api/businesses', methods=['GET'])
+    # def api_businesses():
+    #     """Direct implementation of the /api/businesses endpoint to bypass blueprint issues"""
+    #     logger.info("DIRECT API /api/businesses endpoint called")
+    #     from app.models.business import Business
+    #     from app.db import db
+    #     
+    #     # Check if ID is provided as a query parameter
+    #     business_id = request.args.get('id')
+    #     
+    #     try:
+    #         if business_id:
+    #             # If ID is provided, get that specific business
+    #             logger.info(f"Fetching business with ID: {business_id}")
+    #             business = Business.query.filter_by(id=business_id).first()
+    #             
+    #             if not business:
+    #                 logger.warning(f"Business with ID {business_id} not found")
+    #                 return jsonify({"error": "Business not found"}), 404
+    #                 
+    #             return jsonify({
+    #                 "id": business.id,
+    #                 "name": business.name,
+    #                 "description": business.description
+    #             })
+    #         else:
+    #             # Otherwise, get all businesses
+    #             logger.info("Fetching all businesses")
+    #             businesses = Business.query.all()
+    #             return jsonify([{
+    #                 "id": business.id,
+    #                 "name": business.name,
+    #                 "description": business.description
+    #             } for business in businesses])
+    #             
+    #     except Exception as e:
+    #         logger.error(f"Error in direct api_businesses: {str(e)}")
+    #         import traceback
+    #         logger.error(traceback.format_exc())
+    #         return jsonify({"error": str(e)}), 500
 
     @app.route('/businesses/<business_id>', methods=['GET'])
     def business_by_id_root(business_id):
@@ -1442,47 +1449,48 @@ def create_app():
     # Direct route implementations to ensure critical endpoints always work
     logger.info("Adding direct route implementations for critical endpoints")
     
-    @app.route('/api/businesses', methods=['GET'])
-    def guaranteed_businesses():
-        """Guaranteed implementation of the /api/businesses endpoint that doesn't depend on blueprint registration"""
-        logger.info("GUARANTEED /api/businesses endpoint called")
-        from app.models.business import Business
-        from app.db import db
-        
-        try:
-            # Check if ID is provided as a query parameter
-            business_id = request.args.get('id')
-            
-            if business_id:
-                # If ID is provided, get that specific business
-                logger.info(f"Guaranteed route: Fetching business with ID: {business_id}")
-                business = db.session.query(Business).filter_by(id=business_id).first()
-                
-                if not business:
-                    logger.warning(f"Business with ID {business_id} not found")
-                    return jsonify({"error": "Business not found"}), 404
-                    
-                return jsonify({
-                    "id": business.id,
-                    "name": business.name,
-                    "description": business.description,
-                    "domain": getattr(business, "domain", None)
-                })
-            else:
-                # Otherwise, get all businesses
-                logger.info("Guaranteed route: Fetching all businesses")
-                businesses = db.session.query(Business).all()
-                return jsonify([{
-                    "id": b.id,
-                    "name": b.name,
-                    "description": b.description,
-                    "domain": getattr(b, "domain", None)
-                } for b in businesses])
-        except Exception as e:
-            logger.error(f"Error in guaranteed businesses route: {str(e)}")
-            import traceback
-            logger.error(traceback.format_exc())
-            return jsonify({"error": str(e)}), 500
+    # Commented out direct implementation to allow blueprint implementation to be used
+    # @app.route('/api/businesses', methods=['GET'])
+    # def guaranteed_businesses():
+    #     """Guaranteed implementation of the /api/businesses endpoint that doesn't depend on blueprint registration"""
+    #     logger.info("GUARANTEED /api/businesses endpoint called")
+    #     from app.models.business import Business
+    #     from app.db import db
+    #     
+    #     try:
+    #         # Check if ID is provided as a query parameter
+    #         business_id = request.args.get('id')
+    #         
+    #         if business_id:
+    #             # If ID is provided, get that specific business
+    #             logger.info(f"Guaranteed route: Fetching business with ID: {business_id}")
+    #             business = db.session.query(Business).filter_by(id=business_id).first()
+    #             
+    #             if not business:
+    #                 logger.warning(f"Business with ID {business_id} not found")
+    #                 return jsonify({"error": "Business not found"}), 404
+    #                 
+    #             return jsonify({
+    #                 "id": business.id,
+    #                 "name": business.name,
+    #                 "description": business.description,
+    #                 "domain": getattr(business, "domain", None)
+    #             })
+    #         else:
+    #             # Otherwise, get all businesses
+    #             logger.info("Guaranteed route: Fetching all businesses")
+    #             businesses = db.session.query(Business).all()
+    #             return jsonify([{
+    #                 "id": b.id,
+    #                 "name": b.name,
+    #                 "description": b.description,
+    #                 "domain": getattr(b, "domain", None)
+    #             } for b in businesses])
+    #     except Exception as e:
+    #         logger.error(f"Error in guaranteed businesses route: {str(e)}")
+    #         import traceback
+    #         logger.error(traceback.format_exc())
+    #         return jsonify({"error": str(e)}), 500
     
     logger.info("Application creation completed successfully")
     return app
