@@ -457,6 +457,15 @@ def create_app():
                 except Exception as e:
                     logger.error(f"Failed to register clients blueprint: {str(e)}")
 
+                try:
+                    from routes.conversation_analytics import conversation_bp
+                    app.register_blueprint(conversation_bp)
+                    logger.info("Conversation analytics blueprint registered with prefix /api/analytics/conversations")
+                except Exception as e:
+                    logger.error(f"Failed to register conversation analytics blueprint: {str(e)}")
+                    import traceback
+                    logger.error(traceback.format_exc())
+
                 # Add other blueprints here as needed
             except Exception as e:
                 logger.error(f"Error in register_blueprints: {str(e)}")
@@ -804,22 +813,27 @@ def create_app():
         logger.info(f"Client bridge hit: {request.method} {request.path} with args: {request.args}")
         
         try:
-            # Handle OPTIONS pre-flight requests
-            if request.method == 'OPTIONS':
-                response = jsonify({})
-                response.headers.add('Access-Control-Allow-Origin', '*')
-                response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-                response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-                return response, 204
-                
-            # Check for admin token in query param, header, or cookie
-            admin_token = request.args.get('admin', '')
-            auth_header = request.headers.get('Authorization', '')
-            if auth_header and auth_header.startswith('Bearer '):
-                auth_header = auth_header[7:]  # Remove 'Bearer ' prefix
-                
-            # Validate admin token
-            is_admin = (admin_token == "97225" or auth_header == "97225")
+            # Check admin authentication from different sources
+            admin_password = request.cookies.get('admin_password')
+            auth_header = request.headers.get('Authorization')
+            admin_token = request.args.get('admin')  # Get from query params for GET requests
+            
+            # For POST requests, get from request body
+            if request.method == 'POST' and request.is_json:
+                data = request.get_json() or {}
+                if not admin_token:
+                    admin_token = data.get('admin_token')
+                business_id = data.get('business_id')
+            else:
+                # For GET requests, get from query params
+                business_id = request.args.get('business_id')
+            
+            logger.info(f"Bridge: Processing for business_id: {business_id}, admin token: {admin_token}")
+            
+            # Check admin authentication
+            is_admin = (admin_password == "97225" or 
+                       (auth_header and auth_header.replace('Bearer ', '') == "97225") or
+                       admin_token == "97225")
             
             if not is_admin:
                 logger.warning("Unauthorized access attempt to client bridge")
@@ -1254,7 +1268,41 @@ def create_app():
             'opt_out_trends': [],
             'error_distribution': []
         })
-    
+
+    @app.route('/analytics/<client_id>', methods=['GET'])
+    @app.route('/api/analytics/<client_id>', methods=['GET'])
+    def get_analytics_by_client(client_id):
+        """Get analytics data for a specific business via path parameter."""
+        start_date = request.args.get('startDate')
+        end_date = request.args.get('endDate')
+
+        logger.info(
+            f"GET /api/analytics/{client_id} with startDate={start_date}, endDate={end_date}"
+        )
+
+        if not all([start_date, end_date]):
+            return jsonify({'error': 'Missing required parameters: startDate and endDate'}), 400
+
+        # For now return sample data (same as query param version)
+        return jsonify({
+            'client_id': client_id,
+            'message_metrics': {
+                'total_messages': 10,
+                'delivered_count': 8,
+                'failed_count': 2,
+                'retried_count': 1,
+                'avg_retries': 0.5,
+                'opt_out_count': 0,
+                'avg_delivery_time': 2.5
+            },
+            'hourly_stats': {
+                '10': {'delivered': 3, 'failed': 1},
+                '14': {'delivered': 5, 'failed': 1}
+            },
+            'opt_out_trends': [],
+            'error_distribution': []
+        })
+
     # Register blueprint for /api/businesses endpoints
 
     # Add root-level /businesses endpoint (for frontend compatibility)
