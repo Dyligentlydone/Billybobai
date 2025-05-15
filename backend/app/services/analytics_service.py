@@ -92,13 +92,16 @@ class AnalyticsService:
         delivery_rate = delivered_count / total_messages if total_messages else 0
 
         # Opt-out rate based on SMSConsent table if present
-        opt_out_total = (
-            self.db.query(SMSConsent).filter(
+        try:
+            opt_out_total = self.db.query(SMSConsent).filter(
                 SMSConsent.business_id == business_id,
                 SMSConsent.opted_in.is_(False),
             ).count()
-            if SMSConsent.__table__.exists(bind=self.db.get_bind()) else 0
-        )
+        except Exception as e:
+            # Handle case when table doesn't exist or other query errors
+            import logging
+            logging.warning(f"Error querying SMSConsent table: {str(e)}")
+            opt_out_total = 0
         unique_contacts = (
             self.db.query(Message.phone_number)
             .filter(Message.business_id == business_id)
