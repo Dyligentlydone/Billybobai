@@ -5,11 +5,18 @@ import os
 import sys
 import importlib
 import logging
+from datetime import datetime
+import uuid
+from sqlalchemy import Column, String, DateTime, Boolean, JSON
+from sqlalchemy.ext.declarative import declarative_base
 
 logger = logging.getLogger(__name__)
 
 # Only import db from app.db
 from app.db import db
+
+# Create Base for ORM models
+Base = declarative_base()
 
 # Define all expected models
 MODEL_IMPORTS = {
@@ -22,8 +29,40 @@ MODEL_IMPORTS = {
     "ClientPasscode": "app.models.client_passcode",
     "SMSConsent": "app.models.sms_consent",
     "User": "app.models.user",
-    "APIIntegration": "app.models.api_integration",
+    # Removed from dynamic imports since we define it inline
 }
+
+# Define APIIntegration model directly to avoid import problems
+class APIIntegration(db.Model):
+    """API Integration model for Flask-SQLAlchemy."""
+    __tablename__ = 'api_integrations'
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = db.Column(db.String(100), nullable=False)
+    api_type = db.Column(db.String(50), nullable=False)  # 'twilio', 'zendesk', etc.
+    config = db.Column(db.JSON, nullable=False, default={})
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def __repr__(self):
+        return f"<APIIntegration {self.name} ({self.api_type})>"
+
+# SQLAlchemy model for FastAPI
+class APIIntegrationORM(Base):
+    """API Integration model for SQLAlchemy ORM (FastAPI)."""
+    __tablename__ = 'api_integrations'
+    
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String(100), nullable=False)
+    api_type = Column(String(50), nullable=False)  # 'twilio', 'zendesk', etc.
+    config = Column(JSON, nullable=False, default={})
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def __repr__(self):
+        return f"<APIIntegration {self.name} ({self.api_type})>"
 
 # Import models with error handling
 def import_model(model_name, module_path):
@@ -42,12 +81,14 @@ def import_model(model_name, module_path):
 
 # Import models
 try:
+    # NOTE: APIIntegration is already defined inline above
+    # Only try to import the other models
     from app.models.business import Business, BusinessConfig
     from app.models.workflow import Workflow, WorkflowNode, WorkflowEdge, WorkflowExecution
     from app.models.client_passcode import ClientPasscode
     from app.models.sms_consent import SMSConsent
     from app.models.user import User
-    from app.models.api_integration import APIIntegration
+    logger.info("Successfully imported all models from their modules")
 except ImportError as e:
     logger.warning(f"Error importing models: {str(e)}")
     logger.warning("Fallback to dynamic imports")
@@ -55,6 +96,9 @@ except ImportError as e:
     # Import models dynamically
     for model_name, module_path in MODEL_IMPORTS.items():
         globals()[model_name] = import_model(model_name, module_path)
+        logger.info(f"Dynamically imported or created placeholder for {model_name}")
+    
+    logger.info("Using inline definition of APIIntegration")
 
 # Create a Message class if it doesn't exist but is imported somewhere
 class Message:
