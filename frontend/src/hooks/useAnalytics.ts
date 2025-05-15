@@ -1,5 +1,6 @@
 import { useQuery } from 'react-query';
-import axios, { AxiosError } from 'axios';
+import { AxiosError } from 'axios';
+import api from '../services/api';
 import { AnalyticsData } from '../types/analytics';
 
 /**
@@ -56,7 +57,7 @@ export function useAnalytics(businessId: string, start?: string, end?: string) {
     async () => {
       if (!businessId) throw new Error('No business selected');
       try {
-        const res = await axios.get<AnalyticsData>(`/api/analytics/${businessId}`, {
+        const res = await api.get<AnalyticsData>(`/api/analytics/${businessId}`, {
           params: { start, end },
         });
         return res.data;

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery } from 'react-query';
-import axios from 'axios';
+import api from '../services/api';
 import { useBusiness } from '../contexts/BusinessContext';
 import BusinessSelector from '../components/business/BusinessSelector';
 import { useAnalytics } from '../hooks/useAnalytics';
@@ -31,7 +31,7 @@ export default function Analytics() {
 
   // Fetch business list for selector (using new endpoint)
   const { data: businessList } = useQuery(['businesses'], async () => {
-    const res = await axios.get('/api/businesses');
+    const res = await api.get('/api/businesses');
     return res.data;
   });
 
