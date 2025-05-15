@@ -9,7 +9,7 @@ from sqlalchemy import inspect, text
 logger = logging.getLogger(__name__)
 
 # Blueprint: /api/clients
-clients_bp = Blueprint("clients", __name__, url_prefix="/api/clients")
+clients_bp = Blueprint("flask_clients", __name__, url_prefix="/api/clients")
 
 # --- Utility --------------------------------------------------------------
 ADMIN_TOKEN = "97225"
