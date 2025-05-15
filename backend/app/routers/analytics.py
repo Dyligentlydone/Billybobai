@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 
 from ..database import get_db
 from ..models import Business, Message
+from ..models.workflow import Workflow
 from ..schemas.analytics import AnalyticsData
 from fastapi import Query
 from sqlalchemy import func
@@ -19,7 +20,12 @@ def get_conversation_metrics(business_id: str, db: Session = Depends(get_db)):
     # via messages import). Only raise if *all* related data is missing.
     business = db.query(Business).filter(Business.id == business_id).first()
     # Get all messages for this business
-    messages = db.query(Message).filter(Message.business_id == business_id).all()
+    messages = (
+        db.query(Message)
+        .join(Workflow, Message.workflow_id == Workflow.id)
+        .filter(Workflow.business_id == business_id)
+        .all()
+    )
     total_messages = len(messages)
     # Aggregate response times
     response_times = [m.response_time for m in messages if hasattr(m, 'response_time') and m.response_time is not None]
@@ -46,7 +52,12 @@ def get_conversation_metrics(business_id: str, db: Session = Depends(get_db)):
 def get_conversations(business_id: str, page: int = Query(1, ge=1), per_page: int = Query(5, ge=1, le=100), db: Session = Depends(get_db)):
     business = db.query(Business).filter(Business.id == business_id).first()
     # Paginate messages by conversation_id
-    query = db.query(Message).filter(Message.business_id == business_id).order_by(Message.created_at.desc())
+    query = (
+        db.query(Message)
+        .join(Workflow, Message.workflow_id == Workflow.id)
+        .filter(Workflow.business_id == business_id)
+        .order_by(Message.created_at.desc())
+    )
     total = query.count()
     messages = query.offset((page-1)*per_page).limit(per_page).all()
     # Group by conversation_id (mocked as flat list for now)

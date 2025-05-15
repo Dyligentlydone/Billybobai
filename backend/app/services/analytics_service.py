@@ -4,7 +4,8 @@ from typing import Dict, Any, List
 from sqlalchemy.orm import Session
 from sqlalchemy import func, case
 
-from ..models.message import Message, MessageStatus, MessageDirection
+from ..models.message import Message, MessageStatus, MessageDirection, MessageChannel
+from ..models.workflow import Workflow
 from ..models.sms_consent import SMSConsent  # Opt-out information
 
 DEFAULT_LOOKBACK_DAYS = 30
@@ -68,12 +69,13 @@ class AnalyticsService:
         return start, end
 
     def _get_sms_metrics(self, business_id: str, start: datetime, end: datetime) -> Dict[str, Any]:
-        # Query base messages set
+        # Messages don't carry business_id directly, so join via Workflow
         q = (
             self.db.query(Message)
+            .join(Workflow, Message.workflow_id == Workflow.id)
             .filter(
-                Message.business_id == business_id,
-                Message.channel == Message.Channel.SMS if hasattr(Message, "Channel") else True,
+                Workflow.business_id == business_id,
+                Message.channel == MessageChannel.SMS,
                 Message.created_at >= start,
                 Message.created_at <= end,
             )
