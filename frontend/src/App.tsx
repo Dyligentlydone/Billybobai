@@ -53,18 +53,22 @@ function App() {
       <SnackbarProvider>
         <Router>
           <Routes>
-            {/* Public route */}
+            {/* Public routes */}
             <Route path="/passcode" element={
               <PublicRoute>
                 <PasscodePage />
               </PublicRoute>
             } />
             
-            {/* Legal and contact pages (with Layout) */}
-            <Route element={<Layout />}>
-              <Route path="/privacy" element={<Privacy />} />
-              <Route path="/terms" element={<Terms />} />
-              <Route path="/contact" element={<Contact />} />
+            {/* Legal and contact pages (public, with Layout) */}
+            <Route path="/privacy" element={<Layout />}>
+              <Route index element={<Privacy />} />
+            </Route>
+            <Route path="/terms" element={<Layout />}>
+              <Route index element={<Terms />} />
+            </Route>
+            <Route path="/contact" element={<Layout />}>
+              <Route index element={<Contact />} />
             </Route>
             
             {/* Root redirect */}
