@@ -3,7 +3,7 @@ import { useQuery } from 'react-query';
 import axios from 'axios';
 import { useBusiness } from '../contexts/BusinessContext';
 import BusinessSelector from '../components/business/BusinessSelector';
-import { useSMSAnalytics } from '../hooks/useSMSAnalytics';
+import { useAnalytics } from '../hooks/useAnalytics';
 import { Tab } from '@headlessui/react';
 import SMSAnalytics from '../components/analytics/SMSAnalytics';
 import VoiceAnalytics from '../components/analytics/VoiceAnalytics';
@@ -22,8 +22,12 @@ export default function Analytics() {
   const start = new Date();
   start.setDate(start.getDate() - 30);
 
-  // Use new SMS analytics hook for metrics
-  const { metrics, loading: smsLoading, error: smsError } = useSMSAnalytics(selectedBusinessId || '', selectedBusinessId || '');
+  // Use new analytics hook for metrics
+  const {
+    analytics,
+    isLoading: analyticsLoading,
+    isError: analyticsError,
+  } = useAnalytics(selectedBusinessId || '');
 
   // Fetch business list for selector (using new endpoint)
   const { data: businessList } = useQuery(['businesses'], async () => {
@@ -31,7 +35,7 @@ export default function Analytics() {
     return res.data;
   });
 
-  if (smsError) {
+  if (analyticsError) {
     return (
       <div className="p-4">
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
@@ -41,7 +45,7 @@ export default function Analytics() {
     );
   }
 
-  if (smsLoading) {
+  if (analyticsLoading) {
     return (
       <div className="p-4">
         <div className="animate-pulse space-y-4">
@@ -132,98 +136,40 @@ export default function Analytics() {
         </Tab.List>
         <Tab.Panels>
           <Tab.Panel>
-            <OverviewAnalytics
-              metrics={{
-                overview: {
-                  totalInteractions: '0',
-                  totalCost: 0,
-                  averageResponseTime: '0s',
-                  successRate: 0
-                },
-                sms: {
-                  totalCount: '0',
-                  responseTime: '0s',
-                  deliveryRate: 0,
-                  optOutRate: 0,
-                  aiCost: 0,
-                  serviceCost: 0,
-                  qualityMetrics: [],
-                  responseTypes: [],
-                  dailyCosts: [],
-                  hourlyActivity: [],
-                  conversations: []
-                },
-                voice: {
-                  totalCount: '0',
-                  inboundCalls: 0,
-                  outboundCalls: 0,
-                  averageDuration: 0,
-                  successRate: 0,
-                  hourlyActivity: []
-                },
-                email: {
-                  totalCount: '0',
-                  responseTime: '0s',
-                  openRate: 0,
-                  clickRate: 0,
-                  bounceRate: 0,
-                  hourlyActivity: []
-                },
-                dateRange: {
-                  start: start.toISOString(),
-                  end: end.toISOString()
-                }
-              }}
-              businessId={selectedBusinessId || ''}
-              clientId={selectedBusinessId || ''}
-            />
+            {analytics && (
+              <OverviewAnalytics
+                metrics={analytics}
+                businessId={selectedBusinessId || ''}
+                clientId={selectedBusinessId || ''}
+              />
+            )}
           </Tab.Panel>
           <Tab.Panel>
-            <SMSAnalytics
-              metrics={{
-                totalCount: '0',
-                responseTime: '0s',
-                deliveryRate: 0,
-                optOutRate: 0,
-                aiCost: 0,
-                serviceCost: 0,
-                qualityMetrics: [],
-                responseTypes: [],
-                dailyCosts: [],
-                hourlyActivity: [],
-                conversations: []
-              }}
-              businessId={selectedBusinessId || ''}
-              clientId={selectedBusinessId || ''}
-            />
+            {analytics && (
+              <SMSAnalytics
+                metrics={analytics.sms}
+                businessId={selectedBusinessId || ''}
+                clientId={selectedBusinessId || ''}
+              />
+            )}
           </Tab.Panel>
           <Tab.Panel>
-            <VoiceAnalytics
-              metrics={{
-                totalCount: '0',
-                inboundCalls: 0,
-                outboundCalls: 0,
-                averageDuration: 0,
-                successRate: 0,
-                hourlyActivity: []
-              }}
-              businessId={selectedBusinessId || ''}
-              clientId={selectedBusinessId || ''}
-            />
+            {analytics && (
+              <VoiceAnalytics
+                metrics={analytics.voice}
+                businessId={selectedBusinessId || ''}
+                clientId={selectedBusinessId || ''}
+              />
+            )}
           </Tab.Panel>
           <Tab.Panel>
-            <EmailAnalytics
-              metrics={{
-                totalCount: '0',
-                responseTime: '0s',
-                openRate: 0,
-                clickRate: 0,
-                bounceRate: 0,
-                hourlyActivity: []
-              }}
-              businessId={selectedBusinessId || ''}
-              clientId={selectedBusinessId || ''}
-            />
+            {analytics && (
+              <EmailAnalytics
+                metrics={analytics.email}
+                businessId={selectedBusinessId || ''}
+                clientId={selectedBusinessId || ''}
+              />
+            )}
           </Tab.Panel>
         </Tab.Panels>
       </Tab.Group>

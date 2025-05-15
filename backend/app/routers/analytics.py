@@ -8,6 +8,7 @@ from ..models import Business, Message
 from ..schemas.analytics import AnalyticsData
 from fastapi import Query
 from sqlalchemy import func
+from ..services.analytics_service import AnalyticsService
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
@@ -201,43 +202,34 @@ def calculate_metrics(messages: list[Message], start_date: datetime) -> Dict[str
         }
     }
 
-@router.get("/{business_id}", response_model=AnalyticsData)
-async def get_analytics(business_id: str, db: Session = Depends(get_db)):
-    # Verify business exists
+@router.get("/{business_id}")
+async def get_analytics(
+    business_id: str,
+    db: Session = Depends(get_db),
+    start: str | None = None,
+    end: str | None = None,
+):
+    """Return consolidated analytics for a business.
+
+    Optional query params:
+    - start, end: ISO timestamps (e.g. 2025-01-01T00:00:00Z).
+    """
+    # Validate business exists
     business = db.query(Business).filter(Business.id == business_id).first()
     if not business:
         raise HTTPException(status_code=404, detail="Business not found")
 
-    # Get date range
-    end_date = datetime.utcnow()
-    start_date = end_date - timedelta(days=7)
+    # Parse optional date range
+    def _parse(ts: str | None):
+        if ts is None:
+            return None
+        try:
+            return datetime.fromisoformat(ts)
+        except ValueError:
+            return None
 
-    # Get messages for this business in the date range
-    messages = (
-        db.query(Message)
-        .filter(
-            Message.business_id == business_id,
-            Message.created_at >= start_date,
-            Message.created_at <= end_date
-        )
-        .all()
-    )
+    start_dt = _parse(start)
+    end_dt = _parse(end)
 
-    # Calculate SMS metrics
-    sms_metrics = calculate_metrics(messages, start_date)
-
-    return {
-        "sms": sms_metrics,
-        "email": {}, # To be implemented
-        "voice": {}, # To be implemented
-        "overview": {
-            "totalInteractions": len(messages),
-            "totalCost": sum((m.ai_cost or 0) + (m.sms_cost or 0) for m in messages),
-            "averageResponseTime": sum(m.response_time for m in messages if m.response_time) / len(messages) if messages else 0,
-            "successRate": sum(1 for m in messages if m.status == "delivered") / len(messages) * 100 if messages else 0
-        },
-        "dateRange": {
-            "start": start_date.strftime("%Y-%m-%d"),
-            "end": end_date.strftime("%Y-%m-%d")
-        }
-    }
+    service = AnalyticsService(db)
+    return service.get_analytics(business_id, start_date=start_dt, end_date=end_dt)
