@@ -587,14 +587,24 @@ def create_app():
                 except Exception as e:
                     logger.error(f"Failed to register clients blueprint: {str(e)}")
 
+                # Create a placeholder for conversation analytics if it doesn't exist
                 try:
-                    from .routes.conversation_analytics import conversation_bp
-                    app.register_blueprint(conversation_bp)
-                    logger.info("Conversation analytics blueprint registered with prefix /api/analytics/conversations")
+                    # First check if the module exists before trying to import it
+                    import importlib.util
+                    import os
+                    
+                    # Check if the conversation_analytics file exists
+                    conv_analytics_path = os.path.join(os.path.dirname(__file__), 'routes', 'conversation_analytics.py')
+                    if os.path.exists(conv_analytics_path):
+                        from .routes.conversation_analytics import conversation_bp
+                        app.register_blueprint(conversation_bp)
+                        logger.info("Conversation analytics blueprint registered with prefix /api/analytics/conversations")
+                    else:
+                        logger.warning("Conversation analytics module not found - skipping registration")
                 except Exception as e:
                     logger.error(f"Failed to register conversation analytics blueprint: {str(e)}")
-                    import traceback
-                    logger.error(traceback.format_exc())
+                    logger.info("Continuing without conversation analytics module")
+                    # Don't print traceback to avoid cluttering logs
 
                 # Add other blueprints here as needed
             except Exception as e:
