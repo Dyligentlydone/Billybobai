@@ -9,6 +9,7 @@ from app.models.business import Business, BusinessConfig
 from app.models.workflow import Workflow, WorkflowNode, WorkflowEdge, WorkflowExecution
 from app.models.client_passcode import ClientPasscode
 from app.models.sms_consent import SMSConsent
+from app.models.user import User
 
 # Create a Message class if it doesn't exist but is imported somewhere
 class Message:
