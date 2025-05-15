@@ -7,9 +7,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Create blueprint
-business_bp = Blueprint('business_bp', __name__)
+business_bp = Blueprint('business_bp', __name__, url_prefix='/api')
 
-@business_bp.route('/api/businesses', methods=['GET'])
+@business_bp.route('/businesses', methods=['GET'])
 def get_businesses():
     logger.info("HIT: /api/businesses route")
     """Get all businesses or a specific business by ID"""
@@ -49,7 +49,7 @@ def get_businesses():
         logger.error(traceback.format_exc())
         return jsonify({"error": str(e)}), 500
 
-@business_bp.route('/api/businesses', methods=['POST'])
+@business_bp.route('/businesses', methods=['POST'])
 def create_business():
     """Create a new business"""
     logger.info("POST /api/businesses endpoint called")
@@ -98,7 +98,7 @@ def create_business():
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
-@business_bp.route('/api/businesses/<business_id>', methods=['GET'])
+@business_bp.route('/businesses/<business_id>', methods=['GET'])
 def get_business(business_id):
     """Get a specific business by ID"""
     logger.info(f"GET /api/businesses/{business_id} endpoint called")

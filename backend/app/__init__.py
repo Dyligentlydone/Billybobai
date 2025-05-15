@@ -284,52 +284,6 @@ def create_app():
         """Return JSON for 404 errors instead of HTML"""
         logger.warning(f"404 error: {request.path}")
         
-        # Special case for /api/businesses endpoint that's getting 404s
-        if request.path == '/api/businesses' or request.path.startswith('/api/businesses/'):
-            logger.info(f"Intercepting 404 for businesses route: {request.path} with method {request.method}")
-            from app.models.business import Business
-            from app.db import db
-            
-            # Handle business ID in path parameter
-            business_id = None
-            if request.path.startswith('/api/businesses/'):
-                business_id = request.path.split('/')[-1]
-            else:  # Handle query parameter
-                business_id = request.args.get('id')
-            
-            try:
-                if business_id:
-                    # If ID is provided, get that specific business
-                    logger.info(f"Fetching business with ID: {business_id} from 404 handler")
-                    business = db.session.query(Business).filter_by(id=business_id).first()
-                    
-                    if not business:
-                        logger.warning(f"Business with ID {business_id} not found")
-                        return jsonify({"error": "Business not found"}), 404
-                        
-                    return jsonify({
-                        "id": business.id,
-                        "name": business.name,
-                        "description": business.description,
-                        "domain": getattr(business, "domain", None)
-                    })
-                else:
-                    # Otherwise, get all businesses
-                    logger.info("Fetching all businesses from 404 handler")
-                    businesses = db.session.query(Business).all()
-                    return jsonify([{
-                        "id": business.id,
-                        "name": business.name,
-                        "description": business.description,
-                        "domain": getattr(business, "domain", None)
-                    } for business in businesses])
-                    
-            except Exception as e:
-                logger.error(f"Error in 404 handler for businesses: {str(e)}")
-                import traceback
-                logger.error(traceback.format_exc())
-                return jsonify({"error": str(e)}), 500
-        
         # Special case for auth/passcodes routes that are getting 404s
         if '/api/auth/passcodes' in request.path:
             logger.info(f"Intercepting 404 for passcodes route: {request.path}")
@@ -408,28 +362,6 @@ def create_app():
                 
         return None
         
-    # Also register direct routes at the app level to ensure they're accessible
-    @app.route('/api/auth/direct-clients', methods=['GET', 'POST', 'OPTIONS'])
-    def app_direct_clients():
-        """App-level direct route for client access that bypasses any blueprint registration issues"""
-        logger.info(f"App-level direct-clients route hit: {request.method} {request.path}")
-        # Import the function from auth_routes to handle the request
-        try:
-            from .routes.auth_routes import direct_clients
-            return direct_clients()
-        except Exception as e:
-            logger.error(f"Error in app_direct_clients: {str(e)}")
-            import traceback
-            logger.error(traceback.format_exc())
-            return jsonify({"error": str(e), "clients": []}), 200
-        
-    @app.route('/api/auth/direct-client-create', methods=['POST', 'OPTIONS'])
-    def app_direct_client_create():
-        """App-level direct route for client access creation"""
-        logger.info(f"App-level direct-client-create route hit: {request.method} {request.path}")
-        from .routes.auth_routes import direct_client_create
-        return direct_client_create()
-
     logger.info("Registering route blueprints...")
     try:
         # Import and register routes
@@ -442,6 +374,7 @@ def create_app():
     try:
         # Import and register business routes - must be registered for SMSConfigWizard to work
         from .routes.business_routes import business_bp
+        # Register with no url_prefix because business_bp already has /api prefix
         app.register_blueprint(business_bp)
         logger.info("Business routes registered successfully")
     except Exception as e:
@@ -509,16 +442,7 @@ def create_app():
                     logger.error(f"Failed to register clients blueprint: {str(e)}")
 
                 try:
-                    from .routes.business_routes import business_bp
-                    app.register_blueprint(business_bp)
-                    logger.info("Business blueprint registered successfully")
-                except Exception as e:
-                    logger.error(f"Failed to register business blueprint: {str(e)}")
-                    import traceback
-                    logger.error(traceback.format_exc())
-
-                try:
-                    from routes.conversation_analytics import conversation_bp
+                    from .routes.conversation_analytics import conversation_bp
                     app.register_blueprint(conversation_bp)
                     logger.info("Conversation analytics blueprint registered with prefix /api/analytics/conversations")
                 except Exception as e:
@@ -1367,19 +1291,7 @@ def create_app():
     # Register blueprint for /api/businesses endpoints
 
     # Add root-level /businesses endpoint (for frontend compatibility)
-    @app.route('/businesses', methods=['GET'])
-    def businesses_root():
-        from app.models.business import Business
-        from app.db import db
-        businesses = db.session.query(Business).all()
-        return jsonify([
-            {
-                "id": b.id,
-                "name": b.name,
-                "description": b.description,
-                "domain": getattr(b, "domain", None)
-            } for b in businesses
-        ])
+    # Root-level businesses route no longer needed (handled by blueprint)
 
     # Commented out to allow blueprint implementation to be used
     # @app.route('/api/businesses', methods=['GET'])
