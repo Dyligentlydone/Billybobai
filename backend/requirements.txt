@@ -20,4 +20,4 @@ httpx==0.24.1
 fastapi==0.103.2
 uvicorn==0.23.2
 # Integrations
-zendesk-api==3.0.0
+zendesk-api==0.1.5
