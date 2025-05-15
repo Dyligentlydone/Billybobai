@@ -226,6 +226,16 @@ async def get_analytics(
     - start/startDate, end/endDate: ISO timestamps (e.g. 2025-01-01T00:00:00Z).
       Both naming conventions are supported for API compatibility.
     """
+    # Handle string "None" values that might come from the frontend
+    if start == "None" or start == "undefined" or start == "null":
+        start = None
+    if end == "None" or end == "undefined" or end == "null":
+        end = None
+    if startDate == "None" or startDate == "undefined" or startDate == "null":
+        startDate = None
+    if endDate == "None" or endDate == "undefined" or endDate == "null":
+        endDate = None
+        
     # Use startDate/endDate as fallbacks if start/end not provided
     start = start or startDate
     end = end or endDate
