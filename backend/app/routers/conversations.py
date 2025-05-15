@@ -13,22 +13,63 @@ from datetime import datetime, timedelta
 
 router = APIRouter()
 
-# Initialize Twilio client
-twilio_client = Client(
-    os.getenv("TWILIO_ACCOUNT_SID"),
-    os.getenv("TWILIO_AUTH_TOKEN")
-)
+# Initialize clients with lazy loading to handle missing credentials
+twilio_client = None
+zendesk_client = None
 
-# Initialize Zendesk client
-zendesk_client = Zendesk(
-    os.getenv("ZENDESK_SUBDOMAIN"),
-    os.getenv("ZENDESK_EMAIL"),
-    os.getenv("ZENDESK_API_TOKEN")
-)
+def get_twilio_client():
+    """Get Twilio client with lazy initialization and error handling."""
+    global twilio_client
+    
+    if twilio_client is None:
+        account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+        auth_token = os.getenv("TWILIO_AUTH_TOKEN")
+        
+        if account_sid and auth_token:
+            try:
+                twilio_client = Client(account_sid, auth_token)
+                print(f"Twilio client initialized successfully with account SID: {account_sid[:5]}...")
+            except Exception as e:
+                print(f"Error initializing Twilio client: {str(e)}")
+                # Return a stub client that won't crash the app
+                return None
+        else:
+            print("Twilio credentials not found in environment variables")
+            return None
+            
+    return twilio_client
+
+def get_zendesk_client():
+    """Get Zendesk client with lazy initialization and error handling."""
+    global zendesk_client
+    
+    if zendesk_client is None:
+        subdomain = os.getenv("ZENDESK_SUBDOMAIN")
+        email = os.getenv("ZENDESK_EMAIL")
+        api_token = os.getenv("ZENDESK_API_TOKEN")
+        
+        if subdomain and email and api_token:
+            try:
+                zendesk_client = Zendesk(subdomain, email, api_token)
+                print(f"Zendesk client initialized successfully for subdomain: {subdomain}")
+            except Exception as e:
+                print(f"Error initializing Zendesk client: {str(e)}")
+                return None
+        else:
+            print("Zendesk credentials not found in environment variables")
+            return None
+            
+    return zendesk_client
 
 def get_twilio_messages(business_id: str, phone_number: str = None, days: int = 7):
     """Get messages from Twilio for a specific business and optional phone number."""
     try:
+        # Get the Twilio client
+        client = get_twilio_client()
+        if not client:
+            print(f"Unable to get Twilio messages: Twilio client is not available")
+            return []
+            
         # Get messages from the last X days
         date_filter = datetime.utcnow() - timedelta(days=days)
         
@@ -39,7 +80,7 @@ def get_twilio_messages(business_id: str, phone_number: str = None, days: int = 
         }
         
         # Get messages from Twilio
-        messages = twilio_client.messages.list(**{k: v for k, v in params.items() if v})
+        messages = client.messages.list(**{k: v for k, v in params.items() if v})
         
         return [
             Message(
@@ -62,17 +103,31 @@ def get_zendesk_tickets(business_id: str, phone_number: str = None):
     """Get tickets from Zendesk for a specific business and optional phone number."""
     try:
         # Build search query
+        # Get the Zendesk client
+        client = get_zendesk_client()
+        if not client:
+            print(f"Unable to get Zendesk tickets: Zendesk client is not available")
+            return []
+            
         query = f"type:ticket organization:{business_id}"
         if phone_number:
             query += f" phone:{phone_number}"
             
         # Search tickets in Zendesk
-        tickets = zendesk_client.search(query=query)
+        try:
+            tickets = client.search(query=query)
+        except Exception as e:
+            print(f"Error searching Zendesk tickets: {str(e)}")
+            return []
         
         messages = []
         for ticket in tickets:
             # Get comments for each ticket
-            comments = zendesk_client.tickets.comments(ticket.id)
+            try:
+                comments = client.tickets.comments(ticket.id)
+            except Exception as e:
+                print(f"Error getting comments for ticket {ticket.id}: {str(e)}")
+                continue
             for comment in comments:
                 if not comment.public:  # Skip internal notes
                     continue
@@ -195,8 +250,14 @@ async def send_message(conversation_id: str, content: str):
         # Parse business_id and phone_number from conversation_id
         business_id, phone_number = conversation_id.split(":")
         
+        # Get the Twilio client
+        client = get_twilio_client()
+        if not client:
+            print(f"Unable to send Twilio message: Twilio client is not available")
+            return {"error": "Twilio client not available", "status": "failed"}
+
         # Send message via Twilio
-        message = twilio_client.messages.create(
+        message = client.messages.create(
             body=content,
             from_=os.getenv("TWILIO_PHONE_NUMBER"),
             to=phone_number
