@@ -10,6 +10,7 @@ from app.models.workflow import Workflow, WorkflowNode, WorkflowEdge, WorkflowEx
 from app.models.client_passcode import ClientPasscode
 from app.models.sms_consent import SMSConsent
 from app.models.user import User
+from app.models.api_integration import APIIntegration
 
 # Create a Message class if it doesn't exist but is imported somewhere
 class Message:
