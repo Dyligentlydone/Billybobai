@@ -19,3 +19,5 @@ httpx==0.24.1
 # FastAPI and ASGI server
 fastapi==0.103.2
 uvicorn==0.23.2
+# Integrations
+zendesk-api==3.0.0

@@ -21,7 +21,7 @@ from config.database import SessionLocal
 # Set up logging
 logger = logging.getLogger(__name__)
 
-webhooks = Blueprint('webhooks', __name__)
+webhooks = Blueprint('flask_webhooks', __name__)
 
 # Initialize services - they'll be None if credentials aren't available
 twilio_service = None
