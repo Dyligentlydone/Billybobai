@@ -93,18 +93,21 @@ class AnalyticsService:
 
         # Opt-out rate based on SMSConsent table if present
         try:
+            # Use status field instead of opted_in (which doesn't exist)
             opt_out_total = self.db.query(SMSConsent).filter(
                 SMSConsent.business_id == business_id,
-                SMSConsent.opted_in.is_(False),
+                SMSConsent.status == 'DECLINED',  # 'DECLINED' status means they've opted out
             ).count()
         except Exception as e:
             # Handle case when table doesn't exist or other query errors
             import logging
             logging.warning(f"Error querying SMSConsent table: {str(e)}")
             opt_out_total = 0
+        # Messages don't have business_id directly, use the workflow_id join instead
         unique_contacts = (
             self.db.query(Message.phone_number)
-            .filter(Message.business_id == business_id)
+            .join(Workflow, Message.workflow_id == Workflow.id)
+            .filter(Workflow.business_id == business_id)
             .distinct()
             .count()
         ) or 1
