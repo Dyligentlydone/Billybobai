@@ -1,5 +1,5 @@
 import { useQuery } from 'react-query';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import { AnalyticsData } from '../types/analytics';
 
 /**
@@ -9,17 +9,65 @@ import { AnalyticsData } from '../types/analytics';
 export function useAnalytics(businessId: string, start?: string, end?: string) {
   const queryKey = ['analytics', businessId, start, end];
 
+  const emptyAnalytics: AnalyticsData = {
+    overview: {
+      totalInteractions: '0',
+      totalCost: 0,
+      averageResponseTime: '0s',
+      successRate: 0,
+    },
+    sms: {
+      totalCount: '0',
+      responseTime: '0s',
+      deliveryRate: 0,
+      optOutRate: 0,
+      aiCost: 0,
+      serviceCost: 0,
+      qualityMetrics: [],
+      responseTypes: [],
+      dailyCosts: [],
+      hourlyActivity: [],
+      conversations: [],
+    },
+    voice: {
+      totalCount: '0',
+      inboundCalls: 0,
+      outboundCalls: 0,
+      averageDuration: 0,
+      successRate: 0,
+      hourlyActivity: [],
+    },
+    email: {
+      totalCount: '0',
+      responseTime: '0s',
+      openRate: 0,
+      clickRate: 0,
+      bounceRate: 0,
+      hourlyActivity: [],
+    },
+    dateRange: {
+      start: start || new Date().toISOString(),
+      end: end || new Date().toISOString(),
+    },
+  };
+
   const query = useQuery<AnalyticsData>(
     queryKey,
     async () => {
       if (!businessId) throw new Error('No business selected');
-      const res = await axios.get<AnalyticsData>(`/api/analytics/${businessId}`, {
-        params: {
-          start,
-          end,
-        },
-      });
-      return res.data;
+      try {
+        const res = await axios.get<AnalyticsData>(`/api/analytics/${businessId}`, {
+          params: { start, end },
+        });
+        return res.data;
+      } catch (err) {
+        const axErr = err as AxiosError;
+        if (axErr.response?.status === 404) {
+          // Business not found – return empty metrics instead of throwing
+          return emptyAnalytics;
+        }
+        throw err;
+      }
     },
     {
       enabled: !!businessId,
