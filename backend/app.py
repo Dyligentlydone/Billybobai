@@ -199,11 +199,19 @@ def create_app():
             return jsonify({"error": str(e)}), 500
 
     # Direct implementation of /api/businesses endpoint that doesn't rely on blueprint registration
-    @app.route('/api/businesses', methods=['GET'])
-    @app.route('/api/businesses/', methods=['GET']) # Add route with trailing slash
+    @app.route('/api/businesses', methods=['GET', 'OPTIONS'])
+    @app.route('/api/businesses/', methods=['GET', 'OPTIONS']) # Add route with trailing slash
     def direct_businesses():
         """Direct implementation of /api/businesses endpoint that doesn't rely on blueprint registration"""
         logger.info(f"DIRECT /api/businesses endpoint called from app.py: {request.path}")
+        
+        # Handle OPTIONS pre-flight requests
+        if request.method == 'OPTIONS':
+            response = jsonify({})
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+            return response, 204
         
         # Hard-coded fallback businesses for absolute worst-case scenario
         FALLBACK_BUSINESSES = [
@@ -362,10 +370,19 @@ def create_app():
                 return jsonify(FALLBACK_BUSINESSES)
     
     # Direct implementation of /api/analytics/{business_id} endpoint
-    @app.route('/api/analytics/<business_id>', methods=['GET'])
+    @app.route('/api/analytics/<string:business_id>', methods=['GET', 'OPTIONS'])
+    @app.route('/api/analytics/<string:business_id>/', methods=['GET', 'OPTIONS'])
     def analytics_by_business_id(business_id):
         """Direct implementation of /api/analytics/{business_id} endpoint"""
         logger.info(f"DIRECT /api/analytics/{business_id} endpoint called from app.py")
+        
+        # Handle OPTIONS pre-flight requests
+        if request.method == 'OPTIONS':
+            response = jsonify({})
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+            return response, 204
         
         # Get query parameters
         start = request.args.get('start')
@@ -387,25 +404,55 @@ def create_app():
                     logger.warning(f"Business {business_id} not found in database")
             except Exception as e:
                 logger.error(f"Error checking business: {str(e)}")
+                logger.error(traceback.format_exc())
         except Exception as e:
             logger.error(f"Database error: {str(e)}")
+            logger.error(traceback.format_exc())
         
-        # Return simplified analytics data
+        # Return simplified analytics data structure that matches the frontend expected format
         return jsonify({
             "business_id": business_id,
+            "overview": {
+                "totalInteractions": "0",
+                "totalCost": 0,
+                "averageResponseTime": "0s",
+                "successRate": 0
+            },
             "sms": {
-                "totalCount": 0,
+                "totalCount": "0",
                 "deliveredCount": 0,
                 "failedCount": 0,
+                "responseTime": "0s",
+                "deliveryRate": 0,
+                "optOutRate": 0,
+                "aiCost": 0,
+                "serviceCost": 0,
+                "qualityMetrics": [],
+                "responseTypes": [],
+                "dailyCosts": [],
+                "hourlyActivity": [],
+                "conversations": [],
                 "messageVolumes": []
             },
-            "conversations": {
-                "totalCount": 0,
-                "activeCount": 0,
-                "resolvedCount": 0
+            "voice": {
+                "totalCount": "0",
+                "inboundCalls": 0,
+                "outboundCalls": 0,
+                "averageDuration": 0,
+                "successRate": 0,
+                "hourlyActivity": []
             },
-            "interactions": {
-                "totalCount": 0
+            "email": {
+                "totalCount": "0",
+                "responseTime": "0s",
+                "openRate": 0,
+                "clickRate": 0,
+                "bounceRate": 0,
+                "hourlyActivity": []
+            },
+            "dateRange": {
+                "start": start or datetime.utcnow().isoformat(),
+                "end": end or datetime.utcnow().isoformat()
             }
         })
     
