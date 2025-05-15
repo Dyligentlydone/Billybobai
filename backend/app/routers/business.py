@@ -20,6 +20,7 @@ class BusinessOut(BaseModel):
     domain: str = None
 
 @router.get("/", response_model=List[BusinessOut])
+@router.get("", response_model=List[BusinessOut])
 def get_businesses(db: Session = Depends(get_db)):
     businesses = db.query(Business).all()
     return [
@@ -32,6 +33,7 @@ def get_businesses(db: Session = Depends(get_db)):
     ]
 
 @router.post("/", response_model=BusinessOut, status_code=201)
+@router.post("", response_model=BusinessOut, status_code=201)
 def create_business(business: BusinessCreate, db: Session = Depends(get_db)):
     # Check if business already exists
     existing = db.query(Business).filter(Business.id == business.id).first()
