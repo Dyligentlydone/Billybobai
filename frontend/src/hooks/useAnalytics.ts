@@ -58,7 +58,7 @@ export function useAnalytics(businessId: string, start?: string, end?: string) {
       if (!businessId) throw new Error('No business selected');
       try {
         const res = await api.get<AnalyticsData>(`/api/analytics/${businessId}`, {
-          params: { start, end },
+          params: { startDate: start, endDate: end },
         });
         return res.data;
       } catch (err) {
