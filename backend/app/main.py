@@ -40,6 +40,17 @@ app.include_router(integrations.router)
 async def root():
     return {"message": "SMS Automation Hub API"}
 
+@app.get("/routes")
+def list_routes():
+    route_list = []
+    for route in app.routes:
+        if hasattr(route, 'methods') and hasattr(route, 'path'):
+            route_list.append({
+                "path": route.path,
+                "methods": list(route.methods)
+            })
+    return route_list
+
 @app.get("/health")
 def health_check():
     return {"status": "healthy"}
