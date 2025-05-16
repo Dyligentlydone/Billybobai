@@ -20,6 +20,17 @@ class WorkflowOut(WorkflowBase):
     created_at: str = None 
     updated_at: str = None
     is_active: bool = False  # Set a default value instead of None to fix validation error
+    config: dict = {}
+    actions: dict = {}
+    conditions: dict = {}
+    nodes: list = []
+    edges: list = []
+    executions: dict = {}
+    business_id: str = None
+    
+    # Allow any extra fields to pass through
+    class Config:
+        extra = "allow"  # Allow extra fields that aren't in the model
 
 @router.get("/", response_model=List[WorkflowOut])
 def get_workflows(db: Session = Depends(get_db)):
@@ -79,15 +90,29 @@ def get_workflow(workflow_id: str, db: Session = Depends(get_db)):
             else:
                 raise HTTPException(status_code=404, detail="Workflow not found")
         
-        # Convert to dict to access all fields including status
+        # Convert to dict and include ALL workflow fields
         workflow_dict = {
             "id": wf.id,
             "name": wf.name,
             "status": wf.status if hasattr(wf, 'status') else "DRAFT", 
             "created_at": wf.created_at.isoformat() if hasattr(wf, 'created_at') and wf.created_at else None,
             "updated_at": wf.updated_at.isoformat() if hasattr(wf, 'updated_at') and wf.updated_at else None,
-            "is_active": bool(getattr(wf, "is_active", False) or (hasattr(wf, 'status') and wf.status == "ACTIVE"))
+            "is_active": bool(getattr(wf, "is_active", False) or (hasattr(wf, 'status') and wf.status == "ACTIVE")),
+            # Include all the configuration data
+            "config": wf.config if hasattr(wf, 'config') else {},
+            "actions": wf.actions if hasattr(wf, 'actions') else {},
+            "conditions": wf.conditions if hasattr(wf, 'conditions') else {},
+            "nodes": wf.nodes if hasattr(wf, 'nodes') else [],
+            "edges": wf.edges if hasattr(wf, 'edges') else [],
+            "executions": wf.executions if hasattr(wf, 'executions') else {},
+            "business_id": wf.business_id if hasattr(wf, 'business_id') else None
         }
+        
+        # Log the full workflow data (except possibly large fields)
+        print(f"Full workflow data ID: {wf.id}, name: {wf.name}, status: {workflow_dict['status']}, business_id: {workflow_dict['business_id']}")
+        print(f"Has config: {hasattr(wf, 'config')}, Has actions: {hasattr(wf, 'actions')}, Has nodes: {hasattr(wf, 'nodes')}")
+        if hasattr(wf, 'config') and wf.config:
+            print(f"Config summary: {type(wf.config)}, keys: {list(wf.config.keys()) if isinstance(wf.config, dict) else 'Not a dictionary'}")
         
         print("Returning workflow data:", workflow_dict)
         return WorkflowOut(**workflow_dict)
