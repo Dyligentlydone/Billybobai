@@ -4,7 +4,8 @@ from sqlalchemy.orm import Session
 from config.database import init_db, get_db
 from .routers import (
     analytics, business as business_router, conversations,
-    auth, clients, workflow, calendly, webhooks, integrations, root
+    auth, clients, workflow, calendly, webhooks, integrations, root,
+    sms  # Add the new SMS router
 )
 
 app = FastAPI(title="SMS Automation Hub API")
@@ -35,6 +36,8 @@ app.include_router(clients.router)
 app.include_router(calendly.router)
 app.include_router(webhooks.router)
 app.include_router(integrations.router)
+app.include_router(sms.router)  # Add the new SMS router
+print("SMS router included for /api/sms/webhook endpoints")
 
 @app.get("/")
 async def root():
