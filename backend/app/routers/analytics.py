@@ -71,7 +71,7 @@ def get_conversations(business_id: str, page: int = Query(1, ge=1), per_page: in
                     "content": getattr(m, 'content', None) or getattr(m, 'body', None),
                     "status": str(m.status),
                     "created_at": m.created_at.isoformat() if m.created_at else None
-                
+                }
             ]
         })
     return {
@@ -79,6 +79,8 @@ def get_conversations(business_id: str, page: int = Query(1, ge=1), per_page: in
         "total": total,
         "page": page,
         "per_page": per_page
+    }
+
     
 
 def calculate_metrics(messages: list[Message], start_date: datetime) -> Dict[str, Any]:
