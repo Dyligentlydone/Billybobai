@@ -46,7 +46,23 @@ export function useSMSAnalytics(businessId: string, clientId: string) {
 
         setMetrics(transformedData);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch analytics data');
+         if (axios.isAxiosError(err)) {
+          console.error('Axios error fetching SMS analytics:', {
+            message: err.message,
+            code: err.code,
+            response: err.response?.data,
+            status: err.response?.status,
+            headers: err.response?.headers
+          });
+          setError(
+            err.response?.data?.detail ||
+            `API error: ${err.response?.status} ${err.response?.statusText}` ||
+            err.message
+          );
+        } else {
+          console.error('Unknown error fetching SMS analytics:', err);
+          setError('Failed to fetch analytics data');
+        }
       } finally {
         setLoading(false);
       }

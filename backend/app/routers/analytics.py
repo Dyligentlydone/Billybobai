@@ -15,12 +15,20 @@ router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
 @router.get("/conversations/metrics/{business_id}")
 def get_sms_conversation_metrics(business_id: str, db: Session = Depends(get_db)):
+    import logging
     from sqlalchemy import extract, func
     from datetime import datetime, timedelta
     from ..models.message import Message, MessageChannel
+    from ..models.workflow import Workflow
 
+    logger = logging.getLogger("analytics")
     now = datetime.utcnow()
     start_date = now - timedelta(days=30)
+
+    logger.info(f"[Analytics] Incoming business_id: {business_id}")
+    # Log all workflow IDs for this business
+    workflow_ids = [w.id for w in db.query(Workflow).filter(Workflow.business_id == business_id).all()]
+    logger.info(f"[Analytics] Workflow IDs for business_id {business_id}: {workflow_ids}")
 
     # Query for SMS messages for this business in the last 30 days
     messages = db.query(Message).join(Message.workflow).filter(
@@ -30,8 +38,9 @@ def get_sms_conversation_metrics(business_id: str, db: Session = Depends(get_db)
         Message.created_at <= now
     ).all()
 
+    logger.info(f"[Analytics] Found {len(messages)} messages for business_id {business_id}")
     if not messages:
-        # Fallback/demo data if no messages
+        logger.warning(f"[Analytics] No messages found for business_id {business_id}. Returning fallback data.")
         import random
         hourly_activity = [random.randint(0, 10) for _ in range(24)]
         topics = [
@@ -71,6 +80,7 @@ def get_sms_conversation_metrics(business_id: str, db: Session = Depends(get_db)
     response_times = {"average": None, "median": None, "p95": None}
     # If you have response timing logic, implement here
 
+    logger.info(f"[Analytics] Returning analytics: total_messages={total_messages}, topics={topics}, hourly_activity={hourly_activity}")
     return {
         "total_messages": total_messages,
         "hourly_activity": hourly_activity,
