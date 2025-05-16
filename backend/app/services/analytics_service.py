@@ -277,7 +277,16 @@ class AnalyticsService:
             ],
             "dailyCosts": daily_costs,
             "hourlyActivity": [{"hour": h, "count": 0} for h in range(24)],
-            "conversations": [],
+            "conversations": [
+                {
+                    "id": "placeholder-1",
+                    "contact": "+15555555555",
+                    "lastMessage": "No recent messages",
+                    "lastTime": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+                    "messageCount": 0,
+                    "status": "inactive"
+                }
+            ],
         }
         
     def _compute_quality_metrics(self, messages, business_id):

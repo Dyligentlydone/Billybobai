@@ -10,8 +10,8 @@ from datetime import datetime, timedelta
 import random
 import logging
 
-# Create router with same path as the business router to act as fallback
-router = APIRouter(prefix="/api", tags=["fallback"])
+# Create router with empty prefix to ensure it can be mounted anywhere
+router = APIRouter(prefix="", tags=["fallback"])
 logger = logging.getLogger(__name__)
 
 # Fallback businesses data
@@ -36,14 +36,14 @@ FALLBACK_BUSINESSES = [
     }
 ]
 
-@router.get("/businesses")
-@router.get("/businesses/")
+@router.get("/api/businesses")
+@router.get("/api/businesses/")
 async def fallback_businesses():
     """Fallback endpoint for business listing when primary endpoint fails"""
     logger.info("Fallback businesses endpoint called")
     return FALLBACK_BUSINESSES
 
-@router.get("/businesses/{business_id}")
+@router.get("/api/businesses/{business_id}")
 async def fallback_business_detail(business_id: str):
     """Fallback endpoint for specific business when primary endpoint fails"""
     logger.info(f"Fallback business detail endpoint called for ID: {business_id}")
@@ -61,7 +61,7 @@ async def fallback_business_detail(business_id: str):
         "domain": f"business-{business_id}.com"
     }
     
-@router.get("/analytics/sms/{business_id}")
+@router.get("/api/analytics/sms/{business_id}")
 async def fallback_sms_analytics(business_id: str):
     """Fallback endpoint for SMS analytics when primary endpoint fails"""
     logger.info(f"Fallback SMS analytics endpoint called for business_id: {business_id}")
