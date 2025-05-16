@@ -1582,5 +1582,5 @@ def create_app():
     logger.info("Application creation completed successfully")
     return app
 
-# Create the Flask application instance
-app = create_app()
+# Create the Flask application instance (DISABLED FOR FASTAPI MIGRATION)
+# app = create_app()
