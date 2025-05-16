@@ -96,9 +96,9 @@ def calculate_metrics(messages: list[Message], start_date: datetime) -> Dict[str
                     "Error Rate": "0%",
                     "Average Latency": "0s",
                     "Geographic Success": "0%"
-                
-            
-        
+                }
+            }
+        }
 
     # Calculate delivery metrics
     delivered = sum(1 for m in messages if m.status == "delivered")
@@ -154,7 +154,7 @@ def calculate_metrics(messages: list[Message], start_date: datetime) -> Dict[str
                 "Spam Reports": "0.1%", # TODO: Implement spam tracking
                 "Quality Score": "94/100", # TODO: Implement quality scoring
                 "Compliance Rate": "99.9%" # TODO: Implement compliance checking
-            
+            }
         },
         "cost_efficiency": {
             "enabled": True,
@@ -165,7 +165,7 @@ def calculate_metrics(messages: list[Message], start_date: datetime) -> Dict[str
                 "AI Cost per Chat": f"${(ai_costs/total_messages):.4f}",
                 "Monthly ROI": "287%", # TODO: Implement ROI calculation
                 "Cost Savings": "42%" # TODO: Implement savings calculation
-            
+            }
         },
         "performance_metrics": {
             "enabled": True,
@@ -176,7 +176,7 @@ def calculate_metrics(messages: list[Message], start_date: datetime) -> Dict[str
                 "API Response Time": f"{avg_response_time:.0f}ms",
                 "Rate Limit Usage": "45%",
                 "Error Recovery": "99.5%"
-            
+            }
         },
         "business_impact": {
             "enabled": True,
@@ -187,7 +187,7 @@ def calculate_metrics(messages: list[Message], start_date: datetime) -> Dict[str
                 "CSAT Score": "4.6/5", # TODO: Implement CSAT calculation
                 "Resolution Rate": "92%",
                 "Customer Retention": "94%"
-            
+            }
         },
         "ai_specific": {
             "enabled": True,
@@ -198,7 +198,7 @@ def calculate_metrics(messages: list[Message], start_date: datetime) -> Dict[str
                 "Sentiment Score": "0.85", # TODO: Implement sentiment analysis
                 "Intent Accuracy": "93%", # TODO: Implement intent tracking
                 "Human Handoffs": "7%" # TODO: Implement handoff tracking
-            
+            }
         },
         "security_fraud": {
             "enabled": True,
