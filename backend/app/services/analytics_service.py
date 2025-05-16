@@ -236,6 +236,26 @@ class AnalyticsService:
 
     @staticmethod
     def _empty_sms_metrics():
+        # Generate sample data for current date range
+        from datetime import datetime, timedelta
+        
+        current_date = datetime.utcnow()
+        start_date = current_date - timedelta(days=30)
+        
+        # Generate placeholder daily costs
+        daily_costs = []
+        temp_date = start_date
+        while temp_date <= current_date:
+            if temp_date.weekday() < 5:  # Only weekdays for realism
+                daily_costs.append({
+                    "date": temp_date.strftime("%Y-%m-%d"),
+                    "aiCost": 0,
+                    "smsCost": 0,
+                    "totalCost": 0,
+                    "messageCount": 0
+                })
+            temp_date += timedelta(days=1)
+            
         return {
             "totalCount": "0",
             "responseTime": "0.0s",
@@ -243,10 +263,20 @@ class AnalyticsService:
             "optOutRate": 0,
             "aiCost": 0,
             "serviceCost": 0,
-            "qualityMetrics": [],
-            "responseTypes": [],
-            "dailyCosts": [],
-            "hourlyActivity": [],
+            "qualityMetrics": [
+                {"name": "Message Quality", "value": "0%", "change": "0%", "status": "neutral"},
+                {"name": "Avg Message Length", "value": "0 chars", "change": "0%", "status": "neutral"},
+                {"name": "Response Time", "value": "0.0s", "change": "0%", "status": "neutral"},
+                {"name": "Engagement Rate", "value": "0%", "change": "0%", "status": "neutral"}
+            ],
+            "responseTypes": [
+                {"name": "Inquiry", "value": 0, "percentage": 0},
+                {"name": "Confirmation", "value": 0, "percentage": 0},
+                {"name": "Information", "value": 0, "percentage": 0},
+                {"name": "Other", "value": 0, "percentage": 0}
+            ],
+            "dailyCosts": daily_costs,
+            "hourlyActivity": [{"hour": h, "count": 0} for h in range(24)],
             "conversations": [],
         }
         
