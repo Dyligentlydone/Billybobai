@@ -95,6 +95,11 @@ const Workflows: React.FC = () => {
       console.log('Workflows count:', response.data.length);
       return response.data.map(workflow => ({
         ...workflow,
+        // Map backend id to frontend _id expected by the UI
+        _id: workflow.id,
+        // Make sure createdAt and updatedAt exist for date display
+        createdAt: workflow.created_at || new Date().toISOString(),
+        updatedAt: workflow.updated_at || new Date().toISOString(),
         // Normalize status values to match UI expectations
         status: (workflow.status || '').toUpperCase() as WorkflowStatus
       }));
@@ -222,7 +227,18 @@ const Workflows: React.FC = () => {
 
   const fetchWorkflowData = async (id: string) => {
     try {
-      const { data } = await api.get(`/api/workflows/${id}`);
+      console.log("Fetching workflow with ID:", id);
+      if (!id || id === 'undefined') {
+        throw new Error('Invalid workflow ID');
+      }
+      // Use the secureApi to ensure HTTPS
+      const secureApi = axios.create({
+        baseURL: BACKEND_URL.replace('http:', 'https:'),
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      const { data } = await secureApi.get(`/api/workflows/${id}`);
       console.log("Fetched workflow data:", data);
       return data;
     } catch (err) {
@@ -537,19 +553,19 @@ const Workflows: React.FC = () => {
                       </thead>
                       <tbody className="divide-y divide-gray-200 bg-white">
                         {workflows.map((workflow) => (
-                          <tr key={workflow._id}>
+                          <tr key={workflow._id || workflow.id}>
                             <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
                               {workflow.name}
                             </td>
                             <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                              {workflow.status}
+                              {workflow.is_active ? 'ACTIVE' : workflow.status || 'DRAFT'}
                             </td>
                             <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                              {new Date(workflow.createdAt).toLocaleDateString()}
+                              {workflow.createdAt ? new Date(workflow.createdAt).toLocaleDateString() : 'N/A'}
                             </td>
                             <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
                               <button
-                                onClick={() => handleEditWorkflow(workflow._id)}
+                                onClick={() => handleEditWorkflow(workflow._id || workflow.id)}
                                 className="text-indigo-600 hover:text-indigo-900"
                               >
                                 Edit
@@ -557,7 +573,7 @@ const Workflows: React.FC = () => {
                             </td>
                             <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
                               <button
-                                onClick={() => handleDeleteWorkflow(workflow._id)}
+                                onClick={() => handleDeleteWorkflow(workflow._id || workflow.id)}
                                 className="text-red-600 hover:text-red-900"
                               >
                                 Delete
