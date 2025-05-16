@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
 
 from ..database import get_db
@@ -214,10 +214,10 @@ def calculate_metrics(messages: list[Message], start_date: datetime) -> Dict[str
 async def get_sms_analytics(
     business_id: str,
     db: Session = Depends(get_db),
-    start: str | None = None,
-    end: str | None = None,
-    startDate: str | None = None,  # Support frontend naming convention
-    endDate: str | None = None,    # Support frontend naming convention
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    startDate: Optional[str] = None,  # Support frontend naming convention
+    endDate: Optional[str] = None,    # Support frontend naming convention
 ):
     """Return ONLY the SMS analytics for a business (for SMS dashboard pane).
     Optional query params:
@@ -307,10 +307,10 @@ async def get_sms_analytics(
 async def get_analytics(
     business_id: str,
     db: Session = Depends(get_db),
-    start: str | None = None,
-    end: str | None = None,
-    startDate: str | None = None,  # Support frontend naming convention
-    endDate: str | None = None,    # Support frontend naming convention
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    startDate: Optional[str] = None,  # Support frontend naming convention
+    endDate: Optional[str] = None,    # Support frontend naming convention
 ):
     """Return consolidated analytics for a business.
 
