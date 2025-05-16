@@ -193,26 +193,54 @@ const Workflows: React.FC = () => {
       actions: config // Include the full configuration
     };
     
-    // Make the API call - use PUT for updates, POST for new workflows
-    const apiCall = isEditing 
-      ? api.put(`/api/workflows/${workflowId}`, workflowData) 
-      : api.post('/api/workflows', workflowData);
-    
-    apiCall
-      .then(response => {
-        toast.success(`SMS workflow ${isEditing ? 'updated' : 'created'} successfully!`);
-        queryClient.invalidateQueries('workflows'); // Refresh the list
-        // Clear editing state
-        setEditingWorkflowId(null);
-        setSelectedWorkflowData(null);
-        // IMPORTANT: Close the dialog first before any state changes that might trigger other effects
-        setShowSMSWizard(false);
-      })
-      .catch(error => {
-        toast.error(`Failed to ${isEditing ? 'update' : 'create'} SMS workflow`);
-        console.error(`Error ${isEditing ? 'updating' : 'creating'} workflow:`, error);
-        setShowSMSWizard(false);
-      });
+    // Create a custom instance with explicit HTTPS
+  const secureApi = axios.create({
+    baseURL: BACKEND_URL.replace('http:', 'https:'),
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    }
+  });
+  
+  // Log complete request info for debugging
+  console.log(`Making ${isEditing ? 'PUT' : 'POST'} request to: ${
+    isEditing ? `${secureApi.defaults.baseURL}/api/workflows/${workflowId}` : `${secureApi.defaults.baseURL}/api/workflows`
+  }`);
+  console.log('Full workflow data being sent:', workflowData);
+  
+  // Make the API call - use PUT for updates, POST for new workflows
+  const apiCall = isEditing 
+    ? secureApi.put(`/api/workflows/${workflowId}`, workflowData) 
+    : secureApi.post('/api/workflows', workflowData);
+  
+  apiCall
+    .then(response => {
+      console.log('API response data:', response.data);
+      toast.success(`SMS workflow ${isEditing ? 'updated' : 'created'} successfully!`);
+      queryClient.invalidateQueries('workflows'); // Refresh the list
+      // Clear editing state
+      setEditingWorkflowId(null);
+      setSelectedWorkflowData(null);
+      // IMPORTANT: Close the dialog first before any state changes that might trigger other effects
+      setShowSMSWizard(false);
+    })
+    .catch(error => {
+      const errorMessage = axios.isAxiosError(error) && error.response 
+        ? `Error ${error.response.status}: ${JSON.stringify(error.response.data)}` 
+        : error.message;
+        
+      toast.error(`Failed to ${isEditing ? 'update' : 'create'} SMS workflow: ${errorMessage}`);
+      console.error(`Error ${isEditing ? 'updating' : 'creating'} workflow:`, error);
+      
+      // Add detailed logging for troubleshooting
+      if (axios.isAxiosError(error) && error.response) {
+        console.error('Server response status:', error.response.status);
+        console.error('Server response data:', error.response.data);
+        console.error('Server response headers:', error.response.headers);
+      }
+      
+      setShowSMSWizard(false);
+    });
   };
 
   const handleEmailConfigComplete = () => {
