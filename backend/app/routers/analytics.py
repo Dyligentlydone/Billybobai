@@ -142,7 +142,7 @@ def calculate_metrics(messages: list[Message], start_date: datetime) -> Dict[str
                 {
                     "type": "line",
                     "data": daily_stats
-                
+                }
             ]
         },
         "quality_compliance": {
