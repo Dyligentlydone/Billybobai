@@ -488,5 +488,4 @@ async def get_analytics(
             "endDate": end or end_date.isoformat(),
             "businessId": business_id,
             "fallbackData": True
-        
-    
+        }
