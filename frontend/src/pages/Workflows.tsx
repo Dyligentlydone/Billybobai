@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from 'react-query';
-import { AxiosError } from 'axios';
+import axios, { AxiosError } from 'axios';
 import api from '../services/api';
 import toast from 'react-hot-toast';
+import { BACKEND_URL } from '../config';
 import WorkflowBuilder from '../components/workflows/WorkflowBuilder';
 import SMSConfigWizard from '../components/workflows/SMSConfigWizard';
 import EmailConfigWizard from '../components/workflows/EmailConfigWizard';
@@ -49,9 +50,23 @@ const Workflows: React.FC = () => {
 
   const fetchWorkflows = async () => {
     try {
+      console.log('BACKEND_URL from config:', BACKEND_URL);
+      console.log('API baseURL:', api.defaults.baseURL);
+      console.log('Full workflows URL:', `${api.defaults.baseURL}/api/workflows`);
+      
+      // Create a custom instance with explicit HTTPS
+      const secureApi = axios.create({
+        baseURL: BACKEND_URL.replace('http:', 'https:'),
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      console.log('Using secure API with baseURL:', secureApi.defaults.baseURL);
       console.log('Fetching workflows from API');
-      // Use the axios instance with proper credential handling
-      const response = await api.get('/api/workflows');
+      
+      // Use the secure API instance to ensure HTTPS
+      const response = await secureApi.get('/api/workflows');
       
       // Enhanced logging to debug the response
       console.log('Workflows raw response:', response);
