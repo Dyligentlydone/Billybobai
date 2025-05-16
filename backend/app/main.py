@@ -7,6 +7,13 @@ from .routers import (
     auth, clients, workflow, calendly, webhooks, integrations, root
 )
 
+# Import fallback router for ensuring critical endpoints always work
+try:
+    from .routers import fallback
+except ImportError:
+    print("WARNING: Fallback router not available - SMS dashboard may not function properly")
+    fallback = None
+
 app = FastAPI(title="SMS Automation Hub API")
 
 # Configure CORS
@@ -34,6 +41,11 @@ app.include_router(clients.router)
 app.include_router(calendly.router)
 app.include_router(webhooks.router)
 app.include_router(integrations.router)
+
+# Register fallback router LAST to ensure it has highest priority
+if fallback is not None:
+    app.include_router(fallback.router)
+    print("Fallback router registered successfully - SMS dashboard should function properly")
 
 @app.get("/")
 async def root():
