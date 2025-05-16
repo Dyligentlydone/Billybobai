@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
-from typing import List
-from pydantic import BaseModel
+from typing import List, Optional, Dict, Any
+from pydantic import BaseModel, Field
 from ..database import get_db
 from ..models.workflow import Workflow
 
@@ -16,17 +16,17 @@ class WorkflowCreate(WorkflowBase):
 
 class WorkflowOut(WorkflowBase):
     id: str
-    status: str = "DRAFT"
-    created_at: str = None 
-    updated_at: str = None
+    status: Optional[str] = "DRAFT"
+    created_at: Optional[str] = None 
+    updated_at: Optional[str] = None
     is_active: bool = False  # Set a default value instead of None to fix validation error
-    config: dict = {}
-    actions: dict = {}
-    conditions: dict = {}
-    nodes: list = []
-    edges: list = []
-    executions: dict = {}
-    business_id: str = None
+    config: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    actions: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    conditions: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    nodes: Optional[List[Any]] = Field(default_factory=list)
+    edges: Optional[List[Any]] = Field(default_factory=list)
+    executions: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    business_id: Optional[str] = None
     
     # Allow any extra fields to pass through
     class Config:
@@ -94,18 +94,18 @@ def get_workflow(workflow_id: str, db: Session = Depends(get_db)):
         workflow_dict = {
             "id": wf.id,
             "name": wf.name,
-            "status": wf.status if hasattr(wf, 'status') else "DRAFT", 
-            "created_at": wf.created_at.isoformat() if hasattr(wf, 'created_at') and wf.created_at else None,
-            "updated_at": wf.updated_at.isoformat() if hasattr(wf, 'updated_at') and wf.updated_at else None,
+            "status": wf.status if hasattr(wf, 'status') and wf.status is not None else "DRAFT", 
+            "created_at": wf.created_at.isoformat() if hasattr(wf, 'created_at') and wf.created_at is not None else None,
+            "updated_at": wf.updated_at.isoformat() if hasattr(wf, 'updated_at') and wf.updated_at is not None else None,
             "is_active": bool(getattr(wf, "is_active", False) or (hasattr(wf, 'status') and wf.status == "ACTIVE")),
-            # Include all the configuration data
-            "config": wf.config if hasattr(wf, 'config') else {},
-            "actions": wf.actions if hasattr(wf, 'actions') else {},
-            "conditions": wf.conditions if hasattr(wf, 'conditions') else {},
-            "nodes": wf.nodes if hasattr(wf, 'nodes') else [],
-            "edges": wf.edges if hasattr(wf, 'edges') else [],
-            "executions": wf.executions if hasattr(wf, 'executions') else {},
-            "business_id": wf.business_id if hasattr(wf, 'business_id') else None
+            # Include all the configuration data with strict None checking
+            "config": wf.config if hasattr(wf, 'config') and wf.config is not None else {},
+            "actions": wf.actions if hasattr(wf, 'actions') and wf.actions is not None else {},
+            "conditions": wf.conditions if hasattr(wf, 'conditions') and wf.conditions is not None else {},
+            "nodes": wf.nodes if hasattr(wf, 'nodes') and wf.nodes is not None else [],
+            "edges": wf.edges if hasattr(wf, 'edges') and wf.edges is not None else [],
+            "executions": wf.executions if hasattr(wf, 'executions') and wf.executions is not None else {},
+            "business_id": wf.business_id if hasattr(wf, 'business_id') and wf.business_id is not None else None
         }
         
         # Log the full workflow data (except possibly large fields)
@@ -115,7 +115,26 @@ def get_workflow(workflow_id: str, db: Session = Depends(get_db)):
             print(f"Config summary: {type(wf.config)}, keys: {list(wf.config.keys()) if isinstance(wf.config, dict) else 'Not a dictionary'}")
         
         print("Returning workflow data:", workflow_dict)
-        return WorkflowOut(**workflow_dict)
+        
+        try:
+            # Create the WorkflowOut model and return it
+            return WorkflowOut(**workflow_dict)
+        except Exception as e:
+            print(f"ERROR in validation: {str(e)}")
+            # Fallback with minimal fields if validation fails
+            fallback_dict = {
+                "id": wf.id,
+                "name": wf.name,
+                "status": "DRAFT",
+                "is_active": False,
+                "config": {},
+                "actions": {},
+                "conditions": {},
+                "nodes": [],
+                "edges": [],
+                "executions": {}
+            }
+            return WorkflowOut(**fallback_dict)
     except Exception as e:
         import traceback
         print(f"Error in get_workflow for id '{workflow_id}':", str(e))
