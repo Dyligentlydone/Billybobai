@@ -59,25 +59,41 @@ def create_workflow(workflow: WorkflowCreate, db: Session = Depends(get_db)):
 @router.get("/{workflow_id}", response_model=WorkflowOut)
 def get_workflow(workflow_id: str, db: Session = Depends(get_db)):
     try:
+        print(f"WORKFLOW GET: Received request for workflow_id: '{workflow_id}', type: {type(workflow_id)}")
+        
+        # Debug: Print all workflows to check IDs
+        all_workflows = db.query(Workflow).all()
+        for w in all_workflows:
+            print(f"Available workflow: id='{w.id}', name='{w.name}', type of id: {type(w.id)}")
+        
+        # Try to find the workflow
         wf = db.query(Workflow).filter(Workflow.id == workflow_id).first()
+        
         if not wf:
-            raise HTTPException(status_code=404, detail="Workflow not found")
+            print(f"No workflow found with ID: {workflow_id}")
+            # Try by substring match as fallback
+            matching_workflows = [w for w in all_workflows if workflow_id in w.id]
+            if matching_workflows:
+                wf = matching_workflows[0]
+                print(f"Found workflow by substring match: {wf.id}")
+            else:
+                raise HTTPException(status_code=404, detail="Workflow not found")
         
         # Convert to dict to access all fields including status
         workflow_dict = {
             "id": wf.id,
             "name": wf.name,
-            "status": wf.status, 
-            "created_at": wf.created_at,
-            "updated_at": wf.updated_at,
-            "is_active": bool(getattr(wf, "is_active", False) or wf.status == "ACTIVE")
+            "status": wf.status if hasattr(wf, 'status') else "DRAFT", 
+            "created_at": wf.created_at.isoformat() if hasattr(wf, 'created_at') and wf.created_at else None,
+            "updated_at": wf.updated_at.isoformat() if hasattr(wf, 'updated_at') and wf.updated_at else None,
+            "is_active": bool(getattr(wf, "is_active", False) or (hasattr(wf, 'status') and wf.status == "ACTIVE"))
         }
         
         print("Returning workflow data:", workflow_dict)
         return WorkflowOut(**workflow_dict)
     except Exception as e:
         import traceback
-        print("Error in get_workflow:", str(e))
+        print(f"Error in get_workflow for id '{workflow_id}':", str(e))
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Error retrieving workflow: {str(e)}")
 

@@ -227,22 +227,36 @@ const Workflows: React.FC = () => {
 
   const fetchWorkflowData = async (id: string) => {
     try {
+      // Clean ID - remove any potential quotes or whitespace that might be causing issues
+      const cleanId = id.trim().replace(/["']/g, '');
+      
       console.log("Fetching workflow with ID:", id);
-      if (!id || id === 'undefined') {
+      console.log("Using cleaned ID:", cleanId);
+      
+      if (!cleanId || cleanId === 'undefined') {
         throw new Error('Invalid workflow ID');
       }
+      
       // Use the secureApi to ensure HTTPS
       const secureApi = axios.create({
         baseURL: BACKEND_URL.replace('http:', 'https:'),
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         }
       });
-      const { data } = await secureApi.get(`/api/workflows/${id}`);
+      
+      console.log(`Making request to: ${secureApi.defaults.baseURL}/api/workflows/${cleanId}`);
+      
+      const { data } = await secureApi.get(`/api/workflows/${cleanId}`);
       console.log("Fetched workflow data:", data);
       return data;
     } catch (err) {
       console.error('Error fetching workflow data:', err);
+      // Add more specific error handling
+      if (axios.isAxiosError(err) && err.response) {
+        console.error('Server response:', err.response.status, err.response.data);
+      }
       throw err;
     }
   };
@@ -250,7 +264,10 @@ const Workflows: React.FC = () => {
   const handleEditWorkflow = async (id: string) => {
     try {
       console.log("Fetching workflow data for ID:", id);
-      if (!id || id === 'undefined') {
+      const cleanId = id.trim().replace(/["']/g, '');
+      console.log("Using cleaned ID:", cleanId);
+      
+      if (!cleanId || cleanId === 'undefined') {
         console.error("Invalid workflow ID");
         toast.error("Invalid workflow ID");
         return;
