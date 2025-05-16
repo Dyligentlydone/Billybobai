@@ -413,22 +413,24 @@ async def get_analytics(
                 "aiCost": 25.75,
                 "serviceCost": 15.50,
                 "qualityMetrics": [
-                    {"name": "Message Quality", "value": "85%", "change": "+2.3%", "status": "positive"},
-                    {"name": "Avg Message Length", "value": "120 chars", "change": "-1.5%", "status": "neutral"},
-                    {"name": "Response Time", "value": "2.5s", "change": "-5.2%", "status": "positive"},
-                    {"name": "Engagement Rate", "value": "78.5%", "change": "+3.1%", "status": "positive"}
+                    {"name": "Message Quality", "value": 85.0},
+                    {"name": "Avg Message Length", "value": 120.0},
+                    {"name": "Response Time", "value": 2.5},
+                    {"name": "Engagement Rate", "value": 78.5}
                 ],
                 "responseTypes": [
-                    {"name": "Inquiry", "value": 25, "percentage": 33.3},
-                    {"name": "Confirmation", "value": 20, "percentage": 26.7},
-                    {"name": "Information", "value": 15, "percentage": 20.0},
-                    {"name": "Other", "value": 15, "percentage": 20.0}
+                    {"name": "Inquiry", "value": 25},
+                    {"name": "Confirmation", "value": 20},
+                    {"name": "Information", "value": 15},
+                    {"name": "Other", "value": 15}
                 ],
-                "dailyCosts": generate_demo_daily_costs(start_date, end_date),
+                "dailyCosts": [
+                    {"date": (start_date + timedelta(days=i)).strftime("%Y-%m-%d"), "cost": round(1.5 + i * 0.2, 2)} for i in range((end_date - start_date).days + 1)
+                ],
                 "hourlyActivity": [{"hour": h, "count": 3 + (h % 5)} for h in range(24)],
                 "conversations": [
-                    {"id": "c1", "contact": "+1234567890", "lastMessage": "Thanks for your help!", "lastTime": start_date.strftime("%Y-%m-%d %H:%M:%S"), "messageCount": 5, "status": "active"},
-                    {"id": "c2", "contact": "+1987654321", "lastMessage": "When will my order arrive?", "lastTime": start_date.strftime("%Y-%m-%d %H:%M:%S"), "messageCount": 3, "status": "active"}
+                    {"phoneNumber": "+1234567890", "lastMessage": "Thanks for your help!", "timestamp": start_date.strftime("%Y-%m-%dT%H:%M:%SZ")},
+                    {"phoneNumber": "+1987654321", "lastMessage": "When will my order arrive?", "timestamp": start_date.strftime("%Y-%m-%dT%H:%M:%SZ")}
                 ]
             },
             # Other channels and overview metrics
