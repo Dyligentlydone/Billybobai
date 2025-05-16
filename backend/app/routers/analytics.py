@@ -14,6 +14,114 @@ from ..services.analytics_service import AnalyticsService
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
 
+def get_fallback_analytics_data(business_id, start=None, end=None):
+    from datetime import datetime, timedelta
+    import random
+    start_date = start or (datetime.utcnow() - timedelta(days=30))
+    end_date = end or datetime.utcnow()
+    def generate_demo_daily_costs(start_date, end_date):
+        result = []
+        current = start_date
+        while current <= end_date:
+            if current.weekday() < 5:
+                sms_cost = round(random.uniform(0.5, 2.5), 2)
+                ai_cost = round(random.uniform(1.0, 4.0), 2)
+                result.append({
+                    "date": current.strftime("%Y-%m-%d"),
+                    "smsCost": sms_cost,
+                    "aiCost": ai_cost,
+                    "totalCost": round(sms_cost + ai_cost, 2),
+                    "messageCount": random.randint(5, 25)
+                })
+            current += timedelta(days=1)
+        return result
+    return {
+        "sms": {
+            "totalCount": "75",
+            "responseTime": "2.5s",
+            "deliveryRate": 0.98,
+            "optOutRate": 0.02,
+            "aiCost": 25.75,
+            "serviceCost": 15.50,
+            "qualityMetrics": [
+                {"name": "Message Quality", "value": 85.0},
+                {"name": "Avg Message Length", "value": 120.0},
+                {"name": "Response Time", "value": 2.5},
+                {"name": "Engagement Rate", "value": 78.5}
+            ],
+            "responseTypes": [
+                {"name": "Inquiry", "value": 25},
+                {"name": "Confirmation", "value": 20},
+                {"name": "Information", "value": 15},
+                {"name": "Other", "value": 15}
+            ],
+            "dailyCosts": [
+                {"date": (start_date + timedelta(days=i)).strftime("%Y-%m-%d"), "cost": round(1.5 + i * 0.2, 2)} for i in range((end_date - start_date).days + 1)
+            ],
+            "hourlyActivity": [{"hour": h, "count": 3 + (h % 5)} for h in range(24)],
+            "conversations": [
+                {"phoneNumber": "+1234567890", "lastMessage": "Thanks for your help!", "timestamp": start_date.strftime("%Y-%m-%dT%H:%M:%SZ")},
+                {"phoneNumber": "+1987654321", "lastMessage": "When will my order arrive?", "timestamp": start_date.strftime("%Y-%m-%dT%H:%M:%SZ")}
+            ]
+        },
+        "voice": {
+            "totalCount": "25",
+            "inboundCalls": 15,
+            "outboundCalls": 10,
+            "averageDuration": 180,
+            "successRate": 0.95,
+            "hourlyActivity": [{"hour": h, "count": 1 + (h % 3)} for h in range(24)]
+        },
+        "email": {
+            "totalCount": "15",
+            "responseTime": "3.2h",
+            "openRate": 0.75,
+            "clickRate": 0.25,
+            "bounceRate": 0.05,
+            "hourlyActivity": [{"hour": h, "count": h % 2} for h in range(24)]
+        },
+        "overview": {
+            "totalInteractions": "115",
+            "avgResponseTime": "86.2s",
+            "totalCost": "$41.25",
+            "lastUpdated": end_date.isoformat()
+        },
+        "dateRange": {
+            "start": start_date.isoformat(),
+            "end": end_date.isoformat()
+        },
+        "demoData": True,
+        "standard_metrics": {
+            "totalConversations": 125,
+            "averageResponseTime": 45,
+            "clientSatisfaction": 4.8,
+            "resolutionRate": 92,
+            "newContacts": 37
+        },
+        "timeSeriesData": {
+            "conversations": [5, 8, 12, 7, 9, 14, 10, 6, 11, 13, 8, 9, 7, 6],
+            "responseTime": [48, 43, 46, 41, 45, 42, 44, 49, 47, 45, 42, 46, 43, 45],
+            "satisfaction": [4.6, 4.7, 4.8, 4.9, 4.8, 4.7, 4.8, 4.9, 4.8, 4.7, 4.8, 4.9, 4.7, 4.8]
+        },
+        "categorizedData": {
+            "byService": [
+                {"name": "SMS", "value": 65},
+                {"name": "Voice", "value": 42},
+                {"name": "WhatsApp", "value": 18}
+            ],
+            "byStatus": [
+                {"name": "Resolved", "value": 92},
+                {"name": "Pending", "value": 23},
+                {"name": "Escalated", "value": 10}
+            ]
+        },
+        "startDate": start_date.isoformat(),
+        "endDate": end_date.isoformat(),
+        "businessId": business_id,
+        "fallbackData": True
+    }
+
+
 @router.get("/conversations/metrics/{business_id}")
 def get_conversation_metrics(business_id: str, db: Session = Depends(get_db)):
     # Allow analytics even if Business record missing (e.g. data seeded
@@ -363,114 +471,9 @@ async def get_analytics(
 
         # Always return fallback/demo data if business not found or analytics are empty
         if not business or int(analytics_data["sms"].get("totalCount", 0)) == 0:
+            import logging
             logging.warning(f"Business {business_id} not found or no analytics. Returning fallback analytics data.")
-            # Compose fallback analytics data
-            from datetime import timedelta
-            start_date = start_dt or (datetime.utcnow() - timedelta(days=30))
-            end_date = end_dt or datetime.utcnow()
-            def generate_demo_daily_costs(start_date, end_date):
-                import random
-                result = []
-                current = start_date
-                while current <= end_date:
-                    if current.weekday() < 5:
-                        sms_cost = round(random.uniform(0.5, 2.5), 2)
-                        ai_cost = round(random.uniform(1.0, 4.0), 2)
-                        result.append({
-                            "date": current.strftime("%Y-%m-%d"),
-                            "smsCost": sms_cost,
-                            "aiCost": ai_cost,
-                            "totalCost": round(sms_cost + ai_cost, 2),
-                            "messageCount": random.randint(5, 25)
-                        })
-                    current += timedelta(days=1)
-                return result
-            return {
-                "sms": {
-                    "totalCount": "75",
-                    "responseTime": "2.5s",
-                    "deliveryRate": 0.98,
-                    "optOutRate": 0.02,
-                    "aiCost": 25.75,
-                    "serviceCost": 15.50,
-                    "qualityMetrics": [
-                        {"name": "Message Quality", "value": 85.0},
-                        {"name": "Avg Message Length", "value": 120.0},
-                        {"name": "Response Time", "value": 2.5},
-                        {"name": "Engagement Rate", "value": 78.5}
-                    ],
-                    "responseTypes": [
-                        {"name": "Inquiry", "value": 25},
-                        {"name": "Confirmation", "value": 20},
-                        {"name": "Information", "value": 15},
-                        {"name": "Other", "value": 15}
-                    ],
-                    "dailyCosts": [
-                        {"date": (start_date + timedelta(days=i)).strftime("%Y-%m-%d"), "cost": round(1.5 + i * 0.2, 2)} for i in range((end_date - start_date).days + 1)
-                    ],
-                    "hourlyActivity": [{"hour": h, "count": 3 + (h % 5)} for h in range(24)],
-                    "conversations": [
-                        {"phoneNumber": "+1234567890", "lastMessage": "Thanks for your help!", "timestamp": start_date.strftime("%Y-%m-%dT%H:%M:%SZ")},
-                        {"phoneNumber": "+1987654321", "lastMessage": "When will my order arrive?", "timestamp": start_date.strftime("%Y-%m-%dT%H:%M:%SZ")}
-                    ]
-                },
-                "voice": {
-                    "totalCount": "25",
-                    "inboundCalls": 15,
-                    "outboundCalls": 10,
-                    "averageDuration": 180,
-                    "successRate": 0.95,
-                    "hourlyActivity": [{"hour": h, "count": 1 + (h % 3)} for h in range(24)]
-                },
-                "email": {
-                    "totalCount": "15",
-                    "responseTime": "3.2h",
-                    "openRate": 0.75,
-                    "clickRate": 0.25,
-                    "bounceRate": 0.05,
-                    "hourlyActivity": [{"hour": h, "count": h % 2} for h in range(24)]
-                },
-                "overview": {
-                    "totalInteractions": "115",
-                    "avgResponseTime": "86.2s",
-                    "totalCost": "$41.25",
-                    "lastUpdated": end_date.isoformat()
-                },
-                "dateRange": {
-                    "start": start_date.isoformat(),
-                    "end": end_date.isoformat()
-                },
-                "demoData": True,
-                "standard_metrics": {
-                    "totalConversations": 125,
-                    "averageResponseTime": 45,
-                    "clientSatisfaction": 4.8,
-                    "resolutionRate": 92,
-                    "newContacts": 37
-                },
-                "timeSeriesData": {
-                    "conversations": [5, 8, 12, 7, 9, 14, 10, 6, 11, 13, 8, 9, 7, 6],
-                    "responseTime": [48, 43, 46, 41, 45, 42, 44, 49, 47, 45, 42, 46, 43, 45],
-                    "satisfaction": [4.6, 4.7, 4.8, 4.9, 4.8, 4.7, 4.8, 4.9, 4.8, 4.7, 4.8, 4.9, 4.7, 4.8]
-                },
-                "categorizedData": {
-                    "byService": [
-                        {"name": "SMS", "value": 65},
-                        {"name": "Voice", "value": 42},
-                        {"name": "WhatsApp", "value": 18}
-                    ],
-                    "byStatus": [
-                        {"name": "Resolved", "value": 92},
-                        {"name": "Pending", "value": 23},
-                        {"name": "Escalated", "value": 10}
-                    ]
-                },
-                "startDate": start or start_date.isoformat(),
-                "endDate": end or end_date.isoformat(),
-                "businessId": business_id,
-                "fallbackData": True
-            }
-        }
+            return get_fallback_analytics_data(business_id, start_dt, end_dt)
         return analytics_data
     except Exception as e:
         import traceback
