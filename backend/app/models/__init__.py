@@ -14,6 +14,8 @@ logger = logging.getLogger(__name__)
 
 # Only import db from app.db
 from app.db import db
+from app.models.business import Business
+from app.models.email import EmailThread
 
 # Create Base for ORM models
 Base = declarative_base()
