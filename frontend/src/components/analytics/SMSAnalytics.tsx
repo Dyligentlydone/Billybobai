@@ -219,7 +219,7 @@ const SMSAnalytics: React.FC<Props> = ({ metrics, businessId, clientId, isPlaceh
             <div>
               <h3 className="text-lg font-medium">Conversation Detail</h3>
               <p className="text-sm text-gray-600">
-                {format(new Date(selectedConversation.startedAt), 'MMM d, yyyy h:mm a')}
+                {selectedConversation.startedAt ? (() => { try { return format(new Date(selectedConversation.startedAt), 'MMM d, yyyy h:mm a'); } catch { return 'Unknown'; } })() : 'Unknown'}
               </p>
               <p className="text-sm text-gray-600">Contact: {selectedConversation.phoneNumber}</p>
             </div>
@@ -245,7 +245,7 @@ const SMSAnalytics: React.FC<Props> = ({ metrics, businessId, clientId, isPlaceh
                 >
                   <p>{msg.content}</p>
                   <p className="text-xs mt-1 opacity-75">
-                    {format(new Date(msg.createdAt), 'h:mm a')}
+                    {msg.createdAt ? (() => { try { return format(new Date(msg.createdAt), 'h:mm a'); } catch { return 'Unknown'; } })() : 'Unknown'}
                     {msg.direction === 'outbound' && msg.aiConfidence && (
                       <span className="ml-2">
                         AI Confidence: {(msg.aiConfidence * 100).toFixed(0)}%
