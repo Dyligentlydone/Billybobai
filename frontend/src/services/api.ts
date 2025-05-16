@@ -162,7 +162,7 @@ export interface BusinessSummary {
 }
 
 export const listBusinesses = async (): Promise<BusinessSummary[]> => {
-  const { data } = await api.get('/api/businesses', { params: { admin: '97225' } });
+  const { data } = await api.get('/api/businesses/', { params: { admin: '97225' } });
   return data;
 };
 

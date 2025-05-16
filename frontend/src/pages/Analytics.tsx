@@ -31,7 +31,7 @@ export default function Analytics() {
 
   // Fetch business list for selector (using new endpoint)
   const { data: businessList } = useQuery(['businesses'], async () => {
-    const res = await api.get('/api/businesses');
+    const res = await api.get('/api/businesses/');
     return res.data;
   });
 

@@ -16,7 +16,7 @@ export default function BusinessSelector() {
     'businesses',
     async () => {
       try {
-        const { data } = await axios.get('/api/businesses');
+        const { data } = await axios.get('/api/businesses/');
         return data;
       } catch (error) {
         console.error('Failed to fetch businesses:', error);
