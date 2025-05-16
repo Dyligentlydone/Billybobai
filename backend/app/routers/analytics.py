@@ -13,6 +13,28 @@ from ..services.analytics_service import AnalyticsService
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
+@router.get("/conversations/metrics/{business_id}")
+def get_sms_conversation_metrics(business_id: str):
+    # Fallback/demo data matching frontend expectations
+    import random
+    from datetime import datetime, timedelta
+    now = datetime.utcnow()
+    start_date = now - timedelta(days=30)
+    hourly_activity = [random.randint(0, 10) for _ in range(24)]
+    topics = [
+        {"topic": "Inquiry", "count": 25},
+        {"topic": "Confirmation", "count": 20},
+        {"topic": "Information", "count": 15},
+        {"topic": "Other", "count": 15}
+    ]
+    response_times = {"average": 2.5, "median": 2.0, "p95": 4.0}
+    return {
+        "total_messages": 75,
+        "hourly_activity": hourly_activity,
+        "topics": topics,
+        "response_times": response_times
+    }
+
 
 def get_fallback_analytics_data(business_id, start=None, end=None):
     from datetime import datetime, timedelta
