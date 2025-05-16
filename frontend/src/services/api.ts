@@ -7,6 +7,7 @@ import { VoiceConfig } from '../types/voice';
 import { BACKEND_URL } from '../config';
 
 const API_URL = BACKEND_URL;
+console.log('API_URL at runtime:', API_URL);
 
 // Create axios instance with base URL
 const api = axios.create({
@@ -195,3 +196,4 @@ export const createClient = async (payload: { business_id: string; passcode: str
   const { data } = await api.post('/api/clients', payload, { params: { admin: '97225' } });
   return data.client;
 };
+console.log('API_URL at runtime:', API_URL);
