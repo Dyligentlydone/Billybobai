@@ -16,10 +16,12 @@ export function useSMSAnalytics(businessId: string, clientId: string) {
         setLoading(true);
         setError(null);
 
-        // Get basic metrics
+        // Clean businessId to remove any curly braces or whitespace
+        const cleanBusinessId = typeof businessId === 'string' ? businessId.replace(/[{}\s]/g, '') : businessId;
+        console.log('Fetching SMS analytics for businessId:', cleanBusinessId);
         const [metricsRes, conversationsRes] = await Promise.all([
-          axios.get(`/api/analytics/conversations/metrics/${businessId}`),
-          axios.get(`/api/analytics/conversations/${businessId}`, {
+          axios.get(`/api/analytics/conversations/metrics/${cleanBusinessId}`),
+          axios.get(`/api/analytics/conversations/${cleanBusinessId}`, {
             params: { page, per_page: 5 }
           })
         ]);
