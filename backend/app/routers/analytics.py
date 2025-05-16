@@ -234,7 +234,7 @@ async def get_sms_analytics(
         endDate = None
     start = start or startDate
     end = end or endDate
-    def _parse(ts: str | None):
+    def _parse(ts: Optional[str]):
         if ts is None:
             return None
         try:
@@ -340,7 +340,7 @@ async def get_analytics(
         business = db.query(Business).filter(Business.id == business_id).first()
         
         # Parse optional date range
-        def _parse(ts: str | None):
+        def _parse(ts: Optional[str]):
             if ts is None:
                 return None
             try:
