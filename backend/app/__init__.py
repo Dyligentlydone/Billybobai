@@ -9,6 +9,15 @@ import importlib
 import traceback
 import json
 
+# Import direct Flask route handlers
+try:
+    from app.flask_direct_routes import register_flask_direct_routes
+    DIRECT_ROUTES_AVAILABLE = True
+except ImportError:
+    DIRECT_ROUTES_AVAILABLE = False
+    logging.getLogger(__name__).error("Failed to import flask_direct_routes module")
+    pass
+
 # Configure logging to stdout
 logging.basicConfig(
     level=logging.INFO,
@@ -50,6 +59,21 @@ def create_app():
         response.headers['Access-Control-Allow-Headers'] = 'Content-Type,Authorization'
         response.headers['Access-Control-Allow-Methods'] = 'GET,PUT,POST,DELETE,OPTIONS'
         return response
+        
+    # =====================================================================
+    # CRITICAL: Register direct Flask routes to ensure SMS dashboard works
+    # These routes handle key endpoints like /api/businesses and /api/analytics
+    # which are required by the SMS dashboard section of the frontend
+    # =====================================================================
+    if DIRECT_ROUTES_AVAILABLE:
+        try:
+            register_flask_direct_routes(app)
+            logger.info("Successfully registered direct Flask routes for critical endpoints")
+            logger.info("SMS dashboard should now function correctly")
+        except Exception as e:
+            logger.error(f"Failed to register direct routes: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
 
     # Configure database
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///whys.db')
