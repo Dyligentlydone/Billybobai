@@ -9,7 +9,7 @@ router = APIRouter(prefix="/api/workflows", tags=["workflows"])
 
 class WorkflowBase(BaseModel):
     name: str
-    description: str = None
+    # Removed description as it doesn't exist in the database model
 
 class WorkflowCreate(WorkflowBase):
     pass
@@ -25,7 +25,6 @@ def get_workflows(db: Session = Depends(get_db)):
         return [WorkflowOut(
             id=w.id,
             name=w.name,
-            description=w.description,
             is_active=getattr(w, "is_active", None)
         ) for w in workflows]
     except Exception as e:
@@ -37,14 +36,13 @@ def get_workflows(db: Session = Depends(get_db)):
 
 @router.post("/", response_model=WorkflowOut, status_code=201)
 def create_workflow(workflow: WorkflowCreate, db: Session = Depends(get_db)):
-    new_wf = Workflow(name=workflow.name, description=workflow.description)
+    new_wf = Workflow(name=workflow.name)
     db.add(new_wf)
     db.commit()
     db.refresh(new_wf)
     return WorkflowOut(
         id=new_wf.id,
         name=new_wf.name,
-        description=new_wf.description,
         is_active=getattr(new_wf, "is_active", None)
     )
 
@@ -56,7 +54,6 @@ def get_workflow(workflow_id: int, db: Session = Depends(get_db)):
     return WorkflowOut(
         id=wf.id,
         name=wf.name,
-        description=wf.description,
         is_active=getattr(wf, "is_active", None)
     )
 
@@ -66,13 +63,11 @@ def update_workflow(workflow_id: int, workflow: WorkflowCreate, db: Session = De
     if not wf:
         raise HTTPException(status_code=404, detail="Workflow not found")
     wf.name = workflow.name
-    wf.description = workflow.description
     db.commit()
     db.refresh(wf)
     return WorkflowOut(
         id=wf.id,
         name=wf.name,
-        description=wf.description,
         is_active=getattr(wf, "is_active", None)
     )
 
