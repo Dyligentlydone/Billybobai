@@ -211,6 +211,7 @@ def calculate_metrics(messages: list[Message], start_date: datetime) -> Dict[str
         }
     }
 
+@router.get("/sms/{business_id}")
 @router.get("/{business_id}")
 async def get_analytics(
     business_id: str,
