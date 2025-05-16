@@ -304,7 +304,7 @@ async def get_sms_analytics(
                 {"id": "c1", "contact": "+1234567890", "lastMessage": "Thanks for your help!", "lastTime": start_date.strftime("%Y-%m-%d %H:%M:%S"), "messageCount": 5, "status": "active"},
                 {"id": "c2", "contact": "+1987654321", "lastMessage": "When will my order arrive?", "lastTime": start_date.strftime("%Y-%m-%d %H:%M:%S"), "messageCount": 3, "status": "active"}
             ]
-        
+        }
 
 @router.get("/{business_id}")
 async def get_analytics(
