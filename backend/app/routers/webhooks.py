@@ -50,7 +50,12 @@ async def sms_webhook(business_id: str, request: Request, db: Session = Depends(
             resp.message(f"Thank you for your message. We'll get back to you soon. (Business ID: {business_id} not found)")
             return Response(content=str(resp), media_type="application/xml")
         # Workflow lookup
-        workflow = db.query(Workflow).filter(Workflow.business_id == business_id, Workflow.is_active == True).first()
+        # Updated to use status='ACTIVE' instead of is_active=True
+        workflow = db.query(Workflow).filter(
+            Workflow.business_id == business_id, 
+            Workflow.status == 'ACTIVE'
+        ).first()
+        
         if not workflow:
             resp.message("Thank you for your message. A representative will get back to you soon. (No active workflow)")
             return Response(content=str(resp), media_type="application/xml")
