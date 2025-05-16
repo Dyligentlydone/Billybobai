@@ -46,7 +46,7 @@ def get_conversation_metrics(business_id: str, db: Session = Depends(get_db)):
         },
         "topics": topics,
         "hourly_activity": hourly_activity
-    
+    }
 
 @router.get("/conversations/{business_id}")
 def get_conversations(business_id: str, page: int = Query(1, ge=1), per_page: int = Query(5, ge=1, le=100), db: Session = Depends(get_db)):
