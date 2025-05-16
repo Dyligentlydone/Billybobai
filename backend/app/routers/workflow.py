@@ -16,7 +16,7 @@ class WorkflowCreate(WorkflowBase):
 
 class WorkflowOut(WorkflowBase):
     id: str
-    is_active: bool = None
+    is_active: bool = False  # Set a default value instead of None to fix validation error
 
 @router.get("/", response_model=List[WorkflowOut])
 def get_workflows(db: Session = Depends(get_db)):
