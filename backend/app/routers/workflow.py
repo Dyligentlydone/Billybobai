@@ -15,18 +15,25 @@ class WorkflowCreate(WorkflowBase):
     pass
 
 class WorkflowOut(WorkflowBase):
-    id: int
+    id: str
     is_active: bool = None
 
 @router.get("/", response_model=List[WorkflowOut])
 def get_workflows(db: Session = Depends(get_db)):
-    workflows = db.query(Workflow).all()
-    return [WorkflowOut(
-        id=w.id,
-        name=w.name,
-        description=w.description,
-        is_active=getattr(w, "is_active", None)
-    ) for w in workflows]
+    try:
+        workflows = db.query(Workflow).all()
+        return [WorkflowOut(
+            id=w.id,
+            name=w.name,
+            description=w.description,
+            is_active=getattr(w, "is_active", None)
+        ) for w in workflows]
+    except Exception as e:
+        import traceback
+        print("Error in get_workflows:", str(e))
+        print(traceback.format_exc())
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail=f"Error in get_workflows: {str(e)}")
 
 @router.post("/", response_model=WorkflowOut, status_code=201)
 def create_workflow(workflow: WorkflowCreate, db: Session = Depends(get_db)):
