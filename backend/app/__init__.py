@@ -9,15 +9,6 @@ import importlib
 import traceback
 import json
 
-# Import our direct endpoint implementations
-try:
-    from app.direct_endpoints import register_direct_endpoints
-except ImportError:
-    # Create a no-op function if the import fails
-    def register_direct_endpoints(app):
-        logging.getLogger(__name__).error("Failed to import direct_endpoints module")
-        pass
-
 # Configure logging to stdout
 logging.basicConfig(
     level=logging.INFO,
@@ -554,24 +545,26 @@ def create_app():
             logger.info("SMS routes registered successfully")
         except Exception as e:
             logger.error(f"Failed to register SMS routes: {str(e)}")
-            logger.error(traceback.format_exc())
-    except Exception as e:
-        logger.error(f"Error registering SMS routes section: {str(e)}")
-        logger.error(traceback.format_exc())
-    
-    # Register direct endpoints for critical paths that cannot fail
-    try:
-        register_direct_endpoints(app)
-        logger.info("Successfully registered direct endpoints for critical paths")
-    except Exception as e:
-        logger.error(f"Failed to register direct endpoints: {str(e)}")
-        logger.error(traceback.format_exc())
 
-    # === DEBUG: Print all registered routes at startup ===
-    logger.info("=== Registered Flask Routes ===")
-    for rule in app.url_map.iter_rules():
-        logger.info(f"ROUTE: {rule} -> methods: {sorted(rule.methods)}")
-    logger.info("=== END ROUTE LIST ===")
+        # Register blueprints with better error handling
+        def register_blueprints_with_error_handling(app):
+            try:
+                # Only attempt to import calendly routes if the module exists
+                try:
+                    from .routes import calendly_routes
+                    app.register_blueprint(calendly_routes.calendly_bp)
+                    logger.info("Calendly blueprint registered successfully")
+                except ImportError:
+                    logger.warning("Calendly routes not found, skipping")
+                except Exception as e:
+                    logger.error(f"Failed to register Calendly blueprint: {str(e)}")
+                    
+                # Import and register the analytics blueprint
+                try:
+                    from routes.analytics import analytics_bp
+                    app.register_blueprint(analytics_bp)
+                    logger.info("Analytics blueprint registered successfully")
+                except ImportError:
                     logger.warning("Analytics routes not found, skipping")
                 except Exception as e:
                     logger.error(f"Error registering Analytics blueprint: {str(e)}")
