@@ -250,6 +250,12 @@ const Workflows: React.FC = () => {
   const handleEditWorkflow = async (id: string) => {
     try {
       console.log("Fetching workflow data for ID:", id);
+      if (!id || id === 'undefined') {
+        console.error("Invalid workflow ID");
+        toast.error("Invalid workflow ID");
+        return;
+      }
+      
       const workflowData = await fetchWorkflowData(id);
       console.log("Received workflow data:", JSON.stringify(workflowData, null, 2));
       
@@ -270,7 +276,8 @@ const Workflows: React.FC = () => {
           // Ensure these IDs are clearly available
           business_id: businessId,
           client_id: businessId,
-          id: id
+          id: id,
+          _id: id // Ensure both ID formats are available
         });
         setShowSMSWizard(true);
       } else {
