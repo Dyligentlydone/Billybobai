@@ -25,7 +25,7 @@ def get_workflows(db: Session = Depends(get_db)):
         return [WorkflowOut(
             id=w.id,
             name=w.name,
-            is_active=getattr(w, "is_active", None)
+            is_active=bool(getattr(w, "is_active", False))
         ) for w in workflows]
     except Exception as e:
         import traceback
@@ -43,7 +43,7 @@ def create_workflow(workflow: WorkflowCreate, db: Session = Depends(get_db)):
     return WorkflowOut(
         id=new_wf.id,
         name=new_wf.name,
-        is_active=getattr(new_wf, "is_active", None)
+        is_active=bool(getattr(new_wf, "is_active", False))
     )
 
 @router.get("/{workflow_id}", response_model=WorkflowOut)
@@ -54,7 +54,7 @@ def get_workflow(workflow_id: int, db: Session = Depends(get_db)):
     return WorkflowOut(
         id=wf.id,
         name=wf.name,
-        is_active=getattr(wf, "is_active", None)
+        is_active=bool(getattr(wf, "is_active", False))
     )
 
 @router.put("/{workflow_id}", response_model=WorkflowOut)
@@ -68,7 +68,7 @@ def update_workflow(workflow_id: int, workflow: WorkflowCreate, db: Session = De
     return WorkflowOut(
         id=wf.id,
         name=wf.name,
-        is_active=getattr(wf, "is_active", None)
+        is_active=bool(getattr(wf, "is_active", False))
     )
 
 @router.delete("/{workflow_id}")
