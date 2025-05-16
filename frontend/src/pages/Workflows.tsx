@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from 'react-query';
-import axios, { AxiosError } from 'axios';
+import { AxiosError } from 'axios';
+import api from '../services/api';
 import toast from 'react-hot-toast';
 import WorkflowBuilder from '../components/workflows/WorkflowBuilder';
 import SMSConfigWizard from '../components/workflows/SMSConfigWizard';
@@ -18,19 +19,8 @@ function generateUUID() {
   });
 }
 
-// API URL configuration
-const API_BASE_URL = 'https://api.dyligent.xyz';
-
-// Create axios instance with consistent configuration
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  withCredentials: false, // Change to false to avoid CORS preflight issues
-  headers: {
-    'Accept': 'application/json',
-    'Content-Type': 'application/json',
-    'Authorization': 'Basic OTcyMjU=' // Base64 encoded admin password "97225"
-  }
-});
+// Use the global API service from '../services/api'
+// This ensures consistent HTTPS protocol usage and prevents mixed content errors
 
 type WorkflowStatus = 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
 
