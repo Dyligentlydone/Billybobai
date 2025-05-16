@@ -274,16 +274,98 @@ async def get_analytics(
         return analytics_data
         
     except Exception as e:
-        # Provide fallback data for any exception
-        print(f"Error in analytics: {str(e)}")
+        # Log the error with more details to help with debugging
+        import traceback
+        import logging
+        logging.error(f"Error in analytics: {str(e)}")
+        logging.error(traceback.format_exc())
         
         # Default dates for response
         start_date = datetime.utcnow() - timedelta(days=30)
         end_date = datetime.utcnow()
         
-        # Return mock data that matches frontend expectations
+        # Helper function to generate demo daily costs
+        def generate_demo_daily_costs(start_date, end_date):
+            from datetime import timedelta
+            import random
+            
+            result = []
+            current = start_date
+            while current <= end_date:
+                # Only add entries for weekdays to make the data look realistic
+                if current.weekday() < 5:  # Monday to Friday
+                    sms_cost = round(random.uniform(0.5, 2.5), 2)
+                    ai_cost = round(random.uniform(1.0, 4.0), 2)
+                    result.append({
+                        "date": current.strftime("%Y-%m-%d"),
+                        "smsCost": sms_cost,
+                        "aiCost": ai_cost,
+                        "totalCost": round(sms_cost + ai_cost, 2),
+                        "messageCount": random.randint(5, 25)
+                    })
+                current += timedelta(days=1)
+            return result
+            
+        # Create a complete response structure with all expected sections
+        # This ensures no blank screens even if parts fail
         return {
-            "metrics": {
+            # General analytics data
+            "sms": {
+                "totalCount": "75",
+                "responseTime": "2.5s",
+                "deliveryRate": 0.98,
+                "optOutRate": 0.02,
+                "aiCost": 25.75,
+                "serviceCost": 15.50,
+                "qualityMetrics": [
+                    {"name": "Message Quality", "value": "85%", "change": "+2.3%", "status": "positive"},
+                    {"name": "Avg Message Length", "value": "120 chars", "change": "-1.5%", "status": "neutral"},
+                    {"name": "Response Time", "value": "2.5s", "change": "-5.2%", "status": "positive"},
+                    {"name": "Engagement Rate", "value": "78.5%", "change": "+3.1%", "status": "positive"}
+                ],
+                "responseTypes": [
+                    {"name": "Inquiry", "value": 25, "percentage": 33.3},
+                    {"name": "Confirmation", "value": 20, "percentage": 26.7},
+                    {"name": "Information", "value": 15, "percentage": 20.0},
+                    {"name": "Other", "value": 15, "percentage": 20.0}
+                ],
+                "dailyCosts": generate_demo_daily_costs(start_date, end_date),
+                "hourlyActivity": [{"hour": h, "count": 3 + (h % 5)} for h in range(24)],
+                "conversations": [
+                    {"id": "c1", "contact": "+1234567890", "lastMessage": "Thanks for your help!", "lastTime": start_date.strftime("%Y-%m-%d %H:%M:%S"), "messageCount": 5, "status": "active"},
+                    {"id": "c2", "contact": "+1987654321", "lastMessage": "When will my order arrive?", "lastTime": start_date.strftime("%Y-%m-%d %H:%M:%S"), "messageCount": 3, "status": "active"}
+                ]
+            },
+            # Other channels and overview metrics
+            "voice": {
+                "totalCount": "25",
+                "inboundCalls": 15,
+                "outboundCalls": 10,
+                "averageDuration": 180,
+                "successRate": 0.95,
+                "hourlyActivity": [{"hour": h, "count": 1 + (h % 3)} for h in range(24)]
+            },
+            "email": {
+                "totalCount": "15",
+                "responseTime": "3.2h",
+                "openRate": 0.75,
+                "clickRate": 0.25,
+                "bounceRate": 0.05,
+                "hourlyActivity": [{"hour": h, "count": h % 2} for h in range(24)]
+            },
+            "overview": {
+                "totalInteractions": "115",
+                "avgResponseTime": "86.2s",
+                "totalCost": "$41.25",
+                "lastUpdated": end_date.isoformat()
+            },
+            "dateRange": {
+                "start": start_date.isoformat(),
+                "end": end_date.isoformat()
+            },
+            "demoData": True,
+            # Standard metrics section
+            "standard_metrics": {
                 "totalConversations": 125,
                 "averageResponseTime": 45,
                 "clientSatisfaction": 4.8,

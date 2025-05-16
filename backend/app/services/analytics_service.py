@@ -70,25 +70,83 @@ class AnalyticsService:
 
     def _get_sms_metrics(self, business_id: str, start: datetime, end: datetime) -> Dict[str, Any]:
         # Messages don't carry business_id directly, so join via Workflow
-        q = (
-            self.db.query(Message)
-            .join(Workflow, Message.workflow_id == Workflow.id)
-            .filter(
-                Workflow.business_id == business_id,
-                Message.channel == MessageChannel.SMS,
-                Message.created_at >= start,
-                Message.created_at <= end,
+        try:
+            # First try the standard enum approach
+            q = (
+                self.db.query(Message)
+                .join(Workflow, Message.workflow_id == Workflow.id)
+                .filter(
+                    Workflow.business_id == business_id,
+                    Message.channel == MessageChannel.SMS,
+                    Message.created_at >= start,
+                    Message.created_at <= end,
+                )
             )
-        )
+        except Exception as e:
+            # Fallback to string comparison if enum comparison fails
+            import logging
+            logging.warning(f"Error with enum filtering: {str(e)}")
+            
+            q = (
+                self.db.query(Message)
+                .join(Workflow, Message.workflow_id == Workflow.id)
+                .filter(
+                    Workflow.business_id == business_id,
+                    Message.created_at >= start,
+                    Message.created_at <= end,
+                )
+            )
+            # We'll filter by channel later in Python code
         messages: List[Message] = q.all()
+        
+        # Always filter for SMS messages to be safe, regardless of which query approach was used
+        # This ensures we only include SMS messages even if the database filter didn't work
+        filtered_messages = []
+        for m in messages:
+            try:
+                # Check message channel in multiple ways to ensure robust filtering
+                message_channel = getattr(m, 'channel', None)
+                channel_str = str(message_channel).upper() if message_channel is not None else ''
+                
+                # Add message if any of these conditions match
+                if ('SMS' in channel_str or 
+                    (hasattr(message_channel, 'value') and message_channel.value == 'SMS') or
+                    message_channel == MessageChannel.SMS):
+                    filtered_messages.append(m)
+            except Exception as e:
+                import logging
+                logging.warning(f"Error filtering message by channel: {str(e)}")
+                continue
+        messages = filtered_messages
 
         total_messages = len(messages)
         if total_messages == 0:
             return self._empty_sms_metrics()
 
-        # Delivered / failed counts
-        delivered_count = sum(1 for m in messages if m.status == MessageStatus.DELIVERED)
-        failed_count = sum(1 for m in messages if m.status == MessageStatus.FAILED)
+        # Delivered / failed counts - handle both enum values and string values
+        delivered_count = 0
+        failed_count = 0
+        for m in messages:
+            try:
+                # Try different ways to check status (enum, string value, or attribute comparison)
+                message_status = getattr(m, 'status', None)
+                if message_status == MessageStatus.DELIVERED:
+                    delivered_count += 1
+                elif message_status == 'DELIVERED':
+                    delivered_count += 1
+                elif str(message_status) == 'DELIVERED':
+                    delivered_count += 1
+                elif message_status == MessageStatus.FAILED:
+                    failed_count += 1
+                elif message_status == 'FAILED':
+                    failed_count += 1
+                elif str(message_status) == 'FAILED':
+                    failed_count += 1
+            except Exception as e:
+                import logging
+                logging.warning(f"Error checking message status: {str(e)}")
+                continue
+        
         delivery_rate = delivered_count / total_messages if total_messages else 0
 
         # Opt-out rate based on SMSConsent table if present
