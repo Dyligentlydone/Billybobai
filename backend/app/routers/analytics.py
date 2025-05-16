@@ -14,22 +14,65 @@ from ..services.analytics_service import AnalyticsService
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
 @router.get("/conversations/metrics/{business_id}")
-def get_sms_conversation_metrics(business_id: str):
-    # Fallback/demo data matching frontend expectations
-    import random
+def get_sms_conversation_metrics(business_id: str, db: Session = Depends(get_db)):
+    from sqlalchemy import extract, func
     from datetime import datetime, timedelta
+    from ..models.message import Message, MessageChannel
+
     now = datetime.utcnow()
     start_date = now - timedelta(days=30)
-    hourly_activity = [random.randint(0, 10) for _ in range(24)]
-    topics = [
-        {"topic": "Inquiry", "count": 25},
-        {"topic": "Confirmation", "count": 20},
-        {"topic": "Information", "count": 15},
-        {"topic": "Other", "count": 15}
-    ]
-    response_times = {"average": 2.5, "median": 2.0, "p95": 4.0}
+
+    # Query for SMS messages for this business in the last 30 days
+    messages = db.query(Message).join(Message.workflow).filter(
+        Message.channel == MessageChannel.SMS,
+        Message.workflow.has(business_id=business_id),
+        Message.created_at >= start_date,
+        Message.created_at <= now
+    ).all()
+
+    if not messages:
+        # Fallback/demo data if no messages
+        import random
+        hourly_activity = [random.randint(0, 10) for _ in range(24)]
+        topics = [
+            {"topic": "Inquiry", "count": 25},
+            {"topic": "Confirmation", "count": 20},
+            {"topic": "Information", "count": 15},
+            {"topic": "Other", "count": 15}
+        ]
+        response_times = {"average": 2.5, "median": 2.0, "p95": 4.0}
+        return {
+            "total_messages": 75,
+            "hourly_activity": hourly_activity,
+            "topics": topics,
+            "response_times": response_times
+        }
+
+    # Aggregate total messages
+    total_messages = len(messages)
+
+    # Hourly activity (number of messages per hour for the last 24 hours)
+    hourly_activity = [0]*24
+    for msg in messages:
+        if msg.created_at:
+            hour = msg.created_at.hour
+            hourly_activity[hour] += 1
+
+    # Topics (if you have a topic field, group by it; else, group by direction)
+    # Here, as an example, we use direction as a "topic"
+    topics_dict = {}
+    for msg in messages:
+        topic = getattr(msg, 'direction', 'Other')
+        topic_str = topic.value if hasattr(topic, 'value') else str(topic)
+        topics_dict[topic_str] = topics_dict.get(topic_str, 0) + 1
+    topics = [{"topic": k, "count": v} for k, v in topics_dict.items()]
+
+    # Response times (if you have a field, otherwise set as N/A)
+    response_times = {"average": None, "median": None, "p95": None}
+    # If you have response timing logic, implement here
+
     return {
-        "total_messages": 75,
+        "total_messages": total_messages,
         "hourly_activity": hourly_activity,
         "topics": topics,
         "response_times": response_times
