@@ -209,7 +209,6 @@ def calculate_metrics(messages: list[Message], start_date: datetime) -> Dict[str
                 "Risk Score": "12/100"
             }
         }
-    }
 
 @router.get("/sms/{business_id}")
 async def get_sms_analytics(
