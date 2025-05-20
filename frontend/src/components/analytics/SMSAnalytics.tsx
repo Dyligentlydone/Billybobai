@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { SMSMetrics, Conversation } from '../../types/analytics';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { format } from 'date-fns';
+import { safeFormatDate } from '../../utils/safeFormatDate';
 
 interface Props {
   metrics: SMSMetrics;
@@ -187,7 +188,7 @@ const SMSAnalytics: React.FC<Props> = ({ metrics, businessId, clientId, isPlaceh
         <div className="divide-y divide-gray-200">
           {displayData.conversations.map((conv, i) => {
             const lastMessage = 'lastMessage' in conv ? conv.lastMessage : conv.messages[conv.messages.length - 1]?.content || '';
-            const timestamp = 'timestamp' in conv ? conv.timestamp : format(new Date(conv.startedAt), 'MMM d, yyyy h:mm a');
+            const timestamp = 'timestamp' in conv ? safeFormatDate(conv.timestamp, 'MMM d, yyyy h:mm a') : safeFormatDate(conv.startedAt, 'MMM d, yyyy h:mm a');
             return (
               <div key={i} className="p-4">
                 <div className="flex justify-between items-start">
@@ -219,7 +220,7 @@ const SMSAnalytics: React.FC<Props> = ({ metrics, businessId, clientId, isPlaceh
             <div>
               <h3 className="text-lg font-medium">Conversation Detail</h3>
               <p className="text-sm text-gray-600">
-                {selectedConversation.startedAt ? (() => { try { return format(new Date(selectedConversation.startedAt), 'MMM d, yyyy h:mm a'); } catch { return 'Unknown'; } })() : 'Unknown'}
+                {safeFormatDate(selectedConversation.startedAt, 'MMM d, yyyy h:mm a')}
               </p>
               <p className="text-sm text-gray-600">Contact: {selectedConversation.phoneNumber}</p>
             </div>
@@ -245,7 +246,7 @@ const SMSAnalytics: React.FC<Props> = ({ metrics, businessId, clientId, isPlaceh
                 >
                   <p>{msg.content}</p>
                   <p className="text-xs mt-1 opacity-75">
-                    {msg.createdAt ? (() => { try { return format(new Date(msg.createdAt), 'h:mm a'); } catch { return 'Unknown'; } })() : 'Unknown'}
+                    {safeFormatDate(msg.createdAt, 'h:mm a')}
                     {msg.direction === 'outbound' && msg.aiConfidence && (
                       <span className="ml-2">
                         AI Confidence: {(msg.aiConfidence * 100).toFixed(0)}%
