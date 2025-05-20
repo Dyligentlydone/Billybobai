@@ -253,7 +253,7 @@ def get_conversations(business_id: str, page: int = Query(1, ge=1), per_page: in
                     "id": m.id,
                     "content": getattr(m, 'content', None) or getattr(m, 'body', None),
                     "status": str(m.status),
-                    "created_at": m.created_at.isoformat() if m.created_at else None
+                    "created_at": m.created_at.isoformat() if hasattr(m, 'created_at') and m.created_at else None
                 }
             ]
         })
