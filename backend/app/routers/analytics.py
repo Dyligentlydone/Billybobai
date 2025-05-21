@@ -107,10 +107,10 @@ def get_sms_conversation_metrics(business_id: str, db: Session = Depends(get_db)
             "status": str(last_msg.status) if last_msg else "",
             "lastTimestamp": last_msg.created_at.isoformat() if last_msg and last_msg.created_at else "",
             "phoneNumber": last_msg.phone_number if last_msg else "",
-            # CRITICAL: Ensure messages is always an array, never false or null
+            # ALWAYS include messages as an array, even if empty
             "messages": [
                 {
-                    "id": str(m.id),  # Ensure id is a string
+                    "id": str(m.id),
                     "content": m.content if hasattr(m, "content") and m.content is not None else "",
                     "createdAt": m.created_at.isoformat() if hasattr(m, "created_at") and m.created_at is not None else "",
                     "direction": str(getattr(m, "direction", "")) if getattr(m, "direction", None) is not None else "",
@@ -120,7 +120,7 @@ def get_sms_conversation_metrics(business_id: str, db: Session = Depends(get_db)
                     "templateUsed": str(getattr(m, "template_used", "")) if getattr(m, "template_used", None) is not None else ""
                 }
                 for m in msgs_sorted
-            ] if msgs_sorted else []  # This ensures an empty array, not false or null
+            ] if isinstance(msgs_sorted, list) else []
         })
 
     # Add extensive debug logging
