@@ -102,9 +102,14 @@ def get_messages_by_phone(phone_number: str, db: Session = Depends(get_db)):
     
     logger.info(f"[DEBUG] Messages API: Request for phone_number={phone_number}")
     
+    # Normalize phone number for matching: try with and without '+'
+    normalized = phone_number.lstrip('+')
     messages = (
         db.query(Message)
-        .filter(Message.phone_number == phone_number)
+        .filter(
+            (Message.phone_number == phone_number) |
+            (Message.phone_number == normalized)
+        )
         .order_by(Message.created_at.asc())
         .all()
     )
