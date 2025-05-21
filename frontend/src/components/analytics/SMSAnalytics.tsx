@@ -266,14 +266,30 @@ const SMSAnalytics: React.FC<Props> = ({ metrics, businessId, clientId, isPlaceh
     console.log("ID type:", typeof selectedConvId);
     console.log("ID length:", selectedConvId.length);
     
-    // Fetch messages for this conversation directly
+    // Fetch messages using phone number first (more reliable in Twilio systems), fallback to conversation ID
     const fetchMessages = async () => {
       try {
         setIsLoadingMessages(true);
         setHasAttemptedFetch(true);
         
-        console.log(`Fetching messages for conversation ${selectedConvId}`);
-        const response = await fetch(`/api/messages/conversation/${selectedConvId}`);
+        // Get the phone number for this conversation
+        const phoneNumber = selectedConvs[0]?.phoneNumber || '';
+        let response;
+        let endpoint;
+        
+        // Try phone number endpoint first if available (more reliable in Twilio-based systems)
+        if (phoneNumber && phoneNumber.startsWith('+')) {
+          console.log(`Fetching messages for phone number ${phoneNumber}`);
+          endpoint = `/api/messages/phone/${phoneNumber}`;
+          response = await fetch(endpoint);
+        } else {
+          // Fallback to conversation ID if no phone number
+          console.log(`Fetching messages for conversation ID ${selectedConvId}`);
+          endpoint = `/api/messages/conversation/${selectedConvId}`;
+          response = await fetch(endpoint);
+        }
+        
+        console.log(`Used endpoint: ${endpoint}`);
         const data = await response.json();
         
         console.log("Messages API response:", data);
