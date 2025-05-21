@@ -117,11 +117,10 @@ def get_messages_by_phone(phone_number: str, db: Session = Depends(get_db)):
     logger.info(f"[DEBUG] Messages API: Found {len(messages)} messages for phone_number={phone_number}")
     
     # Debug: Log the number of messages found
-    logger.info(f"[DEBUG] Messages API: Found {len(messages)} messages for conversation_id={conversation_id}")
     if messages:
         logger.info(f"[DEBUG] Messages API: First message ID: {messages[0].id}")
     else:
-        logger.warning(f"[DEBUG] Messages API: NO MESSAGES FOUND for conversation_id={conversation_id}")
+        logger.warning(f"[DEBUG] Messages API: NO MESSAGES FOUND for phone_number={phone_number}")
     
     
     # This is a simple, direct serialization with no complex nested objects
