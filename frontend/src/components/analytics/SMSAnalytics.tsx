@@ -280,7 +280,8 @@ const SMSAnalytics: React.FC<Props> = ({ metrics, businessId, clientId, isPlaceh
         // Only use the phone number endpoint for fetching messages
         if (phoneNumber && phoneNumber.startsWith('+')) {
           console.log(`Fetching messages for phone number ${phoneNumber}`);
-          endpoint = `/api/messages/phone/${phoneNumber}`;
+          const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://api.dyligent.xyz';
+          endpoint = `${backendUrl}/api/messages/phone/${phoneNumber}`;
           response = await fetch(endpoint);
         } else {
           // If no phone number, do not attempt to fetch messages
