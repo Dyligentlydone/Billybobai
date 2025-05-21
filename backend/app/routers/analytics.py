@@ -117,7 +117,7 @@ def get_sms_conversation_metrics(business_id: str, db: Session = Depends(get_db)
         })
 
     logger.info(f"[Analytics] Returning analytics: total_messages={total_messages}, topics={topics}, hourly_activity={hourly_activity}")
-    return conversations
+    return {"conversations": conversations}
 
 
 def get_fallback_analytics_data(business_id, start=None, end=None):
