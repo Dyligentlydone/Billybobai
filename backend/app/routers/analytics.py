@@ -95,6 +95,12 @@ def get_sms_conversation_metrics(business_id: str, db: Session = Depends(get_db)
         # Sort messages by created_at to get the latest
         msgs_sorted = sorted(msgs, key=lambda m: m.created_at or m.id, reverse=True)
         last_msg = msgs_sorted[0] if msgs_sorted else None
+        
+        # Debug log
+        logger.info(f"[Analytics] Processing conversation {conv_id} with {len(msgs_sorted)} messages")
+        if msgs_sorted:
+            logger.info(f"[Analytics] First message sample: {msgs_sorted[0].id}, {msgs_sorted[0].content}")
+        
         conversations.append({
             "id": conv_id,
             "lastMessage": last_msg.content if last_msg else "",
@@ -103,14 +109,14 @@ def get_sms_conversation_metrics(business_id: str, db: Session = Depends(get_db)
             "phoneNumber": last_msg.phone_number if last_msg else "",
             "messages": [
                 {
-                    "id": m.id,
-                    "content": m.content,
-                    "createdAt": m.created_at.isoformat() if m.created_at else "",
-                    "direction": getattr(m, "direction", ""),
-                    "status": getattr(m, "status", ""),
-                    "phoneNumber": getattr(m, "phone_number", ""),
-                    "aiConfidence": getattr(m, "ai_confidence", None),
-                    "templateUsed": getattr(m, "template_used", None)
+                    "id": str(m.id),  # Ensure id is a string
+                    "content": m.content if hasattr(m, "content") and m.content is not None else "",
+                    "createdAt": m.created_at.isoformat() if hasattr(m, "created_at") and m.created_at is not None else "",
+                    "direction": str(getattr(m, "direction", "")) if getattr(m, "direction", None) is not None else "",
+                    "status": str(getattr(m, "status", "")) if getattr(m, "status", None) is not None else "",
+                    "phoneNumber": str(getattr(m, "phone_number", "")) if getattr(m, "phone_number", None) is not None else "",
+                    "aiConfidence": float(getattr(m, "ai_confidence", 0)) if getattr(m, "ai_confidence", None) is not None else None,
+                    "templateUsed": str(getattr(m, "template_used", "")) if getattr(m, "template_used", None) is not None else ""
                 }
                 for m in msgs_sorted
             ] if msgs_sorted else []
