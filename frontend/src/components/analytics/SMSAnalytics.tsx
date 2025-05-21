@@ -179,71 +179,80 @@ const SMSAnalytics: React.FC<Props> = ({ metrics, businessId, clientId, isPlaceh
     </div>
   );
 
+  // --- OLD TABLE UI (commented for rollback)
+  // const renderConversations = () => (
+  //   ...
+  // );
+
+  // --- NEW SIDEBAR + DETAIL UI ---
+  const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
+  // Group conversations by phone number
+  const phoneMap: { [phone: string]: Conversation[] } = {};
+  displayData.conversations.forEach((conv: any) => {
+    const phone = conv.phoneNumber || 'Unknown';
+    if (!phoneMap[phone]) phoneMap[phone] = [];
+    phoneMap[phone].push(conv);
+  });
+  const contacts = Object.keys(phoneMap);
+  const selectedConvs = selectedPhone ? phoneMap[selectedPhone] : [];
+  // Flatten all messages for this phone number
+  const allMessages = selectedConvs.flatMap(c => c.messages || []);
+  // Gather metadata (from most recent conversation)
+  const meta = selectedConvs[selectedConvs.length - 1] || null;
+
   const renderConversations = () => (
-    <div className="bg-white rounded-lg shadow overflow-hidden">
-      <div className="p-4 border-b border-gray-200">
-        <h3 className="text-lg font-medium">Recent Conversations</h3>
+    <div className="flex h-[60vh] bg-white rounded-lg shadow overflow-hidden">
+      {/* Sidebar */}
+      <aside className="w-64 bg-gray-100 border-r border-gray-200 h-full overflow-y-auto">
+        <h2 className="text-lg font-bold px-4 py-2 border-b border-gray-200">Contacts</h2>
+        <ul>
+          {contacts.map(phone => (
+            <li
+              key={phone}
+              className={`px-4 py-2 cursor-pointer hover:bg-gray-200 ${selectedPhone === phone ? 'bg-gray-200 font-semibold' : ''}`}
+              onClick={() => setSelectedPhone(phone)}
+            >
+              {phone}
+            </li>
+          ))}
+        </ul>
+      </aside>
+      {/* Detail View */}
+      <div className="flex-1 p-6 overflow-y-auto">
+        {!selectedPhone ? (
+          <div className="flex items-center justify-center h-full text-gray-400">Select a contact to view details.</div>
+        ) : (
+          <>
+            <div className="mb-6">
+              <h2 className="text-2xl font-semibold mb-2">{meta?.phoneNumber}</h2>
+              <div className="grid grid-cols-2 gap-2 text-sm text-gray-600 mb-4">
+                <div>Status: <span className="font-mono">{meta?.status || '-'}</span></div>
+                <div>Last Message: <span className="font-mono">{meta?.lastMessage || '-'}</span></div>
+                <div>Last Time: <span className="font-mono">{meta?.lastTime || meta?.lastTimestamp || '-'}</span></div>
+                <div>Message Count: <span className="font-mono">{meta?.messageCount ?? '-'}</span></div>
+                <div>Sentiment: <span className="font-mono">{meta?.sentiment || '-'}</span></div>
+                <div>Avg Response: <span className="font-mono">{meta?.avgResponseTime || '-'}</span></div>
+              </div>
+            </div>
+            <div>
+              <h3 className="text-lg font-bold mb-2">Conversation</h3>
+              <div className="space-y-2">
+                {allMessages.length === 0 ? (
+                  <div className="text-gray-500">No messages found.</div>
+                ) : (
+                  allMessages.map(msg => (
+                    <div key={msg.id} className="bg-gray-50 rounded p-3 text-sm">
+                      <div className="mb-1 text-gray-400">{msg.createdAt ? new Date(msg.createdAt).toLocaleString() : ''}</div>
+                      <div>{msg.content}</div>
+                      {msg.status && <div className="text-xs text-gray-500 mt-1">Status: {msg.status}</div>}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </>
+        )}
       </div>
-      {displayData.conversations.length > 0 ? (
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Message</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Count</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {displayData.conversations.map((conv, i) => {
-                // Determine if this is a detailed Conversation object or a summary
-                const isFull = 'id' in conv && 'messages' in conv && Array.isArray((conv as any).messages);
-                const phoneNumber = conv.phoneNumber || 'Unknown';
-                let lastMessage = '';
-                let timestamp = '';
-                let messageCount: number | string | undefined = '—';
-                let status: string = '—';
-
-                if ('lastMessage' in conv) {
-                  lastMessage = conv.lastMessage;
-                  timestamp = 'timestamp' in conv ? safeFormatDate(conv.timestamp, 'MMM d, yyyy h:mm a') : '';
-                  if ('messageCount' in conv && (typeof conv.messageCount === 'number' || typeof conv.messageCount === 'string')) {
-                    messageCount = conv.messageCount as number | string;
-                  } else {
-                    messageCount = '—';
-                  }
-                  status = 'status' in conv && typeof conv.status === 'string' ? conv.status : '—';
-                } else if (isFull) {
-                  const messages = (conv as { messages: Array<any> }).messages;
-                  lastMessage = messages.length > 0 ? messages[messages.length - 1].content : '';
-                  timestamp = safeFormatDate((conv as { startedAt: string }).startedAt, 'MMM d, yyyy h:mm a');
-                  messageCount = typeof messages.length === 'number' ? messages.length : '—';
-                  status = messages.length > 0 && typeof messages[messages.length - 1].status === 'string' ? messages[messages.length - 1].status : '—';
-                }
-
-                // Only allow row click for full conversations
-                const onRowClick = isFull ? () => setSelectedConversation(conv as Conversation) : undefined;
-
-                return (
-                  <tr key={i} className={isFull ? "hover:bg-gray-50 cursor-pointer" : undefined} onClick={onRowClick}>
-                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{phoneNumber}</td>
-                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700 max-w-xs truncate">{lastMessage}</td>
-                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{timestamp || '—'}</td>
-                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{messageCount}</td>
-                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{status}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <div className="p-4 text-center">
-          <p className="text-gray-500">No conversations available{!businessId && " - Select a business to view data"}</p>
-        </div>
-      )}
     </div>
   );
 
