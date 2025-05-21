@@ -207,7 +207,9 @@ const SMSAnalytics: React.FC<Props> = ({ metrics, businessId, clientId, isPlaceh
   const selectedPhoneNorm = selectedPhone ? normalizePhone(selectedPhone) : null;
   const selectedConvs = selectedPhoneNorm ? phoneMap[selectedPhoneNorm] || [] : [];
   // Flatten all messages for this phone number
-  const allMessages = selectedConvs.flatMap((c: any) => c.messages || []);
+  // If messages array is missing, treat as empty; warn if none present
+  const allMessages = selectedConvs.flatMap((c: any) => Array.isArray(c.messages) ? c.messages : []);
+  const hasMessagesField = selectedConvs.some((c: any) => 'messages' in c);
   // Gather metadata (from most recent conversation)
   const meta = selectedConvs[selectedConvs.length - 1] || null;
 
@@ -247,7 +249,12 @@ const SMSAnalytics: React.FC<Props> = ({ metrics, businessId, clientId, isPlaceh
               <h3 className="text-lg font-bold mb-2">Conversation</h3>
               <div className="space-y-2">
                 {allMessages.length === 0 ? (
-                  <div className="text-gray-500">No messages found.</div>
+                  <>
+                    <div className="text-gray-500">No messages found.</div>
+                    {!hasMessagesField && (
+                      <div className="text-xs text-red-500 mt-2">Warning: No 'messages' field present in conversation data. Backend may need to be updated.</div>
+                    )}
+                  </>
                 ) : (
                   allMessages.map(msg => (
                     <div key={msg.id} className="bg-gray-50 rounded p-3 text-sm">
