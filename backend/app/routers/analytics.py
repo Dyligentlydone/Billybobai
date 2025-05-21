@@ -34,9 +34,9 @@ def get_sms_conversation_metrics(business_id: str, db: Session = Depends(get_db)
     logger.info(f"[Analytics] Workflow IDs for business_id {business_id}: {workflow_ids}")
 
     # Query for SMS messages for this business in the last 30 days
-    messages = db.query(Message).join(Message.workflow).filter(
+    messages = db.query(Message).join(Workflow, Message.workflow_id == Workflow.id).filter(
         Message.channel == MessageChannel.SMS,
-        Message.workflow.has(business_id=business_id),
+        Workflow.business_id == business_id,
         Message.created_at >= start_date,
         Message.created_at <= now
     ).all()
