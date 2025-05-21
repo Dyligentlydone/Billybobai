@@ -233,26 +233,64 @@ const SMSAnalytics: React.FC<Props> = ({ metrics, businessId, clientId, isPlaceh
   const selectedPhoneNorm = selectedPhone ? normalizePhone(selectedPhone) : null;
   const selectedConvs = selectedPhoneNorm ? phoneMap[selectedPhoneNorm] || [] : [];
   // Flatten all messages for this phone number
+  // State to hold messages fetched directly from API
+  const [conversationMessages, setConversationMessages] = useState<any[]>([]);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [hasAttemptedFetch, setHasAttemptedFetch] = useState(false);
+
   // Debug: Log the selected conversations
   console.log("Selected conversations:", selectedConvs);
   
-  // If messages array is missing, treat as empty; warn if none present
-  const allMessages = selectedConvs.flatMap((c: any) => {
-    console.log(`Conversation ${c.id || 'unknown'} messages:`, c.messages);
-    // Handle any possible value - false, null, undefined, or non-array
-    if (!c.messages || c.messages === false) {
-      console.log(`Converting non-array messages to empty array for ${c.id || 'unknown'}`);
-      return [];
+  // Use effect to fetch messages when a conversation is selected
+  React.useEffect(() => {
+    // If no selected conversations, clear messages
+    if (!selectedConvs.length) {
+      setConversationMessages([]);
+      return;
     }
-    return Array.isArray(c.messages) ? c.messages : [];
-  });
+    
+    // Get the first conversation ID (could enhance to show messages from all)
+    const selectedConvId = selectedConvs[0]?.id;
+    if (!selectedConvId) {
+      console.log("No valid conversation ID found");
+      setConversationMessages([]);
+      return;
+    }
+    
+    // Fetch messages for this conversation directly
+    const fetchMessages = async () => {
+      try {
+        setIsLoadingMessages(true);
+        setHasAttemptedFetch(true);
+        
+        console.log(`Fetching messages for conversation ${selectedConvId}`);
+        const response = await fetch(`/api/messages/conversation/${selectedConvId}`);
+        const data = await response.json();
+        
+        console.log("Messages API response:", data);
+        
+        if (data.messages && Array.isArray(data.messages)) {
+          setConversationMessages(data.messages);
+        } else {
+          console.warn("API returned invalid messages format", data);
+          setConversationMessages([]);
+        }
+      } catch (error) {
+        console.error("Error fetching messages:", error);
+        setConversationMessages([]);
+      } finally {
+        setIsLoadingMessages(false);
+      }
+    };
+    
+    fetchMessages();
+  }, [selectedPhone]); // Re-fetch when selected phone changes
   
-  // Check for valid messages array (must be array AND not false)
-  const hasMessagesField = selectedConvs.some((c: any) => {
-    const hasMsgField = 'messages' in c && Array.isArray(c.messages);
-    console.log(`Conversation ${c.id || 'unknown'} has valid messages array:`, hasMsgField);
-    return hasMsgField;
-  });
+  // Use these messages instead of trying to extract from conversation objects
+  const allMessages = conversationMessages;
+  
+  // Check if we have any messages to display
+  const hasMessagesField = conversationMessages.length > 0;
   // Gather metadata (from most recent conversation)
   const meta = selectedConvs[selectedConvs.length - 1] || null;
 
@@ -291,11 +329,19 @@ const SMSAnalytics: React.FC<Props> = ({ metrics, businessId, clientId, isPlaceh
             <div>
               <h3 className="text-lg font-bold mb-2">Conversation</h3>
               <div className="space-y-2">
-                {allMessages.length === 0 ? (
+                {isLoadingMessages ? (
+                  <div className="flex items-center justify-center text-gray-500">
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Loading messages...
+                  </div>
+                ) : allMessages.length === 0 ? (
                   <>
                     <div className="text-gray-500">No messages found.</div>
-                    {!hasMessagesField && (
-                      <div className="text-xs text-red-500 mt-2">Warning: No 'messages' field present in conversation data. Backend may need to be updated. (Check browser console for debug info)</div>
+                    {hasAttemptedFetch && (
+                      <div className="text-xs text-yellow-600 mt-2">No messages were found for this conversation. Try selecting another contact.</div>
                     )}
                   </>
                 ) : (
