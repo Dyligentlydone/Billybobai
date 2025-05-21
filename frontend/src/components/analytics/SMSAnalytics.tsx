@@ -277,16 +277,17 @@ const SMSAnalytics: React.FC<Props> = ({ metrics, businessId, clientId, isPlaceh
         let response;
         let endpoint;
         
-        // Try phone number endpoint first if available (more reliable in Twilio-based systems)
+        // Only use the phone number endpoint for fetching messages
         if (phoneNumber && phoneNumber.startsWith('+')) {
           console.log(`Fetching messages for phone number ${phoneNumber}`);
           endpoint = `/api/messages/phone/${phoneNumber}`;
           response = await fetch(endpoint);
         } else {
-          // Fallback to conversation ID if no phone number
-          console.log(`Fetching messages for conversation ID ${selectedConvId}`);
-          endpoint = `/api/messages/conversation/${selectedConvId}`;
-          response = await fetch(endpoint);
+          // If no phone number, do not attempt to fetch messages
+          console.warn('No valid phone number provided for message fetch.');
+          setConversationMessages([]);
+          setIsLoadingMessages(false);
+          return;
         }
         
         console.log(`Used endpoint: ${endpoint}`);
