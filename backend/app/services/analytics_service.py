@@ -533,7 +533,7 @@ class AnalyticsService:
             msg_time = getattr(message, 'created_at', None)
             if msg_time and (conversations[conv_id]['lastTimestamp'] is None or 
                             msg_time > conversations[conv_id]['lastTimestamp']):
-                content = getattr(message, 'phone_number', None) or getattr(message, 'body', 'No content')
+                content = getattr(message, 'content', None) or getattr(message, 'body', 'No content')
                 conversations[conv_id]['lastMessage'] = content
                 conversations[conv_id]['lastTimestamp'] = msg_time
                 conversations[conv_id]['lastTime'] = msg_time.strftime("%Y-%m-%d %H:%M:%S")
