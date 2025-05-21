@@ -269,6 +269,7 @@ def get_conversations(business_id: str, page: int = Query(1, ge=1), per_page: in
     for m in messages:
         conversations.append({
             "id": getattr(m, 'conversation_id', None),
+            "phoneNumber": m.phone_number,  # <-- Added for frontend contact display
             "messages": [
                 {
                     "id": m.id,
