@@ -280,7 +280,7 @@ class AnalyticsService:
             "conversations": [
                 {
                     "id": "placeholder-1",
-                    "contact": "+15555555555",
+                    "phoneNumber": "+15555555555",
                     "lastMessage": "No recent messages",
                     "lastTime": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
                     "messageCount": 0,
@@ -519,7 +519,7 @@ class AnalyticsService:
                 # Create a new conversation entry
                 conversations[conv_id] = {
                     "id": conv_id,
-                    "contact": getattr(message, 'phone_number', 'Unknown'),
+                    "phoneNumber": getattr(message, 'phone_number', 'Unknown'),
                     "lastMessage": None,
                     "lastTimestamp": None,
                     "messageCount": 0,
@@ -533,7 +533,7 @@ class AnalyticsService:
             msg_time = getattr(message, 'created_at', None)
             if msg_time and (conversations[conv_id]['lastTimestamp'] is None or 
                             msg_time > conversations[conv_id]['lastTimestamp']):
-                content = getattr(message, 'content', None) or getattr(message, 'body', 'No content')
+                content = getattr(message, 'phone_number', None) or getattr(message, 'body', 'No content')
                 conversations[conv_id]['lastMessage'] = content
                 conversations[conv_id]['lastTimestamp'] = msg_time
                 conversations[conv_id]['lastTime'] = msg_time.strftime("%Y-%m-%d %H:%M:%S")

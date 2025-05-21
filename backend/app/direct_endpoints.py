@@ -148,7 +148,7 @@ def register_direct_endpoints(app):
                 "conversations": [
                     {
                         "id": "c1",
-                        "contact": "+1234567890",
+                        "phoneNumber": "+1234567890",
                         "lastMessage": "Thanks for your help!",
                         "lastTime": start_date.strftime("%Y-%m-%d %H:%M:%S"),
                         "messageCount": 5,
@@ -156,7 +156,7 @@ def register_direct_endpoints(app):
                     },
                     {
                         "id": "c2",
-                        "contact": "+1987654321",
+                        "phoneNumber": "+1987654321",
                         "lastMessage": "When will my order arrive?",
                         "lastTime": start_date.strftime("%Y-%m-%d %H:%M:%S"),
                         "messageCount": 3,
