@@ -7,13 +7,16 @@ from ..database import get_db
 from ..models import Business, Message
 from ..models.workflow import Workflow
 from ..schemas.analytics import AnalyticsData
+from ..schemas.analytics_conversations import ConversationSchema
 from fastapi import Query
 from sqlalchemy import func
 from ..services.analytics_service import AnalyticsService
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
-@router.get("/conversations/metrics/{business_id}")
+from typing import List
+
+@router.get("/conversations/metrics/{business_id}", response_model=List[ConversationSchema])
 def get_sms_conversation_metrics(business_id: str, db: Session = Depends(get_db)):
     import logging
     from sqlalchemy import extract, func
@@ -114,13 +117,7 @@ def get_sms_conversation_metrics(business_id: str, db: Session = Depends(get_db)
         })
 
     logger.info(f"[Analytics] Returning analytics: total_messages={total_messages}, topics={topics}, hourly_activity={hourly_activity}")
-    return {
-        "total_messages": total_messages,
-        "hourly_activity": hourly_activity,
-        "topics": topics,
-        "response_times": response_times,
-        "conversations": conversations
-    }
+    return conversations
 
 
 def get_fallback_analytics_data(business_id, start=None, end=None):
