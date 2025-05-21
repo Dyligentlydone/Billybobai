@@ -113,7 +113,7 @@ def get_sms_conversation_metrics(business_id: str, db: Session = Depends(get_db)
                     "templateUsed": getattr(m, "template_used", None)
                 }
                 for m in msgs_sorted
-            ]
+            ] if msgs_sorted else []
         })
 
     logger.info(f"[Analytics] Returning analytics: total_messages={total_messages}, topics={topics}, hourly_activity={hourly_activity}")
