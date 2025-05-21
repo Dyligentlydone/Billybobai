@@ -296,7 +296,15 @@ const SMSAnalytics: React.FC<Props> = ({ metrics, businessId, clientId, isPlaceh
         console.log("Messages API response:", data);
         
         if (data.messages && Array.isArray(data.messages)) {
-          setConversationMessages(data.messages);
+          // Map backend fields to frontend Message type
+          const mappedMessages = data.messages.map((msg: any) => ({
+            ...msg,
+            direction: (msg.direction === 'MessageDirection.INBOUND' || msg.direction === 'inbound') ? 'inbound' : 'outbound',
+            status: (typeof msg.status === 'string' && msg.status.startsWith('MessageStatus.'))
+              ? msg.status.replace('MessageStatus.', '').toLowerCase()
+              : msg.status,
+          }));
+          setConversationMessages(mappedMessages);
         } else {
           console.warn("API returned invalid messages format", data);
           setConversationMessages([]);
