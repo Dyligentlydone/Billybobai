@@ -4,7 +4,7 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 
 from ..database import get_db
-from ..models import Message
+from ..models.message import Message
 from ..models.workflow import Workflow
 from ..schemas.analytics_conversations import MessageSchema
 from pydantic import BaseModel
