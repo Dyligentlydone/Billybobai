@@ -97,7 +97,20 @@ def get_sms_conversation_metrics(business_id: str, db: Session = Depends(get_db)
             "lastMessage": last_msg.content if last_msg else "",
             "status": str(last_msg.status) if last_msg else "",
             "lastTimestamp": last_msg.created_at.isoformat() if last_msg and last_msg.created_at else "",
-            "phoneNumber": last_msg.phone_number if last_msg else ""
+            "phoneNumber": last_msg.phone_number if last_msg else "",
+            "messages": [
+                {
+                    "id": m.id,
+                    "content": m.content,
+                    "createdAt": m.created_at.isoformat() if m.created_at else "",
+                    "direction": getattr(m, "direction", ""),
+                    "status": getattr(m, "status", ""),
+                    "phoneNumber": getattr(m, "phone_number", ""),
+                    "aiConfidence": getattr(m, "ai_confidence", None),
+                    "templateUsed": getattr(m, "template_used", None)
+                }
+                for m in msgs_sorted
+            ]
         })
 
     logger.info(f"[Analytics] Returning analytics: total_messages={total_messages}, topics={topics}, hourly_activity={hourly_activity}")
