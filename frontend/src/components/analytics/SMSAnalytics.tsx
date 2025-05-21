@@ -186,17 +186,28 @@ const SMSAnalytics: React.FC<Props> = ({ metrics, businessId, clientId, isPlaceh
 
   // --- NEW SIDEBAR + DETAIL UI ---
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
-  // Group conversations by phone number
+
+  // Helper to normalize phone numbers for grouping and matching
+  function normalizePhone(phone: string) {
+    return (phone || '').replace(/\D/g, ''); // Remove all non-digits
+  }
+
+  // Group conversations by normalized phone number
   const phoneMap: { [phone: string]: Conversation[] } = {};
   displayData.conversations.forEach((conv: any) => {
-    const phone = conv.phoneNumber || 'Unknown';
+    const phone = normalizePhone(conv.phoneNumber || 'Unknown');
     if (!phoneMap[phone]) phoneMap[phone] = [];
     phoneMap[phone].push(conv);
   });
-  const contacts = Object.keys(phoneMap);
-  const selectedConvs = selectedPhone ? phoneMap[selectedPhone] : [];
+
+  // Sidebar contacts (use original phone number for display, but normalized for matching)
+  const contacts = Array.from(new Set(displayData.conversations.map((c: any) => c.phoneNumber)));
+
+  // When a contact is selected, use normalized phone for lookup
+  const selectedPhoneNorm = selectedPhone ? normalizePhone(selectedPhone) : null;
+  const selectedConvs = selectedPhoneNorm ? phoneMap[selectedPhoneNorm] || [] : [];
   // Flatten all messages for this phone number
-  const allMessages = selectedConvs.flatMap(c => c.messages || []);
+  const allMessages = selectedConvs.flatMap((c: any) => c.messages || []);
   // Gather metadata (from most recent conversation)
   const meta = selectedConvs[selectedConvs.length - 1] || null;
 
