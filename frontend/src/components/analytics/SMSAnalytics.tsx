@@ -208,7 +208,7 @@ const SMSAnalytics: React.FC<Props> = ({ metrics, businessId, clientId, isPlaceh
   
   // Inspect the first conversation in detail
   if (displayData.conversations?.[0]) {
-    const firstConv = displayData.conversations[0];
+    const firstConv = displayData.conversations[0] as any; // Use any to bypass TS errors for debugging
     console.log("First conversation keys:", Object.keys(firstConv));
     console.log("First conversation ID:", firstConv.id);
     console.log("First conversation has messages?", 'messages' in firstConv);
@@ -238,12 +238,12 @@ const SMSAnalytics: React.FC<Props> = ({ metrics, businessId, clientId, isPlaceh
   
   // If messages array is missing, treat as empty; warn if none present
   const allMessages = selectedConvs.flatMap((c: any) => {
-    console.log(`Conversation ${c.id} messages:`, c.messages);
+    console.log(`Conversation ${c.id || 'unknown'} messages:`, c.messages);
     return Array.isArray(c.messages) ? c.messages : [];
   });
   const hasMessagesField = selectedConvs.some((c: any) => {
     const hasMsgField = 'messages' in c;
-    console.log(`Conversation ${c.id} has messages field:`, hasMsgField);
+    console.log(`Conversation ${c.id || 'unknown'} has messages field:`, hasMsgField);
     return hasMsgField;
   });
   // Gather metadata (from most recent conversation)
