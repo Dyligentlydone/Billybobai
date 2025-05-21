@@ -185,22 +185,59 @@ const SMSAnalytics: React.FC<Props> = ({ metrics, businessId, clientId, isPlaceh
         <h3 className="text-lg font-medium">Recent Conversations</h3>
       </div>
       {displayData.conversations.length > 0 ? (
-        <div className="divide-y divide-gray-200">
-          {displayData.conversations.map((conv, i) => {
-            const lastMessage = 'lastMessage' in conv ? conv.lastMessage : conv.messages[conv.messages.length - 1]?.content || '';
-            const timestamp = 'timestamp' in conv ? safeFormatDate(conv.timestamp, 'MMM d, yyyy h:mm a') : safeFormatDate(conv.startedAt, 'MMM d, yyyy h:mm a');
-            return (
-              <div key={i} className="p-4">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{conv.phoneNumber}</p>
-                    <p className="mt-1 text-sm text-gray-500">{lastMessage}</p>
-                  </div>
-                  <span className="text-sm text-gray-500">{timestamp}</span>
-                </div>
-              </div>
-            );
-          })}
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Message</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Count</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {displayData.conversations.map((conv, i) => {
+                // Determine if this is a detailed Conversation object or a summary
+                const isFull = 'id' in conv && 'messages' in conv && Array.isArray((conv as any).messages);
+                const phoneNumber = conv.phoneNumber || 'Unknown';
+                let lastMessage = '';
+                let timestamp = '';
+                let messageCount: number | string | undefined = '—';
+                let status: string = '—';
+
+                if ('lastMessage' in conv) {
+                  lastMessage = conv.lastMessage;
+                  timestamp = 'timestamp' in conv ? safeFormatDate(conv.timestamp, 'MMM d, yyyy h:mm a') : '';
+                  if ('messageCount' in conv && (typeof conv.messageCount === 'number' || typeof conv.messageCount === 'string')) {
+                    messageCount = conv.messageCount as number | string;
+                  } else {
+                    messageCount = '—';
+                  }
+                  status = 'status' in conv && typeof conv.status === 'string' ? conv.status : '—';
+                } else if (isFull) {
+                  const messages = (conv as { messages: Array<any> }).messages;
+                  lastMessage = messages.length > 0 ? messages[messages.length - 1].content : '';
+                  timestamp = safeFormatDate((conv as { startedAt: string }).startedAt, 'MMM d, yyyy h:mm a');
+                  messageCount = typeof messages.length === 'number' ? messages.length : '—';
+                  status = messages.length > 0 && typeof messages[messages.length - 1].status === 'string' ? messages[messages.length - 1].status : '—';
+                }
+
+                // Only allow row click for full conversations
+                const onRowClick = isFull ? () => setSelectedConversation(conv as Conversation) : undefined;
+
+                return (
+                  <tr key={i} className={isFull ? "hover:bg-gray-50 cursor-pointer" : undefined} onClick={onRowClick}>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{phoneNumber}</td>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700 max-w-xs truncate">{lastMessage}</td>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{timestamp || '—'}</td>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{messageCount}</td>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{status}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       ) : (
         <div className="p-4 text-center">
