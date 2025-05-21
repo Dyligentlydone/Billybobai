@@ -19,12 +19,36 @@ def get_conversation_messages(conversation_id: str, db: Session = Depends(get_db
     """
     Get all messages for a specific conversation - simple and direct endpoint.
     """
+    import logging
+    logger = logging.getLogger("uvicorn")
+    
+    # Debug: Log the incoming request
+    logger.info(f"[DEBUG] Messages API: Request for conversation_id={conversation_id}")
+    
+    # Quick check if any messages exist with this conversation_id
+    conversation_exists = db.query(Message).filter(Message.conversation_id == conversation_id).first() is not None
+    logger.info(f"[DEBUG] Messages API: Conversation exists in database? {conversation_exists}")
+    
+    # Debug: Check a sample of conversation IDs in the database
+    sample_messages = db.query(Message).limit(5).all()
+    sample_conv_ids = [getattr(m, 'conversation_id', None) for m in sample_messages]
+    logger.info(f"[DEBUG] Messages API: Sample conversation_ids in database: {sample_conv_ids}")
+    
+    # Proceed with the original query
     messages = (
         db.query(Message)
         .filter(Message.conversation_id == conversation_id)
         .order_by(Message.created_at.asc())
         .all()
     )
+    
+    # Debug: Log the number of messages found
+    logger.info(f"[DEBUG] Messages API: Found {len(messages)} messages for conversation_id={conversation_id}")
+    if messages:
+        logger.info(f"[DEBUG] Messages API: First message ID: {messages[0].id}")
+    else:
+        logger.warning(f"[DEBUG] Messages API: NO MESSAGES FOUND for conversation_id={conversation_id}")
+    
     
     # This is a simple, direct serialization with no complex nested objects
     message_list = [

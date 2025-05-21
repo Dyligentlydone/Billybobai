@@ -251,11 +251,20 @@ const SMSAnalytics: React.FC<Props> = ({ metrics, businessId, clientId, isPlaceh
     
     // Get the first conversation ID (could enhance to show messages from all)
     const selectedConvId = selectedConvs[0]?.id;
+    console.log("Selected conversation object:", selectedConvs[0]);
+    console.log("Selected conversation keys:", selectedConvs[0] ? Object.keys(selectedConvs[0]) : 'none');
+    
+    // Verify the ID is valid and not undefined/null
     if (!selectedConvId) {
       console.log("No valid conversation ID found");
       setConversationMessages([]);
       return;
     }
+    
+    // Check if the ID format matches what we'd expect in the database
+    console.log("Using conversation ID for API call:", selectedConvId);
+    console.log("ID type:", typeof selectedConvId);
+    console.log("ID length:", selectedConvId.length);
     
     // Fetch messages for this conversation directly
     const fetchMessages = async () => {
