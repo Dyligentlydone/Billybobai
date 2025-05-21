@@ -239,11 +239,18 @@ const SMSAnalytics: React.FC<Props> = ({ metrics, businessId, clientId, isPlaceh
   // If messages array is missing, treat as empty; warn if none present
   const allMessages = selectedConvs.flatMap((c: any) => {
     console.log(`Conversation ${c.id || 'unknown'} messages:`, c.messages);
+    // Handle any possible value - false, null, undefined, or non-array
+    if (!c.messages || c.messages === false) {
+      console.log(`Converting non-array messages to empty array for ${c.id || 'unknown'}`);
+      return [];
+    }
     return Array.isArray(c.messages) ? c.messages : [];
   });
+  
+  // Check for valid messages array (must be array AND not false)
   const hasMessagesField = selectedConvs.some((c: any) => {
-    const hasMsgField = 'messages' in c;
-    console.log(`Conversation ${c.id || 'unknown'} has messages field:`, hasMsgField);
+    const hasMsgField = 'messages' in c && Array.isArray(c.messages);
+    console.log(`Conversation ${c.id || 'unknown'} has valid messages array:`, hasMsgField);
     return hasMsgField;
   });
   // Gather metadata (from most recent conversation)
