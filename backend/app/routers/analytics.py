@@ -122,8 +122,31 @@ def get_sms_conversation_metrics(business_id: str, db: Session = Depends(get_db)
             ] if msgs_sorted else []
         })
 
+    # Add extensive debug logging
     logger.info(f"[Analytics] Returning analytics: total_messages={total_messages}, topics={topics}, hourly_activity={hourly_activity}")
-    return {"conversations": conversations}
+    
+    # Debug: Log full conversations structure before returning
+    for i, conv in enumerate(conversations[:2]):  # Log just first 2 to avoid excessive output
+        logger.info(f"[DEBUG] Conversation {i} (ID: {conv['id']})")
+        logger.info(f"[DEBUG] - phoneNumber: {conv.get('phoneNumber')}")
+        logger.info(f"[DEBUG] - messages count: {len(conv.get('messages', []))}")
+        if conv.get('messages'):
+            for j, msg in enumerate(conv['messages'][:2]):  # First 2 messages
+                logger.info(f"[DEBUG] -- Message {j}: {msg.get('id')}, Content: {msg.get('content')[:30]}...")
+    
+    # Convert any problematic fields to strings to ensure serialization works
+    for conv in conversations:
+        for i, msg in enumerate(conv.get('messages', [])):
+            # Force everything to be appropriate types
+            for key in msg:
+                if msg[key] is None:
+                    msg[key] = "" if key != "aiConfidence" else None
+    
+    response = {"conversations": conversations}
+    logger.info(f"[DEBUG] Final response shape: keys={list(response.keys())}")
+    logger.info(f"[DEBUG] conversations count: {len(response['conversations'])}")
+    
+    return response
 
 
 def get_fallback_analytics_data(business_id, start=None, end=None):

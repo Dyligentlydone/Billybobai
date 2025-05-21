@@ -200,16 +200,52 @@ const SMSAnalytics: React.FC<Props> = ({ metrics, businessId, clientId, isPlaceh
     phoneMap[phone].push(conv);
   });
 
+  // Debug: Log the entire conversations data structure with detailed inspection
+  console.log("%c DEBUGGING CONVERSATIONS DATA ", "background: #ff0000; color: white; font-size: 16px");
+  console.log("Entire displayData (keys):", Object.keys(displayData));
+  console.log("Is conversations array?", Array.isArray(displayData.conversations));
+  console.log("Conversations length:", displayData.conversations?.length || 0);
+  
+  // Inspect the first conversation in detail
+  if (displayData.conversations?.[0]) {
+    const firstConv = displayData.conversations[0];
+    console.log("First conversation keys:", Object.keys(firstConv));
+    console.log("First conversation ID:", firstConv.id);
+    console.log("First conversation has messages?", 'messages' in firstConv);
+    console.log("First conversation messages type:", firstConv.messages ? typeof firstConv.messages : 'undefined');
+    console.log("First conversation messages isArray?", Array.isArray(firstConv.messages));
+    console.log("First conversation messages length:", firstConv.messages?.length || 0);
+    
+    // Log raw JSON to see exact structure without reference issues
+    try {
+      console.log("Raw JSON of first conversation:", JSON.stringify(firstConv));
+    } catch (e) {
+      console.error("Error stringifying conversation:", e);
+    }
+  } else {
+    console.log("No conversations found in displayData");
+  }
+
   // Sidebar contacts (use original phone number for display, but normalized for matching)
-  const contacts = Array.from(new Set(displayData.conversations.map((c: any) => c.phoneNumber)));
+  const contacts = Array.from(new Set(displayData.conversations?.map((c: any) => c.phoneNumber) || []));
 
   // When a contact is selected, use normalized phone for lookup
   const selectedPhoneNorm = selectedPhone ? normalizePhone(selectedPhone) : null;
   const selectedConvs = selectedPhoneNorm ? phoneMap[selectedPhoneNorm] || [] : [];
   // Flatten all messages for this phone number
+  // Debug: Log the selected conversations
+  console.log("Selected conversations:", selectedConvs);
+  
   // If messages array is missing, treat as empty; warn if none present
-  const allMessages = selectedConvs.flatMap((c: any) => Array.isArray(c.messages) ? c.messages : []);
-  const hasMessagesField = selectedConvs.some((c: any) => 'messages' in c);
+  const allMessages = selectedConvs.flatMap((c: any) => {
+    console.log(`Conversation ${c.id} messages:`, c.messages);
+    return Array.isArray(c.messages) ? c.messages : [];
+  });
+  const hasMessagesField = selectedConvs.some((c: any) => {
+    const hasMsgField = 'messages' in c;
+    console.log(`Conversation ${c.id} has messages field:`, hasMsgField);
+    return hasMsgField;
+  });
   // Gather metadata (from most recent conversation)
   const meta = selectedConvs[selectedConvs.length - 1] || null;
 
@@ -252,7 +288,7 @@ const SMSAnalytics: React.FC<Props> = ({ metrics, businessId, clientId, isPlaceh
                   <>
                     <div className="text-gray-500">No messages found.</div>
                     {!hasMessagesField && (
-                      <div className="text-xs text-red-500 mt-2">Warning: No 'messages' field present in conversation data. Backend may need to be updated.</div>
+                      <div className="text-xs text-red-500 mt-2">Warning: No 'messages' field present in conversation data. Backend may need to be updated. (Check browser console for debug info)</div>
                     )}
                   </>
                 ) : (
