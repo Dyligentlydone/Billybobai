@@ -80,12 +80,33 @@ def get_sms_conversation_metrics(business_id: str, db: Session = Depends(get_db)
     response_times = {"average": None, "median": None, "p95": None}
     # If you have response timing logic, implement here
 
+    # --- Add conversation summaries with phone numbers ---
+    # Group messages by conversation_id
+    from collections import defaultdict
+    conversations_dict = defaultdict(list)
+    for msg in messages:
+        conversations_dict[getattr(msg, 'conversation_id', None)].append(msg)
+
+    conversations = []
+    for conv_id, msgs in conversations_dict.items():
+        # Sort messages by created_at to get the latest
+        msgs_sorted = sorted(msgs, key=lambda m: m.created_at or m.id, reverse=True)
+        last_msg = msgs_sorted[0] if msgs_sorted else None
+        conversations.append({
+            "id": conv_id,
+            "lastMessage": last_msg.content if last_msg else "",
+            "status": str(last_msg.status) if last_msg else "",
+            "lastTimestamp": last_msg.created_at.isoformat() if last_msg and last_msg.created_at else "",
+            "phoneNumber": last_msg.phone_number if last_msg else ""
+        })
+
     logger.info(f"[Analytics] Returning analytics: total_messages={total_messages}, topics={topics}, hourly_activity={hourly_activity}")
     return {
         "total_messages": total_messages,
         "hourly_activity": hourly_activity,
         "topics": topics,
-        "response_times": response_times
+        "response_times": response_times,
+        "conversations": conversations
     }
 
 
