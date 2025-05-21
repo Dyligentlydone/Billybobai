@@ -226,12 +226,10 @@ const SMSAnalytics: React.FC<Props> = ({ metrics, businessId, clientId, isPlaceh
             <div className="mb-6">
               <h2 className="text-2xl font-semibold mb-2">{meta?.phoneNumber}</h2>
               <div className="grid grid-cols-2 gap-2 text-sm text-gray-600 mb-4">
-                <div>Status: <span className="font-mono">{meta?.status || '-'}</span></div>
-                <div>Last Message: <span className="font-mono">{meta?.lastMessage || '-'}</span></div>
-                <div>Last Time: <span className="font-mono">{meta?.lastTime || meta?.lastTimestamp || '-'}</span></div>
+                <div>Started At: <span className="font-mono">{meta?.startedAt ? new Date(meta.startedAt).toLocaleString() : '-'}</span></div>
                 <div>Message Count: <span className="font-mono">{meta?.messageCount ?? '-'}</span></div>
                 <div>Sentiment: <span className="font-mono">{meta?.sentiment || '-'}</span></div>
-                <div>Avg Response: <span className="font-mono">{meta?.avgResponseTime || '-'}</span></div>
+                <div>Avg Response: <span className="font-mono">{meta?.avgResponseTime ?? '-'}</span></div>
               </div>
             </div>
             <div>
