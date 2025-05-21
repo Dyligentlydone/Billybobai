@@ -4,7 +4,8 @@ from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
 
 from ..database import get_db
-from ..models import Business, Message
+from ..models import Business
+from ..models.message import Message, MessageChannel
 from ..models.workflow import Workflow
 from ..schemas.analytics import AnalyticsData
 from ..schemas.analytics_conversations import ConversationSchema, ConversationsResponse
