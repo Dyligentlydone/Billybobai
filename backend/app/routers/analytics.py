@@ -7,7 +7,7 @@ from ..database import get_db
 from ..models import Business, Message
 from ..models.workflow import Workflow
 from ..schemas.analytics import AnalyticsData
-from ..schemas.analytics_conversations import ConversationSchema
+from ..schemas.analytics_conversations import ConversationSchema, ConversationsResponse
 from fastapi import Query
 from sqlalchemy import func
 from ..services.analytics_service import AnalyticsService
@@ -16,7 +16,7 @@ router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
 from typing import List
 
-@router.get("/conversations/metrics/{business_id}", response_model=List[ConversationSchema])
+@router.get("/conversations/metrics/{business_id}", response_model=ConversationsResponse)
 def get_sms_conversation_metrics(business_id: str, db: Session = Depends(get_db)):
     import logging
     from sqlalchemy import extract, func

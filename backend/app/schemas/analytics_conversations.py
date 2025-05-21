@@ -20,3 +20,6 @@ class ConversationSchema(BaseModel):
     messageCount: Optional[int]
     status: Optional[str]
     lastTime: Optional[str]
+
+class ConversationsResponse(BaseModel):
+    conversations: List[ConversationSchema]
