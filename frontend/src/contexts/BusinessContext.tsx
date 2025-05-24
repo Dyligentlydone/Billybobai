@@ -24,6 +24,10 @@ interface BusinessContextType {
   business: Business | null;
   setBusiness: (business: Business | null) => void;
   logout: () => void;
+  // New properties for client passcode business locking
+  lockedBusinessId: string | null;
+  setLockedBusinessId: (id: string | null) => void;
+  isBusinessLocked: boolean;
 }
 
 const defaultContext: BusinessContextType = {
@@ -36,7 +40,11 @@ const defaultContext: BusinessContextType = {
   isAdmin: false,
   business: null,
   setBusiness: () => {},
-  logout: () => {}
+  logout: () => {},
+  // New properties for client passcode business locking
+  lockedBusinessId: null,
+  setLockedBusinessId: () => {},
+  isBusinessLocked: false
 };
 
 const BusinessContext = createContext<BusinessContextType>(defaultContext);
@@ -56,6 +64,18 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
     const stored = localStorage.getItem('business');
     return stored ? JSON.parse(stored) : null;
   });
+  // New state for client passcode business locking
+  const [lockedBusinessId, setLockedBusinessId] = useState<string | null>(() => {
+    const stored = localStorage.getItem('lockedBusinessId');
+    return stored || null;
+  });
+  
+  // If business is locked, force selectedBusinessId to match lockedBusinessId
+  useEffect(() => {
+    if (lockedBusinessId && selectedBusinessId !== lockedBusinessId) {
+      setSelectedBusinessId(lockedBusinessId);
+    }
+  }, [lockedBusinessId, selectedBusinessId]);
 
   // Clear authentication on mount if no valid business data
   useEffect(() => {
@@ -139,9 +159,14 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
     setBusiness(null);
     setPermissions(null);
     setSelectedBusinessId(null);
+    setLockedBusinessId(null);
     localStorage.removeItem('business');
     localStorage.removeItem('isAuthenticated');
+    localStorage.removeItem('lockedBusinessId');
   };
+
+  // Calculate if business is locked (client passcode login)
+  const isBusinessLocked = Boolean(lockedBusinessId);
 
   return (
     <BusinessContext.Provider value={{
@@ -154,7 +179,10 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
       isAdmin,
       business,
       setBusiness: handleSetBusiness,
-      logout
+      logout,
+      lockedBusinessId,
+      setLockedBusinessId,
+      isBusinessLocked
     }}>
       {children}
     </BusinessContext.Provider>

@@ -9,7 +9,7 @@ interface Business {
 }
 
 export default function BusinessSelector() {
-  const { selectedBusinessId, setSelectedBusinessId } = useBusiness();
+  const { selectedBusinessId, setSelectedBusinessId, lockedBusinessId, isBusinessLocked } = useBusiness();
 
   // Fetch list of businesses
   const { data: businesses = [] } = useQuery<Business[]>(
@@ -39,6 +39,20 @@ export default function BusinessSelector() {
     }
   };
 
+  // If business is locked (client passcode login), only show that business
+  if (isBusinessLocked) {
+    const lockedBusiness = businesses.find(b => b.id === lockedBusinessId);
+    return (
+      <div className="flex items-center space-x-2">
+        <span className="text-sm font-medium text-gray-700">Business:</span>
+        <span className="block w-full text-sm font-medium text-gray-900 border border-gray-300 rounded-md px-3 py-2">
+          {lockedBusiness?.name || `Business ${lockedBusinessId}`}
+        </span>
+      </div>
+    );
+  }
+  
+  // Normal selector for admin users
   return (
     <div className="space-y-4">
       <div className="flex items-center space-x-2">

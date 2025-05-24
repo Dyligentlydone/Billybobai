@@ -58,7 +58,7 @@ export default function PasscodePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
-  const { setBusiness, setPermissions, setSelectedBusinessId } = useBusiness();
+  const { setBusiness, setPermissions, setSelectedBusinessId, setLockedBusinessId } = useBusiness();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,6 +113,9 @@ export default function PasscodePage() {
       
       setBusiness(adminBusiness);
       setPermissions(adminBusiness.permissions);
+      // Admin should NOT have a locked business ID - they can switch between businesses
+      setLockedBusinessId(null);
+      localStorage.removeItem('lockedBusinessId');
       localStorage.setItem('isAuthenticated', 'true');
       
       setTimeout(() => {
@@ -162,18 +165,23 @@ export default function PasscodePage() {
         
         console.log("Final permissions before storing:", nestedPermissions);
         
-        // Store business data in localStorage for debugging
-        localStorage.setItem('debug_permissions', JSON.stringify(nestedPermissions));
-        
-        // Set business data and selected business id
-        setBusiness({
-          ...businessData,
+        // Set business data in context
+        const clientBusiness: Business = {
+          id: clientPasscode.business_id,
+          name: `Business ${clientPasscode.business_id}`,
+          domain: `${clientPasscode.business_id}.client.dyligent.ai`,
+          business_id: clientPasscode.business_id,
           is_admin: false,
           permissions: nestedPermissions
-        });
+        };
+
+        setBusiness(clientBusiness);
         setPermissions(nestedPermissions);
         setSelectedBusinessId(clientPasscode.business_id);
-
+        
+        // Lock the client to this specific business ID
+        setLockedBusinessId(clientPasscode.business_id);
+        localStorage.setItem('lockedBusinessId', clientPasscode.business_id);
         localStorage.setItem('isAuthenticated', 'true');
         
         // Navigate based on permissions
