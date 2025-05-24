@@ -9,12 +9,11 @@ from ..models.business import Business
 router = APIRouter(prefix="/api/clients", tags=["clients"])
 
 class ClientBase(BaseModel):
-    name: str
     business_id: str
-    email: str = None
 
 class ClientCreate(ClientBase):
-    pass
+    passcode: str
+    nickname: str = None
 
 class ClientOut(BaseModel):
     id: int
@@ -32,20 +31,56 @@ def get_clients(business_id: str = None, db: Session = Depends(get_db)):
     return {"clients": [c.to_dict() for c in clients]}
 @router.post("/", response_model=ClientOut, status_code=201)
 def create_client(client: ClientCreate, db: Session = Depends(get_db)):
+    # Create default permissions if not provided
+    default_permissions = {
+        "navigation": {
+            "workflows": True,
+            "analytics": True,
+            "settings": False,
+            "api_access": False,
+            "dashboard": True,
+            "clients": False,
+            "voice_setup": False
+        },
+        "analytics": {
+            "sms": {
+                "recent_conversations": True,
+                "response_time": True,
+                "message_volume": True,
+                "success_rate": True,
+                "cost_per_message": True,
+                "ai_usage": True
+            },
+            "voice": {
+                "call_duration": True,
+                "call_volume": True,
+                "success_rate": True,
+                "cost_per_call": True
+            },
+            "email": {
+                "delivery_rate": True,
+                "open_rate": True,
+                "response_rate": True,
+                "cost_per_email": True
+            }
+        }
+    }
+    
     new_client = ClientPasscode(
-        name=client.name,
         business_id=client.business_id,
-        email=client.email
+        passcode=client.passcode,
+        nickname=client.nickname,
+        permissions=default_permissions
     )
     db.add(new_client)
     db.commit()
     db.refresh(new_client)
     return ClientOut(
         id=new_client.id,
-        name=new_client.name,
         business_id=new_client.business_id,
-        email=new_client.email,
-        permissions=getattr(new_client, 'permissions', None)
+        passcode=new_client.passcode,
+        nickname=new_client.nickname,
+        permissions=new_client.permissions
     )
 
 @router.put("/{client_id}/permissions")
