@@ -10,6 +10,17 @@ from app.models.user import User
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 # Pydantic models for request/response
+from fastapi import status
+
+class PasscodeVerifyRequest(BaseModel):
+    passcode: str
+
+class PasscodeVerifyResponse(BaseModel):
+    business_id: str
+    passcode: str
+    nickname: str = None
+    permissions: dict
+
 class PasscodeCreate(BaseModel):
     code: str
     business_id: int
@@ -36,6 +47,18 @@ def create_passcode(passcode: PasscodeCreate, db: Session = Depends(get_db)):
     db.refresh(new_passcode)
     return PasscodeResponse(
         id=new_passcode.id, code=new_passcode.code, business_id=new_passcode.business_id, user_id=new_passcode.user_id
+    )
+
+@router.post("/passcodes/verify", response_model=PasscodeVerifyResponse)
+def verify_passcode(request: PasscodeVerifyRequest, db: Session = Depends(get_db)):
+    client = db.query(ClientPasscode).filter(ClientPasscode.passcode == request.passcode).first()
+    if not client:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid passcode")
+    return PasscodeVerifyResponse(
+        business_id=client.business_id,
+        passcode=client.passcode,
+        nickname=client.nickname,
+        permissions=client.permissions
     )
 
 @router.delete("/passcodes/{passcode_id}")
