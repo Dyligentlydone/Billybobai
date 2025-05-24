@@ -49,6 +49,12 @@ def create_passcode(passcode: PasscodeCreate, db: Session = Depends(get_db)):
         id=new_passcode.id, code=new_passcode.code, business_id=new_passcode.business_id, user_id=new_passcode.user_id
     )
 
+@router.post("/passcodes", response_model=PasscodeVerifyResponse, include_in_schema=False)
+def legacy_verify_passcode(request: PasscodeVerifyRequest, db: Session = Depends(get_db)):
+    """Legacy endpoint to handle old frontend requests that still use /auth/passcodes
+    This redirects to the new /auth/passcodes/verify logic."""
+    return verify_passcode(request, db)
+
 @router.post("/passcodes/verify", response_model=PasscodeVerifyResponse)
 def verify_passcode(request: PasscodeVerifyRequest, db: Session = Depends(get_db)):
     client = db.query(ClientPasscode).filter(ClientPasscode.passcode == request.passcode).first()
