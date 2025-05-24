@@ -39,8 +39,13 @@ def get_passcodes(db: Session = Depends(get_db)):
         id=p.id, code=p.code, business_id=p.business_id, user_id=p.user_id
     ) for p in passcodes]
 
-@router.post("/passcodes", response_model=PasscodeResponse)
+# Add debug imports
+import logging
+logger = logging.getLogger("app.auth")
+
+@router.post("/passcodes/create", response_model=PasscodeResponse)
 def create_passcode(passcode: PasscodeCreate, db: Session = Depends(get_db)):
+    logger.info(f"Creating new passcode: {passcode}")
     new_passcode = ClientPasscode(**passcode.dict())
     db.add(new_passcode)
     db.commit()
@@ -49,10 +54,11 @@ def create_passcode(passcode: PasscodeCreate, db: Session = Depends(get_db)):
         id=new_passcode.id, code=new_passcode.code, business_id=new_passcode.business_id, user_id=new_passcode.user_id
     )
 
-@router.post("/passcodes", response_model=PasscodeVerifyResponse, include_in_schema=False)
+@router.post("/passcodes", response_model=PasscodeVerifyResponse)
 def legacy_verify_passcode(request: PasscodeVerifyRequest, db: Session = Depends(get_db)):
     """Legacy endpoint to handle old frontend requests that still use /auth/passcodes
     This redirects to the new /auth/passcodes/verify logic."""
+    logger.info(f"Legacy passcode verification request received: {request.passcode[:2]}***")
     return verify_passcode(request, db)
 
 @router.post("/passcodes/verify", response_model=PasscodeVerifyResponse)
