@@ -1,17 +1,24 @@
 const express = require('express');
 const router = express.Router();
-const Client = require('../models/Client');
 const winston = require('winston');
+const { Pool } = require('pg');
 
-// Get all clients
+const pool = new Pool({
+  connectionString: process.env.POSTGRES_CONNECTION_STRING,
+});
+
+// Get all clients from Postgres
 router.get('/', async (req, res) => {
   try {
-    const filter = {};
-    if (req.query.business_id) {
-      filter.businessId = req.query.business_id;
+    const { business_id } = req.query;
+    let query = 'SELECT * FROM client_passcodes';
+    let params = [];
+    if (business_id) {
+      query += ' WHERE business_id = $1';
+      params.push(business_id);
     }
-    const clients = await Client.find(filter).select('-twilioConfig.authToken -sendgridConfig.apiKey -zendeskConfig.apiToken');
-    res.json({ clients });
+    const result = await pool.query(query, params);
+    res.json({ clients: result.rows });
   } catch (error) {
     winston.error('Error fetching clients:', error);
     res.status(500).json({ error: 'Failed to fetch clients' });
