@@ -15,10 +15,12 @@ from fastapi import status
 class PasscodeVerifyRequest(BaseModel):
     passcode: str
 
+from typing import Optional
+
 class PasscodeVerifyResponse(BaseModel):
     business_id: str
     passcode: str
-    nickname: str = None
+    nickname: Optional[str] = None
     permissions: dict
 
 class PasscodeCreate(BaseModel):
