@@ -113,13 +113,75 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
     return LoginResponse(token=token, user_id=user.id)
 
 class DirectClientAccessRequest(BaseModel):
-    business_id: int
-    user_id: int
+    business_id: str
+    passcode: str
+    nickname: str = None
 
 @router.post("/direct-client-create")
 def create_direct_client(request: DirectClientAccessRequest, db: Session = Depends(get_db)):
-    # Implement your logic for direct client creation
-    return {"detail": "Direct client created (mock)"}
+    logger.info(f"Creating direct client with business_id={request.business_id}, passcode={request.passcode[:2]}***")
+    
+    # Create default permissions
+    default_permissions = {
+        "navigation": {
+            "workflows": True,
+            "analytics": True,
+            "settings": False,
+            "api_access": False,
+            "dashboard": True,
+            "clients": False,
+            "voice_setup": False
+        },
+        "analytics": {
+            "sms": {
+                "recent_conversations": True,
+                "response_time": True,
+                "message_volume": True,
+                "success_rate": True,
+                "cost_per_message": True,
+                "ai_usage": True
+            },
+            "voice": {
+                "call_duration": True,
+                "call_volume": True,
+                "success_rate": True,
+                "cost_per_call": True
+            },
+            "email": {
+                "delivery_rate": True,
+                "open_rate": True,
+                "response_rate": True,
+                "cost_per_email": True
+            }
+        }
+    }
+    
+    try:
+        # Create new client passcode
+        new_client = ClientPasscode(
+            business_id=request.business_id,
+            passcode=request.passcode,
+            nickname=request.nickname,
+            permissions=default_permissions
+        )
+        
+        db.add(new_client)
+        db.commit()
+        db.refresh(new_client)
+        
+        logger.info(f"Successfully created client with id={new_client.id}")
+        
+        return {
+            "id": new_client.id,
+            "business_id": new_client.business_id,
+            "passcode": new_client.passcode,
+            "nickname": new_client.nickname,
+            "permissions": new_client.permissions
+        }
+    except Exception as e:
+        logger.error(f"Error creating client: {str(e)}")
+        raise HTTPException(status_code=422, detail=f"Could not create client: {str(e)}")
+
 
 @router.get("/direct-clients")
 def get_direct_clients(db: Session = Depends(get_db)):
