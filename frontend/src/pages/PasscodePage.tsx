@@ -125,17 +125,15 @@ export default function PasscodePage() {
       try {
         // First, find the business_id by passcode
         console.log(`Verifying passcode ${passcode} against backend: ${BACKEND_URL}`);
-        const passcodesResponse = await api.post('/api/auth/passcodes/verify', { passcode });
-        const { clients } = await passcodesResponse.data;
-        
-        const clientPasscode = clients.find((c: ClientPasscode) => c.passcode === passcode);
+        const passcodeResponse = await api.post('/api/auth/passcodes/verify', { passcode });
+        const clientPasscode = passcodeResponse.data;
         
         console.log("==== PASSCODE VERIFICATION SUCCESSFUL ====");
         console.log("Client passcode data:", JSON.stringify(clientPasscode, null, 2));
         console.log("Business ID:", clientPasscode.business_id);
         console.log("RAW permissions object:", clientPasscode.permissions);
 
-        if (!clientPasscode) {
+        if (!clientPasscode || !clientPasscode.passcode) {
           setError('Invalid passcode');
           setIsLoading(false);
           return;
