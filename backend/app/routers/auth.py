@@ -63,9 +63,22 @@ def legacy_verify_passcode(request: PasscodeVerifyRequest, db: Session = Depends
 
 @router.post("/passcodes/verify", response_model=PasscodeVerifyResponse)
 def verify_passcode(request: PasscodeVerifyRequest, db: Session = Depends(get_db)):
+    logger.info(f"Verifying passcode: {request.passcode[:2]}*** (length: {len(request.passcode)})")
+    
+    # Debug: List all passcodes in the database
+    all_passcodes = db.query(ClientPasscode).all()
+    logger.info(f"Found {len(all_passcodes)} passcodes in database")
+    for p in all_passcodes:
+        logger.info(f"DB Passcode: {p.passcode[:2]}*** (length: {len(p.passcode)}) for business_id: {p.business_id}")
+    
+    # Try to find the client with this passcode
     client = db.query(ClientPasscode).filter(ClientPasscode.passcode == request.passcode).first()
+    
     if not client:
+        logger.error(f"No client found with passcode: {request.passcode[:2]}***")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid passcode")
+    
+    logger.info(f"Client found: business_id={client.business_id}, nickname={client.nickname}")
     return PasscodeVerifyResponse(
         business_id=client.business_id,
         passcode=client.passcode,
