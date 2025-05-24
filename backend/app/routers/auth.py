@@ -7,7 +7,7 @@ from app.models.client_passcode import ClientPasscode
 from app.models.business import Business
 from app.models.user import User
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 # Pydantic models for request/response
 from fastapi import status
