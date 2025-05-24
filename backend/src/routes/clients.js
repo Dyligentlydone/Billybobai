@@ -6,7 +6,11 @@ const winston = require('winston');
 // Get all clients
 router.get('/', async (req, res) => {
   try {
-    const clients = await Client.find().select('-twilioConfig.authToken -sendgridConfig.apiKey -zendeskConfig.apiToken');
+    const filter = {};
+    if (req.query.business_id) {
+      filter.businessId = req.query.business_id;
+    }
+    const clients = await Client.find(filter).select('-twilioConfig.authToken -sendgridConfig.apiKey -zendeskConfig.apiToken');
     res.json({ clients });
   } catch (error) {
     winston.error('Error fetching clients:', error);
