@@ -16,24 +16,20 @@ class ClientBase(BaseModel):
 class ClientCreate(ClientBase):
     pass
 
-class ClientOut(ClientBase):
+class ClientOut(BaseModel):
     id: int
-    permissions: dict = None
+    business_id: str
+    passcode: str
+    nickname: str = None
+    permissions: dict
 
-@router.get("/", response_model=List[ClientOut])
+@router.get("/")
 def get_clients(business_id: str = None, db: Session = Depends(get_db)):
     query = db.query(ClientPasscode)
     if business_id:
         query = query.filter(ClientPasscode.business_id == business_id)
     clients = query.all()
-    return [ClientOut(
-        id=c.id,
-        name=getattr(c, 'name', None),
-        business_id=c.business_id,
-        email=getattr(c, 'email', None),
-        permissions=getattr(c, 'permissions', None)
-    ) for c in clients]
-
+    return {"clients": [c.to_dict() for c in clients]}
 @router.post("/", response_model=ClientOut, status_code=201)
 def create_client(client: ClientCreate, db: Session = Depends(get_db)):
     new_client = ClientPasscode(
