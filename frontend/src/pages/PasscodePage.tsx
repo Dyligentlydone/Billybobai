@@ -125,7 +125,7 @@ export default function PasscodePage() {
       try {
         // First, find the business_id by passcode
         console.log(`Verifying passcode ${passcode} against backend: ${BACKEND_URL}`);
-        const passcodesResponse = await api.post('/api/auth/passcodes', { passcode });
+        const passcodesResponse = await api.post('/api/auth/passcodes/verify', { passcode });
         const { clients } = await passcodesResponse.data;
         
         const clientPasscode = clients.find((c: ClientPasscode) => c.passcode === passcode);
