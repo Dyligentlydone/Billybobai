@@ -2,11 +2,16 @@ from fastapi import APIRouter, HTTPException, Depends, Request
 from sqlalchemy.orm import Session
 from ..database import get_db
 from pydantic import BaseModel
+import httpx
+from typing import Dict, Optional, Any
 
 router = APIRouter(prefix="/api/integrations", tags=["integrations"])
 
 class AIAnalyzeRequest(BaseModel):
     text: str
+    
+class CalendlyTokenRequest(BaseModel):
+    access_token: str
 
 @router.post("/ai/analyze")
 def ai_analyze(request: AIAnalyzeRequest, db: Session = Depends(get_db)):
@@ -52,3 +57,34 @@ def comment_zendesk_ticket(ticket_id: int, request: Request, db: Session = Depen
 def config_email(request: Request, db: Session = Depends(get_db)):
     # Implement email config logic
     return {"detail": "Email config set (mock)"}
+
+@router.post("/calendly/validate-token")
+async def validate_calendly_token(request: CalendlyTokenRequest, db: Session = Depends(get_db)):
+    """Validate Calendly token and return user information"""
+    token = request.access_token
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                "https://api.calendly.com/v2/users/me",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json"
+                }
+            )
+            response.raise_for_status()
+            user_data = response.json()
+            
+            # Extract user info
+            return {
+                "valid": True,
+                "user_uri": user_data["resource"]["uri"],
+                "name": user_data["resource"]["name"],
+                "email": user_data["resource"]["email"],
+                "message": "Token validated successfully"
+            }
+    except Exception as e:
+        return {
+            "valid": False,
+            "error": str(e),
+            "message": "Invalid or expired token"
+        }

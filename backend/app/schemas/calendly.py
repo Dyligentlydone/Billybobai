@@ -14,10 +14,10 @@ class CalendlyEventType(BaseModel):
 class CalendlyConfig(BaseModel):
     enabled: bool = False
     access_token: str
-    user_uri: str
+    user_uri: Optional[str] = None  # Now optional as system will fetch it
     webhook_uri: Optional[str] = None
     default_event_type: str
-    event_types: Dict[str, CalendlyEventType]
+    event_types: Dict[str, CalendlyEventType] = {}
     reminder_hours: List[int] = [24, 1]  # Send reminders 24h and 1h before
     allow_cancellation: bool = True
     allow_rescheduling: bool = True

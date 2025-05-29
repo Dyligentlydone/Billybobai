@@ -30,6 +30,38 @@ class CalendlyService:
         )
         self._sms_states: Dict[str, SMSBookingState] = {}
     
+    async def initialize(self):
+        """Initialize the service by fetching necessary data"""
+        # Auto-fetch user_uri if not provided but we have a token
+        if not self.config.user_uri and self.config.access_token:
+            try:
+                user_uri = await self.fetch_user_uri()
+                self.config.user_uri = user_uri
+                logger.info(f"Successfully auto-fetched User URI: {user_uri}")
+                return user_uri
+            except Exception as e:
+                logger.error(f"Failed to auto-fetch User URI: {str(e)}")
+                raise
+        return self.config.user_uri
+        
+    async def fetch_user_uri(self) -> str:
+        """Fetch the user URI using the access token"""
+        if not self.config.access_token:
+            raise ValueError("Access token is required")
+            
+        try:
+            response = await self.client.get("/users/me")
+            response.raise_for_status()
+            user_data = response.json()
+            if "resource" in user_data and "uri" in user_data["resource"]:
+                return user_data["resource"]["uri"]
+            else:
+                logger.error(f"Unexpected API response format: {user_data}")
+                raise ValueError("Invalid API response format")
+        except Exception as e:
+            logger.error(f"Failed to fetch user URI: {str(e)}")
+            raise
+    
     async def setup_sms_workflow(self) -> Dict[str, Any]:
         """Set up or update Calendly Workflow for SMS notifications"""
         if not self.config.sms_notifications.enabled:
@@ -109,6 +141,12 @@ class CalendlyService:
     
     async def get_event_types(self) -> List[CalendlyEventType]:
         """Fetch all event types for the user"""
+        # Ensure we have the user URI
+        if not self.config.user_uri:
+            await self.initialize()
+            if not self.config.user_uri:
+                raise ValueError("User URI is required to fetch event types")
+                
         response = await self.client.get(
             f"/users/{self.config.user_uri}/event_types"
         )
@@ -154,9 +192,18 @@ class CalendlyService:
     
     async def create_booking(self, request: BookingRequest) -> Booking:
         """Create a new booking"""
+        # Ensure we have the user URI
+        if not self.config.user_uri:
+            await self.initialize()
+            
         # Ensure SMS workflow is set up
         if self.config.sms_notifications.enabled:
             await self.setup_sms_workflow()
+            
+        # Ensure we have event types loaded
+        if not self.config.event_types or request.event_type_id not in self.config.event_types:
+            event_types = await self.get_event_types()
+            self.config.event_types = {et.id: et for et in event_types}
             
         response = await self.client.post(
             f"/event_types/{request.event_type_id}/bookings",

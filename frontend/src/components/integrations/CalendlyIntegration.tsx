@@ -1,4 +1,4 @@
-import type { FC } from 'react';
+import { FC, useState } from 'react';
 import {
   Box,
   FormControlLabel,
@@ -10,8 +10,13 @@ import {
   Select,
   MenuItem,
   Stack,
+  Button,
+  InputAdornment,
+  Alert,
+  CircularProgress,
 } from '@mui/material';
 import { CalendlyConfig } from '../../types/calendly';
+import axios from 'axios';
 
 interface Props {
   config: CalendlyConfig;
@@ -20,8 +25,56 @@ interface Props {
 }
 
 export const CalendlyIntegration: FC<Props> = ({ config, onChange, variant = 'sms' }) => {
+  const [validating, setValidating] = useState(false);
+  const [tokenStatus, setTokenStatus] = useState<{
+    valid?: boolean;
+    message?: string;
+    name?: string;
+  } | null>(null);
+  
   const handleChange = (updates: Partial<CalendlyConfig>) => {
     onChange({ ...config, ...updates });
+  };
+  
+  const validateToken = async () => {
+    if (!config.access_token) {
+      setTokenStatus({
+        valid: false,
+        message: 'Please enter an access token',
+      });
+      return;
+    }
+    
+    setValidating(true);
+    try {
+      const response = await axios.post('/api/integrations/calendly/validate-token', {
+        access_token: config.access_token
+      });
+      
+      if (response.data.valid) {
+        setTokenStatus({
+          valid: true,
+          message: 'Token validated successfully',
+          name: response.data.name
+        });
+        
+        // Auto-fill the user URI
+        handleChange({
+          user_uri: response.data.user_uri
+        });
+      } else {
+        setTokenStatus({
+          valid: false,
+          message: response.data.message || 'Invalid token',
+        });
+      }
+    } catch (error) {
+      setTokenStatus({
+        valid: false,
+        message: 'Error validating token. Please try again.',
+      });
+    }
+    setValidating(false);
   };
 
   const title = variant === 'sms' 
@@ -58,16 +111,48 @@ export const CalendlyIntegration: FC<Props> = ({ config, onChange, variant = 'sm
             fullWidth
             label="Access Token"
             value={config.access_token}
-            onChange={(e) => handleChange({ access_token: e.target.value })}
+            onChange={(e) => {
+              handleChange({ access_token: e.target.value });
+              // Clear token status when token changes
+              if (tokenStatus) setTokenStatus(null);
+            }}
             type="password"
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <Button
+                    onClick={validateToken}
+                    disabled={validating || !config.access_token}
+                    variant="contained"
+                    size="small"
+                  >
+                    {validating ? <CircularProgress size={20} /> : 'Validate'}
+                  </Button>
+                </InputAdornment>
+              ),
+            }}
           />
+          
+          {tokenStatus && (
+            <Alert severity={tokenStatus.valid ? 'success' : 'error'}>
+              {tokenStatus.valid 
+                ? `✓ Valid token for ${tokenStatus.name}` 
+                : `✗ ${tokenStatus.message}`}
+            </Alert>
+          )}
 
           <TextField
             fullWidth
             label="User URI"
-            value={config.user_uri}
+            value={config.user_uri || ''}
             onChange={(e) => handleChange({ user_uri: e.target.value })}
-            helperText="Your Calendly user URI (e.g., https://calendly.com/your-name)"
+            helperText={tokenStatus?.valid 
+              ? "Auto-filled from your Calendly account" 
+              : "Will be automatically retrieved when you validate your access token"}
+            InputProps={{
+              readOnly: tokenStatus?.valid || false,
+              sx: tokenStatus?.valid ? { bgcolor: 'rgba(0, 0, 0, 0.05)' } : {}
+            }}
           />
 
           <TextField
