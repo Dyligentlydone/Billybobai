@@ -821,6 +821,8 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
         // Auto-populate the user URI if it was returned
         if (response.data.uri) {
           handleCalendlyChange({ user_uri: response.data.uri });
+        } else if (response.data.user_uri) { // For backward compatibility
+          handleCalendlyChange({ user_uri: response.data.user_uri });
         }
       } else {
         setTokenStatus({ valid: false });
