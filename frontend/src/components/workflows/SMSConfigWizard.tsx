@@ -274,7 +274,9 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
     valid?: boolean;
     message?: string;
     name?: string;
+    email?: string;
   } | null>(null);
+  const [tokenError, setTokenError] = useState<string | null>(null);
   const [brandToneState, setBrandToneState] = useState({
     newGreeting: '',
     newPhrase: '',
@@ -324,6 +326,7 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
         console.log('SMS actions:', smsActions);
         
         // Use either direct properties or ones nested under 'sms'
+        // Add explicit empty object defaults to avoid undefined access errors
         const twilioConfig = actions.twilio || smsActions.twilio || {};
         console.log('Extracted twilioConfig:', twilioConfig);
         const brandTone = actions.brandTone || smsActions.brandTone || {};
@@ -331,7 +334,13 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
         const context = actions.context || smsActions.context || {};
         const response = actions.response || smsActions.response || {};
         const monitoring = actions.monitoring || smsActions.monitoring || {};
+        
+        // Ensure systemIntegration and its children are properly initialized
         const systemIntegration = actions.systemIntegration || smsActions.systemIntegration || {};
+        // Initialize missing sub-objects to avoid undefined access later
+        if (!systemIntegration.zendesk) systemIntegration.zendesk = {};
+        if (!systemIntegration.calendly) systemIntegration.calendly = {};
+        if (!systemIntegration.webhook) systemIntegration.webhook = {};
         
         // Log all possible business ID sources for debugging
         console.log('Business ID sources:', {
@@ -416,25 +425,25 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
               createTickets: false,
               updateExisting: false
             },
-            calendly: systemIntegration.calendly || {
-              enabled: false,
-              access_token: '',
-              user_uri: '',
-              webhook_uri: '',
-              default_event_type: '',
-              booking_window_days: 60,
-              min_notice_hours: 1,
-              reminder_hours: [24],
-              allow_cancellation: true,
-              allow_rescheduling: true,
+            calendly: {
+              enabled: systemIntegration.calendly?.enabled || false,
+              access_token: systemIntegration.calendly?.access_token || '',
+              user_uri: systemIntegration.calendly?.user_uri || '',
+              webhook_uri: systemIntegration.calendly?.webhook_uri || '',
+              default_event_type: systemIntegration.calendly?.default_event_type || '',
+              booking_window_days: systemIntegration.calendly?.booking_window_days || 60,
+              min_notice_hours: systemIntegration.calendly?.min_notice_hours || 1,
+              reminder_hours: systemIntegration.calendly?.reminder_hours || [24],
+              allow_cancellation: systemIntegration.calendly?.allow_cancellation ?? true,
+              allow_rescheduling: systemIntegration.calendly?.allow_rescheduling ?? true,
               sms_notifications: {
-                enabled: true,
-                include_cancel_link: true,
-                include_reschedule_link: true,
-                confirmation_message: 'Your appointment has been confirmed.',
-                reminder_message: 'Reminder: You have an upcoming appointment.',
-                cancellation_message: 'Your appointment has been cancelled.',
-                reschedule_message: 'Your appointment has been rescheduled.'
+                enabled: systemIntegration.calendly?.sms_notifications?.enabled ?? true,
+                include_cancel_link: systemIntegration.calendly?.sms_notifications?.include_cancel_link ?? true,
+                include_reschedule_link: systemIntegration.calendly?.sms_notifications?.include_reschedule_link ?? true,
+                confirmation_message: systemIntegration.calendly?.sms_notifications?.confirmation_message || 'Your appointment has been confirmed.',
+                reminder_message: systemIntegration.calendly?.sms_notifications?.reminder_message || 'Reminder: You have an upcoming appointment.',
+                cancellation_message: systemIntegration.calendly?.sms_notifications?.cancellation_message || 'Your appointment has been cancelled.',
+                reschedule_message: systemIntegration.calendly?.sms_notifications?.reschedule_message || 'Your appointment has been rescheduled.'
               }
             },
             webhook: systemIntegration.webhook || {
@@ -799,37 +808,38 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
   };
   
   const validateCalendlyToken = async () => {
-    const token = config.systemIntegration.calendly.access_token;
+    const token = config.systemIntegration.calendly?.access_token;
     if (!token) {
       setTokenStatus({
         valid: false,
-        message: 'Please enter an access token',
       });
+      setTokenError('Please enter an access token first');
       return;
     }
     
-    setValidatingToken(true);
     try {
+      setValidatingToken(true);
+      setTokenError(null);
+      
       const response = await axios.post('/api/integrations/calendly/validate-token', {
         access_token: token
       });
       
-      if (response.data.valid) {
+      if (response.data && response.data.valid) {
         setTokenStatus({
           valid: true,
           message: 'Token validated successfully',
-          name: response.data.name
+          name: response.data.name || '',
+          email: response.data.email || ''
         });
         
-        // Auto-fill the user URI
-        handleCalendlyChange({
-          user_uri: response.data.user_uri
-        });
+        // Auto-populate the user URI if it was returned
+        if (response.data.uri) {
+          handleCalendlyChange({ user_uri: response.data.uri });
+        }
       } else {
-        setTokenStatus({
-          valid: false,
-          message: response.data.message || 'Invalid token',
-        });
+        setTokenStatus({ valid: false });
+        setTokenError('Invalid token');
       }
     } catch (error) {
       setTokenStatus({
@@ -2267,6 +2277,9 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
                   ? "Auto-filled from your Calendly account" 
                   : "Will be automatically retrieved when you validate your access token"}
               </p>
+              {tokenError && (
+                <p className="mt-1 text-sm text-red-500">{tokenError}</p>
+              )}
             </div>
 
             <div>
