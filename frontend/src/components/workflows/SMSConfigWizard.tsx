@@ -268,15 +268,7 @@ const INITIAL_CONFIG: Config = {
 
 export default function SMSConfigWizard({ onComplete, onCancel, existingData }: Props) {
   const [step, setStep] = useState(1);
-  const [config, setConfig] = useState<Config>(existingData || INITIAL_CONFIG);
-  const [validatingToken, setValidatingToken] = useState(false);
-  const [tokenStatus, setTokenStatus] = useState<{
-    valid?: boolean;
-    message?: string;
-    name?: string;
-    email?: string;
-  } | null>(null);
-  const [tokenError, setTokenError] = useState<string | null>(null);
+  const [config, setConfig] = useState<Config>(INITIAL_CONFIG);
   const [brandToneState, setBrandToneState] = useState({
     newGreeting: '',
     newPhrase: '',
@@ -290,6 +282,14 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
     newCustomerMessage: '',
     newAgentResponse: ''
   });
+  const [tokenStatus, setTokenStatus] = useState<{
+    valid?: boolean;
+    message?: string;
+    name?: string;
+    email?: string;
+  } | null>(null);
+  const [tokenError, setTokenError] = useState<string | null>(null);
+  const [validatingToken, setValidatingToken] = useState(false);
   const [contextState, setContextState] = useState({
     newTrigger: '',
     newResponse: '',
@@ -317,12 +317,6 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
     if (existingData) {
       console.log('Loading existing workflow data in SMSConfigWizard');
       try {
-        // Safety check - make sure we have a valid object
-        if (!existingData || typeof existingData !== 'object') {
-          console.error('Invalid workflow data format', existingData);
-          return;
-        }
-        
         // Try to extract the SMS configuration from the existing workflow
         const actions = existingData.actions || {};
         console.log('Extracted actions:', actions);
@@ -332,7 +326,6 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
         console.log('SMS actions:', smsActions);
         
         // Use either direct properties or ones nested under 'sms'
-        // Add explicit empty object defaults to avoid undefined access errors
         const twilioConfig = actions.twilio || smsActions.twilio || {};
         console.log('Extracted twilioConfig:', twilioConfig);
         const brandTone = actions.brandTone || smsActions.brandTone || {};
@@ -340,49 +333,18 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
         const context = actions.context || smsActions.context || {};
         const response = actions.response || smsActions.response || {};
         const monitoring = actions.monitoring || smsActions.monitoring || {};
-        
-        // Ensure systemIntegration and its children are properly initialized
         const systemIntegration = actions.systemIntegration || smsActions.systemIntegration || {};
-        
-        // Deep copy to avoid mutation issues
-        const safeSystemIntegration = JSON.parse(JSON.stringify(systemIntegration || {}));
-        
-        // Initialize missing sub-objects to avoid undefined access later
-        if (!safeSystemIntegration.zendesk) safeSystemIntegration.zendesk = {};
-        if (!safeSystemIntegration.calendly) safeSystemIntegration.calendly = {};
-        if (!safeSystemIntegration.webhook) safeSystemIntegration.webhook = {};
-        
-        // Ensure SMS notifications exist in Calendly config
-        if (!safeSystemIntegration.calendly.sms_notifications) {
-          safeSystemIntegration.calendly.sms_notifications = {
-            enabled: true,
-            include_cancel_link: true,
-            include_reschedule_link: true,
-            confirmation_message: 'Your appointment has been confirmed.',
-            reminder_message: 'Reminder: You have an upcoming appointment.',
-            cancellation_message: 'Your appointment has been cancelled.',
-            reschedule_message: 'Your appointment has been rescheduled.'
-          };
-        }
         
         // Log all possible business ID sources for debugging
         console.log('Business ID sources:', {
           business_id: existingData.business_id,
           client_id: existingData.client_id,
           businessId: existingData.businessId,
-          actions_twilio: twilioConfig?.businessId || null
+          actions_twilio: twilioConfig.businessId
         });
         
-        // Ensure we extract the business ID correctly and handle all edge cases
-        let businessId = 0;
-        if (existingData.business_id && existingData.business_id !== 'undefined') {
-          businessId = parseInt(String(existingData.business_id), 10) || 0;
-        } else if (existingData.client_id && existingData.client_id !== 'undefined') {
-          businessId = parseInt(String(existingData.client_id), 10) || 0;
-        } else if (twilioConfig?.businessId && twilioConfig.businessId !== 'undefined') {
-          businessId = parseInt(String(twilioConfig.businessId), 10) || 0;
-        }
-        
+        // Ensure we extract the business ID correctly
+        const businessId = existingData.business_id || existingData.client_id || twilioConfig.businessId || 0;
         console.log('Using business ID for edit:', businessId);
         
         // Create a config object from the existing data
@@ -447,34 +409,34 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
             }
           },
           systemIntegration: {
-            zendesk: {
-              enabled: safeSystemIntegration.zendesk?.enabled || false,
-              email: safeSystemIntegration.zendesk?.email || '',
-              apiToken: safeSystemIntegration.zendesk?.apiToken || '',
-              subdomain: safeSystemIntegration.zendesk?.subdomain || '',
-              defaultPriority: safeSystemIntegration.zendesk?.defaultPriority || 'normal',
-              createTickets: safeSystemIntegration.zendesk?.createTickets || false,
-              updateExisting: safeSystemIntegration.zendesk?.updateExisting || false
+            zendesk: systemIntegration.zendesk || {
+              enabled: false,
+              email: '',
+              apiToken: '',
+              subdomain: '',
+              defaultPriority: 'normal',
+              createTickets: false,
+              updateExisting: false
             },
-            calendly: {
-              enabled: safeSystemIntegration.calendly?.enabled || false,
-              access_token: safeSystemIntegration.calendly?.access_token || '',
-              user_uri: safeSystemIntegration.calendly?.user_uri || '',
-              webhook_uri: safeSystemIntegration.calendly?.webhook_uri || '',
-              default_event_type: safeSystemIntegration.calendly?.default_event_type || '',
-              booking_window_days: safeSystemIntegration.calendly?.booking_window_days || 60,
-              min_notice_hours: safeSystemIntegration.calendly?.min_notice_hours || 1,
-              reminder_hours: safeSystemIntegration.calendly?.reminder_hours || [24],
-              allow_cancellation: safeSystemIntegration.calendly?.allow_cancellation ?? true,
-              allow_rescheduling: safeSystemIntegration.calendly?.allow_rescheduling ?? true,
+            calendly: systemIntegration.calendly || {
+              enabled: false,
+              access_token: '',
+              user_uri: '',
+              webhook_uri: '',
+              default_event_type: '',
+              booking_window_days: 60,
+              min_notice_hours: 1,
+              reminder_hours: [24],
+              allow_cancellation: true,
+              allow_rescheduling: true,
               sms_notifications: {
-                enabled: safeSystemIntegration.calendly?.sms_notifications?.enabled ?? true,
-                include_cancel_link: safeSystemIntegration.calendly?.sms_notifications?.include_cancel_link ?? true,
-                include_reschedule_link: safeSystemIntegration.calendly?.sms_notifications?.include_reschedule_link ?? true,
-                confirmation_message: safeSystemIntegration.calendly?.sms_notifications?.confirmation_message || 'Your appointment has been confirmed.',
-                reminder_message: safeSystemIntegration.calendly?.sms_notifications?.reminder_message || 'Reminder: You have an upcoming appointment.',
-                cancellation_message: safeSystemIntegration.calendly?.sms_notifications?.cancellation_message || 'Your appointment has been cancelled.',
-                reschedule_message: safeSystemIntegration.calendly?.sms_notifications?.reschedule_message || 'Your appointment has been rescheduled.'
+                enabled: true,
+                include_cancel_link: true,
+                include_reschedule_link: true,
+                confirmation_message: 'Your appointment has been confirmed.',
+                reminder_message: 'Reminder: You have an upcoming appointment.',
+                cancellation_message: 'Your appointment has been cancelled.',
+                reschedule_message: 'Your appointment has been rescheduled.'
               }
             },
             webhook: systemIntegration.webhook || {
@@ -821,25 +783,17 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
   };
 
   const handleCalendlyChange = (updates: Partial<SystemIntegrationConfig['calendly']>) => {
-    setConfig(prev => ({
-      ...prev,
-      systemIntegration: {
-        ...prev.systemIntegration,
-        calendly: {
-          ...prev.systemIntegration.calendly,
-          ...updates
-        }
-      }
-    }));
+    setConfig(prev => ({ ...prev, systemIntegration: { ...prev.systemIntegration, calendly: { ...prev.systemIntegration.calendly, ...updates } } }));
     
-    // Clear token status when access token changes
+    // Clear token status if access token changes
     if ('access_token' in updates) {
       setTokenStatus(null);
+      setTokenError(null);
     }
   };
-  
+
   const validateCalendlyToken = async () => {
-    const token = config.systemIntegration.calendly?.access_token;
+    const token = config.systemIntegration.calendly.access_token;
     if (!token) {
       setTokenStatus({
         valid: false,
@@ -875,10 +829,12 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
     } catch (error) {
       setTokenStatus({
         valid: false,
-        message: 'Error validating token. Please try again.',
       });
+      console.error('Error validating Calendly token:', error);
+      setTokenError('Error validating token');
+    } finally {
+      setValidatingToken(false);
     }
-    setValidatingToken(false);
   };
 
   const handleWebhookChange = (updates: Partial<SystemIntegrationConfig['webhook']>) => {
@@ -2269,31 +2225,45 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
           <div className="ml-7 space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-600">Access Token</label>
-              <div className="flex mt-1">
+              <input
+                type="password"
+                value={config.systemIntegration.calendly.access_token}
+                onChange={(e) => handleCalendlyChange({ access_token: e.target.value })}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-600">Access Token</label>
+              <div className="flex gap-2">
                 <input
                   type="password"
                   value={config.systemIntegration.calendly.access_token}
                   onChange={(e) => handleCalendlyChange({ access_token: e.target.value })}
-                  className="block w-full rounded-l-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  placeholder="Your Calendly Personal Access Token"
                 />
                 <button
                   type="button"
                   onClick={validateCalendlyToken}
                   disabled={validatingToken || !config.systemIntegration.calendly.access_token}
-                  className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-r-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-400"
+                  className="mt-1 inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-300"
                 >
                   {validatingToken ? 'Validating...' : 'Validate'}
                 </button>
               </div>
-              {tokenStatus && (
-                <div className={`mt-2 text-sm ${tokenStatus.valid ? 'text-green-600' : 'text-red-600'}`}>
-                  {tokenStatus.valid 
-                    ? `✓ Valid token for ${tokenStatus.name}` 
-                    : `✗ ${tokenStatus.message}`}
+              {tokenStatus && tokenStatus.valid && (
+                <div className="mt-1 text-sm text-green-600">
+                  ✓ Valid token for {tokenStatus.name}
+                </div>
+              )}
+              {tokenError && (
+                <div className="mt-1 text-sm text-red-500">
+                  {tokenError}
                 </div>
               )}
             </div>
-
+            
             <div>
               <label className="block text-sm font-medium text-gray-600">User URI</label>
               <input
@@ -2308,9 +2278,6 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
                   ? "Auto-filled from your Calendly account" 
                   : "Will be automatically retrieved when you validate your access token"}
               </p>
-              {tokenError && (
-                <p className="mt-1 text-sm text-red-500">{tokenError}</p>
-              )}
             </div>
 
             <div>
