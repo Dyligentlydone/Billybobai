@@ -317,6 +317,12 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
     if (existingData) {
       console.log('Loading existing workflow data in SMSConfigWizard');
       try {
+        // Safety check - make sure we have a valid object
+        if (!existingData || typeof existingData !== 'object') {
+          console.error('Invalid workflow data format', existingData);
+          return;
+        }
+        
         // Try to extract the SMS configuration from the existing workflow
         const actions = existingData.actions || {};
         console.log('Extracted actions:', actions);
@@ -337,21 +343,46 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
         
         // Ensure systemIntegration and its children are properly initialized
         const systemIntegration = actions.systemIntegration || smsActions.systemIntegration || {};
+        
+        // Deep copy to avoid mutation issues
+        const safeSystemIntegration = JSON.parse(JSON.stringify(systemIntegration || {}));
+        
         // Initialize missing sub-objects to avoid undefined access later
-        if (!systemIntegration.zendesk) systemIntegration.zendesk = {};
-        if (!systemIntegration.calendly) systemIntegration.calendly = {};
-        if (!systemIntegration.webhook) systemIntegration.webhook = {};
+        if (!safeSystemIntegration.zendesk) safeSystemIntegration.zendesk = {};
+        if (!safeSystemIntegration.calendly) safeSystemIntegration.calendly = {};
+        if (!safeSystemIntegration.webhook) safeSystemIntegration.webhook = {};
+        
+        // Ensure SMS notifications exist in Calendly config
+        if (!safeSystemIntegration.calendly.sms_notifications) {
+          safeSystemIntegration.calendly.sms_notifications = {
+            enabled: true,
+            include_cancel_link: true,
+            include_reschedule_link: true,
+            confirmation_message: 'Your appointment has been confirmed.',
+            reminder_message: 'Reminder: You have an upcoming appointment.',
+            cancellation_message: 'Your appointment has been cancelled.',
+            reschedule_message: 'Your appointment has been rescheduled.'
+          };
+        }
         
         // Log all possible business ID sources for debugging
         console.log('Business ID sources:', {
           business_id: existingData.business_id,
           client_id: existingData.client_id,
           businessId: existingData.businessId,
-          actions_twilio: twilioConfig.businessId
+          actions_twilio: twilioConfig?.businessId || null
         });
         
-        // Ensure we extract the business ID correctly
-        const businessId = existingData.business_id || existingData.client_id || twilioConfig.businessId || 0;
+        // Ensure we extract the business ID correctly and handle all edge cases
+        let businessId = 0;
+        if (existingData.business_id && existingData.business_id !== 'undefined') {
+          businessId = parseInt(String(existingData.business_id), 10) || 0;
+        } else if (existingData.client_id && existingData.client_id !== 'undefined') {
+          businessId = parseInt(String(existingData.client_id), 10) || 0;
+        } else if (twilioConfig?.businessId && twilioConfig.businessId !== 'undefined') {
+          businessId = parseInt(String(twilioConfig.businessId), 10) || 0;
+        }
+        
         console.log('Using business ID for edit:', businessId);
         
         // Create a config object from the existing data
@@ -416,34 +447,34 @@ export default function SMSConfigWizard({ onComplete, onCancel, existingData }: 
             }
           },
           systemIntegration: {
-            zendesk: systemIntegration.zendesk || {
-              enabled: false,
-              email: '',
-              apiToken: '',
-              subdomain: '',
-              defaultPriority: 'normal',
-              createTickets: false,
-              updateExisting: false
+            zendesk: {
+              enabled: safeSystemIntegration.zendesk?.enabled || false,
+              email: safeSystemIntegration.zendesk?.email || '',
+              apiToken: safeSystemIntegration.zendesk?.apiToken || '',
+              subdomain: safeSystemIntegration.zendesk?.subdomain || '',
+              defaultPriority: safeSystemIntegration.zendesk?.defaultPriority || 'normal',
+              createTickets: safeSystemIntegration.zendesk?.createTickets || false,
+              updateExisting: safeSystemIntegration.zendesk?.updateExisting || false
             },
             calendly: {
-              enabled: systemIntegration.calendly?.enabled || false,
-              access_token: systemIntegration.calendly?.access_token || '',
-              user_uri: systemIntegration.calendly?.user_uri || '',
-              webhook_uri: systemIntegration.calendly?.webhook_uri || '',
-              default_event_type: systemIntegration.calendly?.default_event_type || '',
-              booking_window_days: systemIntegration.calendly?.booking_window_days || 60,
-              min_notice_hours: systemIntegration.calendly?.min_notice_hours || 1,
-              reminder_hours: systemIntegration.calendly?.reminder_hours || [24],
-              allow_cancellation: systemIntegration.calendly?.allow_cancellation ?? true,
-              allow_rescheduling: systemIntegration.calendly?.allow_rescheduling ?? true,
+              enabled: safeSystemIntegration.calendly?.enabled || false,
+              access_token: safeSystemIntegration.calendly?.access_token || '',
+              user_uri: safeSystemIntegration.calendly?.user_uri || '',
+              webhook_uri: safeSystemIntegration.calendly?.webhook_uri || '',
+              default_event_type: safeSystemIntegration.calendly?.default_event_type || '',
+              booking_window_days: safeSystemIntegration.calendly?.booking_window_days || 60,
+              min_notice_hours: safeSystemIntegration.calendly?.min_notice_hours || 1,
+              reminder_hours: safeSystemIntegration.calendly?.reminder_hours || [24],
+              allow_cancellation: safeSystemIntegration.calendly?.allow_cancellation ?? true,
+              allow_rescheduling: safeSystemIntegration.calendly?.allow_rescheduling ?? true,
               sms_notifications: {
-                enabled: systemIntegration.calendly?.sms_notifications?.enabled ?? true,
-                include_cancel_link: systemIntegration.calendly?.sms_notifications?.include_cancel_link ?? true,
-                include_reschedule_link: systemIntegration.calendly?.sms_notifications?.include_reschedule_link ?? true,
-                confirmation_message: systemIntegration.calendly?.sms_notifications?.confirmation_message || 'Your appointment has been confirmed.',
-                reminder_message: systemIntegration.calendly?.sms_notifications?.reminder_message || 'Reminder: You have an upcoming appointment.',
-                cancellation_message: systemIntegration.calendly?.sms_notifications?.cancellation_message || 'Your appointment has been cancelled.',
-                reschedule_message: systemIntegration.calendly?.sms_notifications?.reschedule_message || 'Your appointment has been rescheduled.'
+                enabled: safeSystemIntegration.calendly?.sms_notifications?.enabled ?? true,
+                include_cancel_link: safeSystemIntegration.calendly?.sms_notifications?.include_cancel_link ?? true,
+                include_reschedule_link: safeSystemIntegration.calendly?.sms_notifications?.include_reschedule_link ?? true,
+                confirmation_message: safeSystemIntegration.calendly?.sms_notifications?.confirmation_message || 'Your appointment has been confirmed.',
+                reminder_message: safeSystemIntegration.calendly?.sms_notifications?.reminder_message || 'Reminder: You have an upcoming appointment.',
+                cancellation_message: safeSystemIntegration.calendly?.sms_notifications?.cancellation_message || 'Your appointment has been cancelled.',
+                reschedule_message: safeSystemIntegration.calendly?.sms_notifications?.reschedule_message || 'Your appointment has been rescheduled.'
               }
             },
             webhook: systemIntegration.webhook || {
