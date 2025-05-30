@@ -21,12 +21,18 @@ class CalendlyService:
     
     def __init__(self, config: CalendlyConfig):
         self.config = config
+        
+        # Make sure token is stripped of any whitespace
+        if hasattr(config, 'access_token') and config.access_token:
+            config.access_token = config.access_token.strip()
+            
         self.client = httpx.AsyncClient(
             base_url=self.BASE_URL,
             headers={
                 "Authorization": f"Bearer {config.access_token}",
                 "Content-Type": "application/json"
-            }
+            },
+            timeout=20.0  # Set a reasonable timeout
         )
         self._sms_states: Dict[str, SMSBookingState] = {}
     
@@ -48,19 +54,65 @@ class CalendlyService:
         """Fetch the user URI using the access token"""
         if not self.config.access_token:
             raise ValueError("Access token is required")
-            
+        
+        # Debug log the token format (first few chars)
+        token_preview = self.config.access_token[:5] + "..." if len(self.config.access_token) > 5 else "<empty>"
+        logger.info(f"Attempting to fetch user URI with token starting with: {token_preview}")
+        
+        # Check if token looks like a Calendly token (basic format check)
+        if not self.config.access_token.startswith("cal_"):
+            logger.warning(f"Token doesn't appear to be in Calendly format (should start with 'cal_')")
+        
         try:
-            response = await self.client.get("/users/me")
-            response.raise_for_status()
-            user_data = response.json()
-            if "resource" in user_data and "uri" in user_data["resource"]:
-                return user_data["resource"]["uri"]
-            else:
-                logger.error(f"Unexpected API response format: {user_data}")
-                raise ValueError("Invalid API response format")
+            # Set a longer timeout for API calls
+            async with httpx.AsyncClient(
+                base_url=self.BASE_URL,
+                headers={
+                    "Authorization": f"Bearer {self.config.access_token}",
+                    "Content-Type": "application/json"
+                },
+                timeout=30.0
+            ) as client:
+                logger.info("Making request to Calendly API: /users/me")
+                response = await client.get("/users/me")
+                
+                # Log response status
+                logger.info(f"Calendly API response status: {response.status_code}")
+                
+                # Handle common error cases
+                if response.status_code == 401:
+                    logger.error("Authentication failed: Invalid token or insufficient permissions")
+                    raise ValueError("Invalid Calendly token or insufficient permissions. Make sure you've created a Personal Access Token with user:read scope.")
+                elif response.status_code == 403:
+                    logger.error("Authorization failed: Token does not have sufficient permissions")
+                    raise ValueError("Your token does not have sufficient permissions. Ensure you've enabled the user:read scope.")
+                
+                response.raise_for_status()
+                user_data = response.json()
+                
+                # Log successful response (limited)
+                logger.info(f"Received user data. Keys: {list(user_data.keys())}")
+                
+                if "resource" in user_data and "uri" in user_data["resource"]:
+                    logger.info(f"Successfully extracted user URI: {user_data['resource']['uri']}")
+                    return user_data["resource"]["uri"]
+                else:
+                    logger.error(f"Unexpected API response format: {user_data}")
+                    raise ValueError("Invalid API response format")
+        except httpx.HTTPStatusError as e:
+            logger.error(f"HTTP error: {e.response.status_code} - {str(e)}")
+            try:
+                error_body = e.response.json()
+                logger.error(f"Error details: {error_body}")
+            except:
+                logger.error(f"Could not parse error response body")
+            raise ValueError(f"HTTP error {e.response.status_code}: {str(e)}")
+        except httpx.RequestError as e:
+            logger.error(f"Request error: {str(e)}")
+            raise ValueError(f"Failed to connect to Calendly API: {str(e)}")
         except Exception as e:
             logger.error(f"Failed to fetch user URI: {str(e)}")
-            raise
+            raise ValueError(f"Unexpected error: {str(e)}")
     
     async def setup_sms_workflow(self) -> Dict[str, Any]:
         """Set up or update Calendly Workflow for SMS notifications"""

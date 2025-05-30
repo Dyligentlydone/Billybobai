@@ -1,4 +1,4 @@
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, HttpUrl, Field
 from typing import List, Optional, Dict, Literal, Any
 from datetime import datetime
 
@@ -11,29 +11,33 @@ class CalendlyEventType(BaseModel):
     type: str = "appointment"
     color: Optional[str] = None
 
+class SMSNotificationSettings(BaseModel):
+    """Settings for Calendly's native SMS notifications"""
+    enabled: bool = True
+    include_cancel_link: bool = True
+    include_reschedule_link: bool = True
+    confirmation_message: str = "Your appointment has been confirmed."
+    reminder_message: str = "Reminder: You have an upcoming appointment."
+    cancellation_message: str = "Your appointment has been cancelled."
+    reschedule_message: str = "Your appointment has been rescheduled."
+
 class CalendlyConfig(BaseModel):
     enabled: bool = False
     access_token: str
     user_uri: Optional[str] = None  # Now optional as system will fetch it
     webhook_uri: Optional[str] = None
-    default_event_type: str
+    default_event_type: str = ""
     event_types: Dict[str, CalendlyEventType] = {}
     reminder_hours: List[int] = [24, 1]  # Send reminders 24h and 1h before
     allow_cancellation: bool = True
     allow_rescheduling: bool = True
     booking_window_days: int = 14  # How many days in advance can book
     min_notice_hours: int = 1  # Minimum hours notice needed for booking
-    sms_notifications: SMSNotificationSettings = SMSNotificationSettings()
+    sms_notifications: SMSNotificationSettings = Field(default_factory=SMSNotificationSettings)
 
-class SMSNotificationSettings(BaseModel):
-    """Settings for Calendly's native SMS notifications"""
-    enabled: bool = True
-    include_cancel_link: bool = True
-    include_reschedule_link: bool = True
-    confirmation_message: str
-    reminder_message: str
-    cancellation_message: str
-    reschedule_message: str
+class CalendlyTokenRequest(BaseModel):
+    """Request schema for validating a Calendly token"""
+    access_token: str
 
 class WorkflowCreate(BaseModel):
     """Create a Calendly Workflow for SMS notifications"""
