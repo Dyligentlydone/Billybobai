@@ -32,7 +32,7 @@ class AIService:
         Focus on practical, efficient solutions that improve customer experience.
         IMPORTANT: When asked to answer a user question for SMS, ONLY provide the direct answer to the user's question. DO NOT include any template placeholders (such as {content}) or opt-in prompts (such as 'Reply YES to receive SMS updates'). DO NOT include greetings or sign-offs unless specifically requested. DO NOT repeat or reference any template language. Your response will be inserted directly into the message body by the system."""
 
-    def analyze_requirements(self, description: str, actions=None, conversation_history=None, is_new_conversation=False) -> Union[WorkflowConfig, Dict]:
+    def analyze_requirements(self, description: str, actions=None, conversation_history=None, is_new_conversation=False, appointment_context=None) -> Union[WorkflowConfig, Dict]:
         """Analyze natural language requirements and generate workflow configuration or response."""
         try:
             # Enhanced logging for troubleshooting
@@ -94,6 +94,19 @@ class AIService:
                 qa_pairs_json = json.dumps(qa_pairs) if qa_pairs else "No specific FAQ data provided."
                 context_data_json = json.dumps(context_data) if context_data else "No specific context provided."
                 
+                # Add appointment information if available
+                appointment_info = ""
+                if appointment_context:
+                    logger.info(f"Including appointment context in prompt: {appointment_context}")
+                    appointment_info = f"""
+                    IMPORTANT - APPOINTMENT INFORMATION:
+                    The user is asking about an appointment. Here is the verified information:
+                    {appointment_context.get('formatted_response', 'No appointment information available.')}
+                    
+                    This information comes directly from the scheduling system. Use this verified information
+                    in your response rather than making assumptions about appointments.
+                    """
+                
                 # Create a comprehensive system prompt - use normal string first and then format it
                 # to avoid nested formatting issues
                 system_prompt_template = """
@@ -118,6 +131,8 @@ class AIService:
                 - IMPORTANT: Your response will be used as the "Main Content" section of a structured message
                 - Other sections like Greeting, Next Steps, and Sign Off will be handled separately
                 - You should provide a direct, human-like answer as if you're texting the customer
+                
+                {appointment_info}
                 
                 Response Format:
                 YOU MUST return a valid JSON object with this structure:
@@ -151,6 +166,7 @@ class AIService:
                     words_to_avoid_str=words_to_avoid_str,
                     conversation_type=conversation_type,
                     structure_info=structure_info,
+                    appointment_info=appointment_info,
                     JSON_RESPONSE_TEMPLATE=JSON_RESPONSE_TEMPLATE,
                     qa_pairs_json=qa_pairs_json,
                     context_data_json=context_data_json

@@ -151,13 +151,51 @@ async def sms_webhook(business_id: str, request: Request, db: Session = Depends(
             conversation_history.append({"role": "user", "content": body})
 
             logger.info(f"AI DEBUG: Prepared conversation_history for AI: {conversation_history}")
-
+            
+            # Check if this is an appointment-related query
+            appointment_context = None
+            appointment_keywords = ["appointment", "meeting", "schedule", "calendly", "booked"]
+            is_appointment_query = any(keyword in body.lower() for keyword in appointment_keywords)
+            
+            if is_appointment_query and workflow.actions.get('calendly', {}).get('enabled'):
+                try:
+                    # Import the date extractor and calendly helper
+                    from ..utils.date_extractor import extract_date_time
+                    from ..utils.calendly_helper import verify_appointment, format_appointment_response
+                    
+                    # Extract date/time from message
+                    date_info = extract_date_time(body)
+                    logger.info(f"Extracted date info: {date_info}")
+                    
+                    if date_info and date_info.get("datetime"):
+                        # Call the Calendly verification API
+                        verification_result = await verify_appointment(
+                            workflow.id, 
+                            date_info["datetime"]
+                        )
+                        
+                        # Format a human-readable response
+                        appointment_response = format_appointment_response(verification_result)
+                        
+                        # Add context to AI service
+                        appointment_context = {
+                            "verification_result": verification_result,
+                            "formatted_response": appointment_response,
+                            "extracted_date": date_info["datetime"].isoformat(),
+                            "confidence": date_info["confidence"]
+                        }
+                        
+                        logger.info(f"Appointment verification context: {appointment_context}")
+                except Exception as e:
+                    logger.error(f"Error in appointment verification: {str(e)}")
+            
             # Call AI service
             workflow_response = ai_service.analyze_requirements(
                 body,
                 workflow.actions,
                 conversation_history=conversation_history,
-                is_new_conversation=is_new_conversation
+                is_new_conversation=is_new_conversation,
+                appointment_context=appointment_context
             )
             ai_response_text = workflow_response.get('message', '')
             # (rest of the original logic continues here)
