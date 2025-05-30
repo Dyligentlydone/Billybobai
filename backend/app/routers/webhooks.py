@@ -66,13 +66,26 @@ async def sms_webhook(business_id: str, request: Request, db: Session = Depends(
             db.add(new_consent)
             db.commit()
             consent_record = new_consent
-        body_upper = body.strip().upper() if body else ''
-        if body_upper == 'YES':
+        # Prepare body for pattern matching - lowercase for case insensitivity
+        body_text = body.strip() if body else ''
+        body_upper = body_text.upper()
+        body_lower = body_text.lower()
+        
+        # Very flexible YES detection with multiple patterns
+        # 1. Exactly "yes" (any case)
+        # 2. Starts with "yes" followed by space, comma, period
+        # 3. Contains "yes" as a standalone word
+        if (body_upper == 'YES' or 
+            re.match(r'^yes[\s,.;:]', body_lower, re.IGNORECASE) or
+            re.search(r'\byes\b', body_lower, re.IGNORECASE)):
             if consent_record.status != 'CONFIRMED':
                 consent_record.status = 'CONFIRMED'
                 db.commit()
+                logger.info(f"User {from_number} opted in with message: '{body}'")
             resp.message("Thanks! You've opted in to receive SMS updates. Reply STOP to opt out anytime.")
             return Response(content=str(resp), media_type="application/xml")
+            
+        # Keep STOP handling strict to avoid accidental opt-outs
         if body_upper == 'STOP':
             if consent_record.status != 'DECLINED':
                 consent_record.status = 'DECLINED'
