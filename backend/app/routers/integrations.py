@@ -70,6 +70,16 @@ async def validate_calendly_token(request: CalendlyTokenRequest, db: Session = D
             "error": "Token appears to be invalid or empty",
             "message": "Please check your token format"
         }
+        
+    # Log token format for debugging (first 5 chars only)
+    token_prefix = token[:5] if len(token) >= 5 else token
+    print(f"Token validation request with token prefix: {token_prefix}...")
+    
+    # Accept both old (cal_) and new (eyja) token formats
+    valid_prefix = token.startswith("cal_") or token.startswith("eyja")
+    if not valid_prefix:
+        print(f"Warning: Token doesn't start with expected prefixes (cal_ or eyja)")
+        # We'll still try to validate it anyway
     
     try:
         print(f"Attempting to validate Calendly token: {token[:5]}...")

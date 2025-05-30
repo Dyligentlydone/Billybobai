@@ -60,8 +60,8 @@ class CalendlyService:
         logger.info(f"Attempting to fetch user URI with token starting with: {token_preview}")
         
         # Check if token looks like a Calendly token (basic format check)
-        if not self.config.access_token.startswith("cal_"):
-            logger.warning(f"Token doesn't appear to be in Calendly format (should start with 'cal_')")
+        if not (self.config.access_token.startswith("cal_") or self.config.access_token.startswith("eyja")):
+            logger.warning(f"Token doesn't appear to be in expected Calendly format (should start with 'cal_' or 'eyja')")
         
         try:
             # Set a longer timeout for API calls
