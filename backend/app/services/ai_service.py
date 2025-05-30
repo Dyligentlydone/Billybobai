@@ -246,8 +246,8 @@ class AIService:
                         }
                     except Exception as json_err:
                         logger.error(f"Failed to parse JSON response: {str(json_err)}")
-                        # If parsing fails, clean the response and return with default structure
-                        cleaned_response = self.clean_common_greetings(message_content)
+                        # More aggressive cleanup for JSON-like content
+                        cleaned_response = self.extract_message_from_malformed_json(message_content)
                         logger.info(f"Using cleaned fallback response: {cleaned_response[:50]}...")
                         
                         return {
@@ -492,6 +492,39 @@ class AIService:
 
         except Exception as e:
             raise Exception(f"Failed to extract email variables: {str(e)}")
+
+    def extract_message_from_malformed_json(self, text):
+        """
+        Extract the actual message content from malformed JSON responses.
+        This handles cases where OpenAI returns JSON-like content that isn't valid JSON.
+        """
+        import re
+        logger = logging.getLogger(__name__)
+        
+        # First attempt: Try to extract "message" field using regex
+        message_match = re.search(r'"message"\s*:\s*"([^"]+)"', text)
+        if message_match:
+            logger.info("Extracted message content using regex pattern match")
+            extracted_message = message_match.group(1)
+            return self.clean_common_greetings(extracted_message)
+        
+        # Second attempt: Look for JSON-like structure and strip it
+        if '{' in text and '}' in text:
+            # Try to extract text between quotes that's not part of a JSON key
+            logger.info("Attempting to clean JSON-like structure from text")
+            # Remove anything that looks like JSON structure
+            cleaned = re.sub(r'[{\[\]}":]', ' ', text)
+            # Remove common JSON field names
+            cleaned = re.sub(r'\b(message|twilio|include_greeting|include_sign_off)\b', '', cleaned)
+            # Clean up extra whitespace
+            cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+            if cleaned:
+                logger.info(f"Extracted content by removing JSON structure: {cleaned[:50]}...")
+                return self.clean_common_greetings(cleaned)
+        
+        # If all else fails, just use the original text with greeting cleaning
+        logger.info("Falling back to basic greeting cleaning")
+        return self.clean_common_greetings(text)
 
     def clean_common_greetings(self, text):
         import re
