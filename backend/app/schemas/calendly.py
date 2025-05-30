@@ -35,6 +35,49 @@ class CalendlyConfig(BaseModel):
     min_notice_hours: int = 1  # Minimum hours notice needed for booking
     sms_notifications: SMSNotificationSettings = Field(default_factory=SMSNotificationSettings)
 
+class TimeSlot(BaseModel):
+    """A time slot for a Calendly event"""
+    start_time: datetime
+    end_time: datetime
+    event_type_id: str
+    display_id: int
+
+class BookingRequest(BaseModel):
+    """Request schema for creating a Calendly booking"""
+    event_type_id: str
+    start_time: datetime
+    customer_name: str
+    customer_email: str
+    customer_phone: Optional[str] = None
+    notes: Optional[str] = None
+
+class Booking(BaseModel):
+    """A Calendly booking"""
+    id: str
+    event_type: CalendlyEventType
+    start_time: datetime
+    end_time: datetime
+    customer_name: str
+    customer_phone: Optional[str] = None
+    status: str
+    cancellation_url: Optional[str] = None
+    reschedule_url: Optional[str] = None
+
+class WebhookEvent(BaseModel):
+    """A Calendly webhook event"""
+    event: str
+    payload: Dict[str, Any]
+
+class SMSBookingState(BaseModel):
+    """State for SMS-based booking flow"""
+    phone: str
+    step: str
+    event_type_id: Optional[str] = None
+    selected_slot: Optional[int] = None
+    available_slots: List[TimeSlot] = []
+    booking: Optional[Booking] = None
+    last_update: datetime = Field(default_factory=datetime.now)
+
 class CalendlyTokenRequest(BaseModel):
     """Request schema for validating a Calendly token"""
     access_token: str

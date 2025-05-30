@@ -244,6 +244,169 @@ class CalendlyService:
             slots.append(slot)
         return slots
     
+    async def get_scheduled_events(self, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None) -> List[Dict[str, Any]]:
+        """Get all scheduled events (appointments) for the user
+        
+        Args:
+            start_date: Start date for filtering events (defaults to today)
+            end_date: End date for filtering events (defaults to 30 days from now)
+            
+        Returns:
+            List of scheduled events with details
+        """
+        # Ensure we have the user URI
+        if not self.config.user_uri:
+            await self.initialize()
+            if not self.config.user_uri:
+                raise ValueError("User URI is required to fetch scheduled events")
+        
+        # Set default date range if not provided
+        if not start_date:
+            start_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        if not end_date:
+            end_date = start_date + timedelta(days=30)
+            
+        # Format dates for Calendly API
+        min_start_time = start_date.isoformat()
+        max_start_time = end_date.isoformat()
+        
+        try:
+            # First try with v2 endpoint
+            logger.info(f"Fetching scheduled events for user {self.config.user_uri} from {min_start_time} to {max_start_time}")
+            response = await self.client.get(
+                f"/scheduled_events",
+                params={
+                    "user": self.config.user_uri,
+                    "min_start_time": min_start_time,
+                    "max_start_time": max_start_time,
+                    "status": "active"
+                }
+            )
+            response.raise_for_status()
+            events_data = response.json().get("data", [])
+            
+            # Enhance with detailed information
+            detailed_events = []
+            for event in events_data:
+                # Add basic info first
+                detailed_event = {
+                    "id": event.get("id"),
+                    "uri": event.get("uri"),
+                    "start_time": event.get("start_time"),
+                    "end_time": event.get("end_time"),
+                    "status": event.get("status"),
+                    "event_type": event.get("event_type"),
+                    "cancellation_url": event.get("cancellation_url"),
+                    "reschedule_url": event.get("reschedule_url"),
+                }
+                
+                # Try to get invitee details
+                try:
+                    if "uri" in event:
+                        invitee_response = await self.client.get(f"{event['uri']}/invitees")
+                        if invitee_response.status_code == 200:
+                            invitees = invitee_response.json().get("data", [])
+                            if invitees:
+                                detailed_event["invitee"] = {
+                                    "name": invitees[0].get("name"),
+                                    "email": invitees[0].get("email"),
+                                    "phone": invitees[0].get("phone_number")
+                                }
+                except Exception as e:
+                    logger.warning(f"Failed to get invitee details: {str(e)}")
+                    
+                detailed_events.append(detailed_event)
+                
+            return detailed_events
+        except Exception as e:
+            logger.error(f"Failed to get scheduled events: {str(e)}")
+            raise
+    
+    async def verify_appointment(self, search_date: datetime) -> Dict[str, Any]:
+        """Verify if an appointment exists on a specific date and time
+        
+        Args:
+            search_date: The date and time to check for an appointment
+            
+        Returns:
+            Dict with verification results including:
+            - exists: Boolean indicating if an appointment exists
+            - details: Appointment details if it exists
+            - closest_time: If no exact match, the closest scheduled time
+            - available_slots: List of available slots on that day
+        """
+        # Set search window for the day
+        day_start = search_date.replace(hour=0, minute=0, second=0, microsecond=0)
+        day_end = day_start + timedelta(days=1)
+        
+        # Get all events for the day
+        events = await self.get_scheduled_events(day_start, day_end)
+        
+        # Look for exact match (within 15 minutes)
+        exact_match = None
+        closest_time = None
+        closest_diff = timedelta(days=1)  # Initialize with a large value
+        
+        for event in events:
+            event_time = datetime.fromisoformat(event.get("start_time").replace("Z", "+00:00"))
+            # Convert to local time for comparison
+            event_time = event_time.replace(tzinfo=None)
+            
+            # Calculate time difference
+            diff = abs(event_time - search_date)
+            
+            # Update closest time if this is closer
+            if diff < closest_diff:
+                closest_diff = diff
+                closest_time = event_time
+                closest_event = event
+            
+            # Check for exact match (within 15 minutes)
+            if diff <= timedelta(minutes=15):
+                exact_match = event
+                break
+        
+        # Get available slots for alternative options
+        available_slots = []
+        try:
+            # Get event types first
+            event_types = await self.get_event_types()
+            if event_types:
+                # Use the first event type to get available slots
+                default_event_type = event_types[0]
+                if self.config.default_event_type:
+                    # Try to find the configured default event type
+                    for et in event_types:
+                        if et.id == self.config.default_event_type:
+                            default_event_type = et
+                            break
+                            
+                # Get available slots for this day
+                slots = await self.get_available_slots(
+                    default_event_type.id,
+                    start_time=day_start,
+                    days=1
+                )
+                available_slots = [{
+                    "start_time": slot.start_time.isoformat(),
+                    "end_time": slot.end_time.isoformat(),
+                    "display_id": slot.display_id
+                } for slot in slots]
+        except Exception as e:
+            logger.warning(f"Failed to get available slots: {str(e)}")
+        
+        # Prepare result
+        result = {
+            "exists": exact_match is not None,
+            "details": exact_match if exact_match else None,
+            "closest_time": closest_time.isoformat() if closest_time else None,
+            "closest_event": closest_event if 'closest_event' in locals() else None,
+            "available_slots": available_slots,
+            "search_date": search_date.isoformat()
+        }
+        
+        return result
+    
     async def create_booking(self, request: BookingRequest) -> Booking:
         """Create a new booking"""
         # Ensure we have the user URI

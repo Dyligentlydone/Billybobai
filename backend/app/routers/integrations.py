@@ -13,6 +13,83 @@ class AIAnalyzeRequest(BaseModel):
 class CalendlyTokenRequest(BaseModel):
     access_token: str
 
+class AppointmentVerifyRequest(BaseModel):
+    """Request schema for verifying appointments"""
+    business_id: str
+    search_date: str  # ISO format date string
+    search_time: Optional[str] = None  # Time in format HH:MM, optional
+
+@router.post("/calendly/verify-appointment")
+async def verify_calendly_appointment(request: AppointmentVerifyRequest, db: Session = Depends(get_db)):
+    """Verify if an appointment exists at the specified date/time and return details"""
+    import logging
+    from fastapi.responses import JSONResponse
+    from ..models.workflow import Workflow
+    from ..services.calendly import CalendlyService
+    from ..schemas.calendly import CalendlyConfig
+    from datetime import datetime
+    
+    logger = logging.getLogger(__name__)
+    
+    try:
+        # Get the workflow for this business
+        workflow = db.query(Workflow).filter(Workflow.id == request.business_id).first()
+        if not workflow:
+            return JSONResponse(
+                status_code=404,
+                content={"error": f"Workflow not found for business ID: {request.business_id}"}
+            )
+        
+        # Check if Calendly is configured
+        actions = workflow.actions
+        calendly_config = actions.get('calendly', {})
+        if not calendly_config.get('enabled'):
+            return JSONResponse(
+                status_code=400,
+                content={"error": "Calendly integration is not enabled for this workflow"}
+            )
+        
+        # Parse the search date/time
+        try:
+            search_date = datetime.fromisoformat(request.search_date.replace('Z', '+00:00'))
+            # Convert to naive datetime for comparison
+            search_date = search_date.replace(tzinfo=None)
+            
+            # Apply time if provided
+            if request.search_time:
+                hour, minute = map(int, request.search_time.split(':'))
+                search_date = search_date.replace(hour=hour, minute=minute)
+        except (ValueError, TypeError) as e:
+            return JSONResponse(
+                status_code=400,
+                content={"error": f"Invalid date/time format: {str(e)}"}
+            )
+        
+        # Create Calendly service
+        calendly_service = CalendlyService(CalendlyConfig(
+            enabled=True,
+            access_token=calendly_config.get('access_token', ''),
+            user_uri=calendly_config.get('user_uri'),
+            default_event_type=calendly_config.get('default_event_type', ''),
+            booking_window_days=calendly_config.get('booking_window_days', 14),
+            min_notice_hours=calendly_config.get('min_notice_hours', 1),
+        ))
+        
+        # Verify the appointment
+        verification_result = await calendly_service.verify_appointment(search_date)
+        
+        return {
+            "success": True,
+            "verification": verification_result
+        }
+        
+    except Exception as e:
+        logger.error(f"Error verifying Calendly appointment: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Failed to verify appointment: {str(e)}"}
+        )
+
 @router.post("/ai/analyze")
 def ai_analyze(request: AIAnalyzeRequest, db: Session = Depends(get_db)):
     # Implement AI analysis logic
