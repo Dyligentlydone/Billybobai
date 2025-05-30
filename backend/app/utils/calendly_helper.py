@@ -1,13 +1,17 @@
-import httpx
 from datetime import datetime
 import logging
 from typing import Dict, Any, Optional
 
+# Import directly from services to avoid circular imports
+from sqlalchemy.orm import Session
+from ..database import get_db
+from ..models.workflow import Workflow
+
 logger = logging.getLogger(__name__)
 
-async def verify_appointment(business_id: str, search_date: datetime) -> Dict[str, Any]:
+async def verify_appointment_with_service(business_id: str, search_date: datetime) -> Dict[str, Any]:
     """
-    Call the Calendly verification API to check if an appointment exists
+    Directly call the Calendly service to verify if an appointment exists
     
     Args:
         business_id: The business/workflow ID
@@ -17,33 +21,59 @@ async def verify_appointment(business_id: str, search_date: datetime) -> Dict[st
         Dict containing verification results
     """
     try:
-        # Use relative URL for internal API calls
-        base_url = "http://localhost:8000"  # For local development
+        # Import here to avoid circular imports
+        from ..services.calendly import CalendlyService
+        from ..schemas.calendly import CalendlyConfig
         
-        # In production, this might come from config
-        # In a container environment, this should be the service name
+        logger.info(f"Verifying appointment for business {business_id} at {search_date}")
         
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{base_url}/api/integrations/calendly/verify-appointment",
-                json={
-                    "business_id": business_id,
-                    "search_date": search_date.isoformat()
-                },
-                timeout=10.0
-            )
-            
-            if response.status_code == 200:
-                verification = response.json()
-                logger.info(f"Successfully verified appointment: {verification}")
-                return verification
-            else:
-                logger.error(f"Failed to verify appointment: {response.status_code} - {response.text}")
+        # Get database session
+        db = next(get_db())
+        
+        try:
+            # Get the workflow
+            workflow = db.query(Workflow).filter(Workflow.id == business_id).first()
+            if not workflow:
+                logger.error(f"Workflow not found for business ID: {business_id}")
                 return {
                     "success": False,
-                    "error": f"API Error: {response.status_code}",
-                    "message": response.text
+                    "error": "Workflow not found",
+                    "message": f"No workflow found for business ID: {business_id}"
                 }
+            
+            # Check if Calendly is configured
+            actions = workflow.actions
+            calendly_config = actions.get('calendly', {})
+            if not calendly_config.get('enabled'):
+                logger.error(f"Calendly not enabled for business ID: {business_id}")
+                return {
+                    "success": False,
+                    "error": "Calendly not enabled",
+                    "message": "Calendly integration is not enabled for this workflow"
+                }
+                
+            # Create Calendly service
+            calendly_service = CalendlyService(CalendlyConfig(
+                enabled=True,
+                access_token=calendly_config.get('access_token', ''),
+                user_uri=calendly_config.get('user_uri'),
+                default_event_type=calendly_config.get('default_event_type', ''),
+                booking_window_days=calendly_config.get('booking_window_days', 14),
+                min_notice_hours=calendly_config.get('min_notice_hours', 1),
+            ))
+            
+            # Call the verification method directly
+            verification_result = await calendly_service.verify_appointment(search_date)
+            
+            logger.info(f"Successfully verified appointment: {verification_result}")
+            return {
+                "success": True,
+                "verification": verification_result
+            }
+            
+        finally:
+            db.close()
+            
     except Exception as e:
         logger.error(f"Exception in verify_appointment: {str(e)}")
         return {
@@ -62,6 +92,8 @@ def format_appointment_response(verification_result: Dict[str, Any]) -> str:
     Returns:
         A formatted string response
     """
+    logger.info(f"Formatting appointment response: {verification_result}")
+    
     if not verification_result.get("success", False):
         return "I'm sorry, I couldn't verify your appointment due to a technical issue."
     

@@ -30,6 +30,8 @@ from config.database import SessionLocal
 import logging
 from datetime import datetime
 import uuid
+from ..utils.date_extractor import extract_date_time
+from ..utils.calendly_helper import verify_appointment_with_service, format_appointment_response
 
 @router.api_route("/sms/webhook/{business_id}", methods=["GET", "POST"])
 async def sms_webhook(business_id: str, request: Request, db: Session = Depends(get_db)):
@@ -157,22 +159,22 @@ async def sms_webhook(business_id: str, request: Request, db: Session = Depends(
             appointment_keywords = ["appointment", "meeting", "schedule", "calendly", "booked"]
             is_appointment_query = any(keyword in body.lower() for keyword in appointment_keywords)
             
+            logger.info(f"Checking if message is appointment query: '{body}' - Result: {is_appointment_query}")
+            
             if is_appointment_query and workflow.actions.get('calendly', {}).get('enabled'):
-                try:
-                    # Import the date extractor and calendly helper
-                    from ..utils.date_extractor import extract_date_time
-                    from ..utils.calendly_helper import verify_appointment, format_appointment_response
-                    
+                try:                    
                     # Extract date/time from message
                     date_info = extract_date_time(body)
                     logger.info(f"Extracted date info: {date_info}")
                     
                     if date_info and date_info.get("datetime"):
-                        # Call the Calendly verification API
-                        verification_result = await verify_appointment(
+                        # Call the Calendly verification service directly
+                        verification_result = await verify_appointment_with_service(
                             workflow.id, 
                             date_info["datetime"]
                         )
+                        
+                        logger.info(f"Verification result: {verification_result}")
                         
                         # Format a human-readable response
                         appointment_response = format_appointment_response(verification_result)
@@ -186,8 +188,10 @@ async def sms_webhook(business_id: str, request: Request, db: Session = Depends(
                         }
                         
                         logger.info(f"Appointment verification context: {appointment_context}")
+                    else:
+                        logger.warning(f"Could not extract date/time from message: '{body}'")
                 except Exception as e:
-                    logger.error(f"Error in appointment verification: {str(e)}")
+                    logger.error(f"Error in appointment verification: {str(e)}", exc_info=True)
             
             # Call AI service
             workflow_response = ai_service.analyze_requirements(
