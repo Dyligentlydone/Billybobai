@@ -18,6 +18,8 @@ logger = logging.getLogger(__name__)
 
 class CalendlyService:
     BASE_URL = "https://api.calendly.com/v2"
+    # Alternative base URL for new token format
+    ALT_BASE_URL = "https://api.calendly.com"
     
     def __init__(self, config: CalendlyConfig):
         self.config = config

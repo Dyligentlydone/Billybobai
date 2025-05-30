@@ -83,49 +83,116 @@ async def validate_calendly_token(request: CalendlyTokenRequest, db: Session = D
     
     try:
         print(f"Attempting to validate Calendly token: {token[:5]}...")
-        async with httpx.AsyncClient(timeout=20.0) as client:  # Increased timeout
-            try:
-                response = await client.get(
-                    "https://api.calendly.com/v2/users/me",
-                    headers={
-                        "Authorization": f"Bearer {token}",
+        
+        # Define potential API endpoints to try based on token format
+        endpoints_to_try = [
+            "https://api.calendly.com/v2/users/me",  # Standard v2 API endpoint
+            "https://api.calendly.com/users/me",     # Without v2 prefix
+            "https://api.calendly.com/api/users/me", # With api prefix
+            "https://api.calendly.com/v1/users/me"   # Legacy v1 endpoint
+        ]
+        
+        # If token starts with eyja, prioritize different endpoints
+        if token.startswith("eyja"):
+            endpoints_to_try = [
+                "https://api.calendly.com/users/me",     # Try without v2 first
+                "https://api.calendly.com/api/users/me", # Then with api prefix
+                "https://api.calendly.com/v2/users/me",  # Then standard v2
+                "https://api.calendly.com/v1/users/me"   # Then legacy v1
+            ]
+            
+        # Try different authorization header formats too
+        auth_headers_to_try = [
+            {"Authorization": f"Bearer {token}"},
+            {"Authorization": token}  # Without Bearer prefix
+        ]
+        
+        success = False
+        error_messages = []
+        
+        async with httpx.AsyncClient(timeout=30.0) as client:  # Longer timeout
+            # Try each endpoint with each auth header format
+            for endpoint in endpoints_to_try:
+                for auth_header in auth_headers_to_try:
+                    headers = {
+                        **auth_header,
                         "Content-Type": "application/json"
                     }
-                )
-                print(f"Calendly API response status: {response.status_code}")
-                
-                # Log full response for debugging
-                try:
-                    print(f"Calendly API response: {response.text[:500]}...")
-                except:
-                    print("Could not print response text")
                     
-                response.raise_for_status()
-                user_data = response.json()
-                
-                # Extract user info
-                return {
-                    "valid": True,
-                    "uri": user_data["resource"]["uri"],  # Changed from user_uri to uri for frontend consistency
-                    "name": user_data["resource"]["name"],
-                    "email": user_data["resource"]["email"],
-                    "message": "Token validated successfully"
-                }
-            except httpx.HTTPStatusError as e:
-                print(f"HTTP error occurred: {e} - Status code: {e.response.status_code}")
-                error_message = "Invalid token or permission denied"
-                try:
-                    error_data = e.response.json()
-                    if "message" in error_data:
-                        error_message = error_data["message"]
-                except:
-                    pass
-                
-                return {
-                    "valid": False,
-                    "error": f"HTTP error {e.response.status_code}",
-                    "message": error_message
-                }
+                    try:
+                        print(f"Trying endpoint: {endpoint} with auth: {list(auth_header.keys())[0]}")
+                        response = await client.get(endpoint, headers=headers)
+                        print(f"Calendly API response status: {response.status_code}")
+                        
+                        # Log response for debugging
+                        try:
+                            print(f"Calendly API response: {response.text[:500]}...")
+                        except:
+                            print("Could not print response text")
+                        
+                        # If successful, extract user data
+                        if response.status_code == 200:
+                            success = True
+                            user_data = response.json()
+                            
+                            # Try to extract user info from different response formats
+                            if "resource" in user_data:
+                                # Standard v2 format
+                                return {
+                                    "valid": True,
+                                    "uri": user_data["resource"]["uri"],
+                                    "name": user_data["resource"]["name"],
+                                    "email": user_data["resource"]["email"],
+                                    "message": "Token validated successfully"
+                                }
+                            elif "data" in user_data and isinstance(user_data["data"], dict):
+                                # Alternative format
+                                data = user_data["data"]
+                                return {
+                                    "valid": True,
+                                    "uri": data.get("uri") or data.get("id"),
+                                    "name": data.get("name") or data.get("display_name"),
+                                    "email": data.get("email"),
+                                    "message": "Token validated successfully"
+                                }
+                            else:
+                                # Fallback - just use what we have
+                                print(f"Found user data in unexpected format: {list(user_data.keys())}")
+                                return {
+                                    "valid": True,
+                                    "message": "Token validated successfully",
+                                    "raw_data": user_data
+                                }
+                    except Exception as e:
+                        error_message = f"Error with {endpoint}: {str(e)}"
+                        print(error_message)
+                        error_messages.append(error_message)
+                        continue  # Try next endpoint
+        
+        # If we got here, all attempts failed
+        if error_messages:
+            print(f"All validation attempts failed: {error_messages}")
+            
+        return {
+            "valid": False,
+            "error": "Failed to validate token with any endpoint",
+            "message": "Token validation failed after trying multiple endpoints"
+        }
+    except httpx.HTTPStatusError as e:
+        print(f"HTTP error occurred: {e} - Status code: {e.response.status_code}")
+        error_message = "Invalid token or permission denied"
+        try:
+            error_data = e.response.json()
+            if "message" in error_data:
+                error_message = error_data["message"]
+        except:
+            pass
+        
+        return {
+            "valid": False,
+            "error": f"HTTP error {e.response.status_code}",
+            "message": error_message
+        }
     except httpx.TimeoutException:
         print("Timeout occurred while connecting to Calendly API")
         return {
