@@ -372,37 +372,30 @@ class CalendlyService:
         max_start_time = end_date.isoformat()
         
         try:
-            # Format the user URI properly for the API
-            formatted_uri = self.format_user_uri(self.config.user_uri)
-            logger.info(f"Fetching scheduled events for user {formatted_uri} from {min_start_time} to {max_start_time}")
-            
-            try:
-                # First approach - use the formatted URI
-                response = await self.client.get(
-                    "/scheduled_events",
-                    params={
-                        "user": formatted_uri,
-                        "min_start_time": min_start_time,
-                        "max_start_time": max_start_time,
-                        "status": "active"
-                    }
-                )
-            except Exception as e:
-                logger.warning(f"Failed to get events with formatted URI: {str(e)}")
-                # Second approach - try using just the UUID portion
-                if self.config.user_uri and '/' in self.config.user_uri:
-                    # Extract UUID from the URI
-                    user_id = self.config.user_uri.split('/')[-1]
-                    logger.info(f"Trying with extracted user ID: {user_id}")
-                    response = await self.client.get(
-                        "/scheduled_events",
-                        params={
-                            "user": user_id,
-                            "min_start_time": min_start_time,
-                            "max_start_time": max_start_time,
-                            "status": "active"
-                        }
-                    )
+            # Extract just the UUID from the user URI for API calls
+            user_uuid = None
+            if self.config.user_uri and '/' in self.config.user_uri:
+                # Extract UUID from the URI (e.g., https://api.calendly.com/users/16cfdbfb-1192-4b4d-938f-33613cbc197b)
+                user_uuid = self.config.user_uri.split('/')[-1]
+            else:
+                # If no slashes, assume it's already a UUID
+                user_uuid = self.config.user_uri
+                
+            if not user_uuid:
+                raise ValueError("Could not extract user UUID from user URI")
+                
+            logger.info(f"Fetching scheduled events using user UUID: {user_uuid}")
+                
+            # Use just the UUID for the API call
+            response = await self.client.get(
+                "/scheduled_events",
+                params={
+                    "user": user_uuid,
+                    "min_start_time": min_start_time,
+                    "max_start_time": max_start_time,
+                    "status": "active"
+                }
+            )
             
             response.raise_for_status()
             events_data = response.json().get("data", [])
