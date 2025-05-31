@@ -1,5 +1,5 @@
 import httpx
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Dict, Tuple, Any
 from ..schemas.calendly import (
     CalendlyConfig,
