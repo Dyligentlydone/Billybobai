@@ -76,11 +76,30 @@ async def verify_appointment_with_service(business_id: str, search_date: datetim
                 # Check in integrations
                 ('actions.integrations.calendly', 
                  workflow.actions.get('integrations', {}).get('calendly') if workflow.actions else None),
+                # Check in systemIntegration (based on user's screenshot)
+                ('actions.systemIntegration.calendly',
+                 workflow.actions.get('systemIntegration', {}).get('calendly') if workflow.actions else None),
+                ('config.systemIntegration.calendly',
+                 workflow.config.get('systemIntegration', {}).get('calendly') if workflow.config else None),
                 # Check if config itself is the calendly config (in case of unusual structure)
                 ('config_direct', workflow.config if workflow.config and 'access_token' in workflow.config else None),
                 # Check if actions itself is the calendly config (in case of unusual structure)
                 ('actions_direct', workflow.actions if workflow.actions and 'access_token' in workflow.actions else None),
             ]
+            
+            # Dump all top-level keys for diagnosis
+            if workflow.config:
+                logger.info(f"[CALENDLY DEBUG] Config object type: {type(workflow.config).__name__}")
+                logger.info(f"[CALENDLY DEBUG] Complete config structure: {workflow.config}")
+            if workflow.actions:
+                logger.info(f"[CALENDLY DEBUG] Actions object type: {type(workflow.actions).__name__}")
+                for key, value in workflow.actions.items():
+                    logger.info(f"[CALENDLY DEBUG] Action key '{key}' has type: {type(value).__name__}")
+                    if key == 'systemIntegration' and isinstance(value, dict):
+                        logger.info(f"[CALENDLY DEBUG] SystemIntegration keys: {list(value.keys())}")
+                        if 'calendly' in value:
+                            logger.info(f"[CALENDLY DEBUG] Found calendly in systemIntegration with access_token: {'access_token' in value['calendly']}")
+
             
             # Log all locations
             for location_name, config in possible_locations:
@@ -98,6 +117,24 @@ async def verify_appointment_with_service(business_id: str, search_date: datetim
                 elif workflow.actions and 'access_token' in workflow.actions:
                     calendly_config = {'access_token': workflow.actions['access_token'], 'enabled': True}
                     logger.info(f"[CALENDLY DEBUG] Found access_token at top-level of actions")
+                    
+            # Special check for systemIntegration.calendly path (based on user's screenshot)
+            if not calendly_config.get('access_token'):
+                if workflow.actions and 'systemIntegration' in workflow.actions:
+                    system_integration = workflow.actions.get('systemIntegration', {})
+                    if isinstance(system_integration, dict) and 'calendly' in system_integration:
+                        calendly_in_sys = system_integration.get('calendly', {})
+                        if isinstance(calendly_in_sys, dict) and 'access_token' in calendly_in_sys:
+                            logger.info(f"[CALENDLY DEBUG] Found access_token in actions.systemIntegration.calendly!")
+                            calendly_config = calendly_in_sys
+                            
+                if workflow.config and 'systemIntegration' in workflow.config:
+                    system_integration = workflow.config.get('systemIntegration', {})
+                    if isinstance(system_integration, dict) and 'calendly' in system_integration:
+                        calendly_in_sys = system_integration.get('calendly', {})
+                        if isinstance(calendly_in_sys, dict) and 'access_token' in calendly_in_sys:
+                            logger.info(f"[CALENDLY DEBUG] Found access_token in config.systemIntegration.calendly!")
+                            calendly_config = calendly_in_sys
                     
             logger.info(f"[CALENDLY DEBUG] Final Calendly config: {calendly_config}")
 
