@@ -25,6 +25,7 @@ class CalendlyConfig(BaseModel):
     enabled: bool = False
     access_token: str
     user_uri: Optional[str] = None  # Now optional as system will fetch it
+    organization_uri: Optional[str] = None  # Organization URI for admin access
     webhook_uri: Optional[str] = None
     default_event_type: str = ""
     event_types: Dict[str, CalendlyEventType] = {}

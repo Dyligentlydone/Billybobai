@@ -23,10 +23,36 @@ class CalendlyService:
     
     def __init__(self, config: CalendlyConfig):
         self.config = config
+        self.initialized = False
+        self.client = None
+        self.setup_client()
         
+    def format_user_uri(self, uri: str) -> str:
+        """Format user URI for Calendly API usage
+        
+        The Calendly API requires a full URI when used as a parameter,
+        but sometimes we might have just the UUID.
+        
+        Args:
+            uri: The user URI or UUID
+            
+        Returns:
+            Properly formatted user URI for API calls
+        """
+        if not uri:
+            return ""
+            
+        # If it's already a full URI, return it
+        if uri.startswith("https://"):
+            return uri
+            
+        # If it's just a UUID, convert to full URI
+        return f"https://api.calendly.com/users/{uri}"
+        
+    def setup_client(self):
         # Make sure token is stripped of any whitespace
-        if hasattr(config, 'access_token') and config.access_token:
-            config.access_token = config.access_token.strip()
+        if hasattr(self.config, 'access_token') and self.config.access_token:
+            self.config.access_token = self.config.access_token.strip()
             
         self.client = httpx.AsyncClient(
             base_url=self.BASE_URL,
@@ -325,17 +351,38 @@ class CalendlyService:
         max_start_time = end_date.isoformat()
         
         try:
-            # First try with v2 endpoint
-            logger.info(f"Fetching scheduled events for user {self.config.user_uri} from {min_start_time} to {max_start_time}")
-            response = await self.client.get(
-                f"/scheduled_events",
-                params={
-                    "user": self.config.user_uri,
-                    "min_start_time": min_start_time,
-                    "max_start_time": max_start_time,
-                    "status": "active"
-                }
-            )
+            # Format the user URI properly for the API
+            formatted_uri = self.format_user_uri(self.config.user_uri)
+            logger.info(f"Fetching scheduled events for user {formatted_uri} from {min_start_time} to {max_start_time}")
+            
+            try:
+                # First approach - use the formatted URI
+                response = await self.client.get(
+                    "/scheduled_events",
+                    params={
+                        "user": formatted_uri,
+                        "min_start_time": min_start_time,
+                        "max_start_time": max_start_time,
+                        "status": "active"
+                    }
+                )
+            except Exception as e:
+                logger.warning(f"Failed to get events with formatted URI: {str(e)}")
+                # Second approach - try using just the UUID portion
+                if self.config.user_uri and '/' in self.config.user_uri:
+                    # Extract UUID from the URI
+                    user_id = self.config.user_uri.split('/')[-1]
+                    logger.info(f"Trying with extracted user ID: {user_id}")
+                    response = await self.client.get(
+                        "/scheduled_events",
+                        params={
+                            "user": user_id,
+                            "min_start_time": min_start_time,
+                            "max_start_time": max_start_time,
+                            "status": "active"
+                        }
+                    )
+            
             response.raise_for_status()
             events_data = response.json().get("data", [])
             
