@@ -9,8 +9,8 @@ from ..schemas.calendly import (
     CalendlyEventType,
     WebhookEvent,
     SMSBookingState,
-    WorkflowCreate,
-    WorkflowStep
+    WorkflowCreate
+    # WorkflowStep imported locally to avoid circular imports
 )
 import logging
 
@@ -120,9 +120,16 @@ class CalendlyService:
         """Set up or update Calendly Workflow for SMS notifications"""
         if not self.config.sms_notifications.enabled:
             return {"status": "disabled"}
-
+        
+        # Import here to avoid circular imports
+        try:
+            from ..schemas.calendly import WorkflowStep
+        except ImportError as e:
+            logger.error(f"Failed to import WorkflowStep: {str(e)}")
+            raise ValueError(f"Failed to import WorkflowStep: {str(e)}")
+        
         # Create steps for the workflow
-        steps: List[WorkflowStep] = []
+        steps: List[Any] = []
         
         # Booking confirmation
         steps.append(WorkflowStep(
