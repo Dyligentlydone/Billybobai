@@ -155,69 +155,79 @@ async def sms_webhook(business_id: str, request: Request, db: Session = Depends(
             logger.info(f"AI DEBUG: Prepared conversation_history for AI: {conversation_history}")
             
             # Check if this is an appointment-related query
-            appointment_keywords = ['appointment', 'booking', 'schedule', 'consultation', 'availability']
+            appointment_keywords = ['appointment', 'booking', 'schedule', 'consultation', 'availability', 'times']
             is_appointment_query = any(keyword in body.lower() for keyword in appointment_keywords)
             
-            logger.info(f"Checking if message is appointment query: '{body}' - Result: {is_appointment_query}")
+            logger.info(f"[CALENDLY DEBUG] Checking if message is appointment query: '{body}' - Result: {is_appointment_query}")
             
             # Initialize appointment context as None
             appointment_context = None
             
-            if is_appointment_query and workflow.actions.get('calendly', {}).get('enabled'):
+            # ALWAYS try Calendly for appointment queries, even if not explicitly enabled
+            if is_appointment_query:
                 try:                    
+                    # Log the workflow actions for debugging
+                    logger.info(f"[CALENDLY DEBUG] Workflow actions keys: {list(workflow.actions.keys() if workflow.actions else [])}")
+                    logger.info(f"[CALENDLY DEBUG] Calendly config: {workflow.actions.get('calendly', {})}")
+                    
                     # Extract date/time from message
                     date_info = extract_date_time(body)
-                    logger.info(f"Extracted date info: {date_info}")
+                    logger.info(f"[CALENDLY DEBUG] Extracted date info: {date_info}")
                     
-                    if date_info and date_info.get("datetime"):
-                        # Call the Calendly verification service directly
-                        verification_result = await verify_appointment_with_service(
-                            workflow.id, 
-                            date_info["datetime"]
-                        )
-                        
-                        logger.info(f"Verification result: {verification_result}")
-                        
+                    # Use current date as fallback
+                    search_date = date_info.get("datetime") if date_info and date_info.get("datetime") else datetime.now()
+                    
+                    # Always try to call the Calendly verification service directly
+                    logger.info(f"[CALENDLY DEBUG] Calling verify_appointment_with_service with date: {search_date}")
+                    verification_result = await verify_appointment_with_service(
+                        workflow.id, 
+                        search_date
+                    )
+                    
+                    logger.info(f"[CALENDLY DEBUG] Verification result: {verification_result}")
+                    
+                    # If successful, use the result
+                    if verification_result.get("success"):
                         # Format a human-readable response
                         appointment_response = format_appointment_response(verification_result)
+                        logger.info(f"[CALENDLY DEBUG] Formatted response: {appointment_response}")
                         
                         # Add context to AI service
                         appointment_context = {
                             "verification_result": verification_result,
                             "formatted_response": appointment_response,
-                            "extracted_date": date_info["datetime"].isoformat(),
-                            "confidence": date_info["confidence"]
+                            "is_general_availability": not (date_info and date_info.get("datetime")),
+                            "search_date": search_date.isoformat()
                         }
                         
-                        logger.info(f"Appointment verification context: {appointment_context}")
+                        if date_info and date_info.get("datetime"):
+                            appointment_context["extracted_date"] = date_info["datetime"].isoformat()
+                            appointment_context["confidence"] = date_info["confidence"]
+                        
+                        logger.info(f"[CALENDLY DEBUG] Appointment verification context: {appointment_context}")
                     else:
-                        # Even with no specific date, we should attempt to get general availability
-                        logger.info("No specific date extracted, fetching general availability")
-                        # Use current date as fallback for general availability query
-                        current_date = datetime.now()
-                        verification_result = await verify_appointment_with_service(
-                            workflow.id, 
-                            current_date
-                        )
+                        # Log failure but continue
+                        logger.error(f"[CALENDLY DEBUG] Verification failed: {verification_result.get('error')}")
+                        logger.error(f"[CALENDLY DEBUG] Error message: {verification_result.get('message')}")
                         
-                        logger.info(f"General availability verification result: {verification_result}")
-                        
-                        # Format a human-readable response
-                        appointment_response = format_appointment_response(verification_result)
-                        
-                        # Add context to AI service
+                        # Still provide some context to AI
                         appointment_context = {
-                            "verification_result": verification_result,
-                            "formatted_response": appointment_response,
-                            "is_general_availability": True
+                            "error": verification_result.get("error", "Unknown error"),
+                            "message": verification_result.get("message", "Failed to verify appointment"),
+                            "is_error": True
                         }
-                        
-                        logger.info(f"General appointment verification context: {appointment_context}")
                 except Exception as e:
-                    logger.error(f"Error in appointment verification: {str(e)}", exc_info=True)
+                    logger.error(f"[CALENDLY DEBUG] Error in appointment verification: {str(e)}")
                     # Log the full stack trace for debugging
                     import traceback
-                    logger.error(traceback.format_exc())
+                    logger.error(f"[CALENDLY DEBUG] {traceback.format_exc()}")
+                    
+                    # Provide error context to AI
+                    appointment_context = {
+                        "error": "Exception during verification",
+                        "message": str(e),
+                        "is_error": True
+                    }
             
             # Call AI service
             workflow_response = ai_service.analyze_requirements(
