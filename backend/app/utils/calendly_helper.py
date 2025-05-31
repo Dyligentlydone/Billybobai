@@ -1,6 +1,7 @@
 from datetime import datetime
 import logging
 from typing import Dict, Any, Optional
+import traceback
 
 # Import directly from services to avoid circular imports
 from sqlalchemy.orm import Session
@@ -23,8 +24,8 @@ async def verify_appointment_with_service(business_id: str, search_date: datetim
     try:
         # Import here to avoid circular imports
         from ..services.calendly import CalendlyService
-        from ..schemas.calendly import CalendlyConfig
-        import traceback
+        from ..schemas.calendly import CalendlyConfig, WorkflowStep
+        # No need to import traceback here as it's now imported at the top level
         
         logger.info(f"[CALENDLY DEBUG] Verifying appointment for business {business_id} at {search_date}")
         
@@ -97,8 +98,9 @@ async def verify_appointment_with_service(business_id: str, search_date: datetim
                     user_uri = await calendly_service.initialize()
                     logger.info(f"[CALENDLY DEBUG] Initialized Calendly service, user_uri: {user_uri}")
                 except Exception as init_error:
+                    error_tb = traceback.format_exc()
                     logger.error(f"[CALENDLY DEBUG] Failed to initialize Calendly service: {str(init_error)}")
-                    logger.error(f"[CALENDLY DEBUG] Initialization error details: {traceback.format_exc()}")
+                    logger.error(f"[CALENDLY DEBUG] Initialization error details: {error_tb}")
                     return {
                         "success": False,
                         "error": "Initialization Error",
@@ -126,8 +128,9 @@ async def verify_appointment_with_service(business_id: str, search_date: datetim
                     "verification": verification_result
                 }
             except Exception as verify_error:
+                error_tb = traceback.format_exc()
                 logger.error(f"[CALENDLY DEBUG] Error verifying appointment: {str(verify_error)}")
-                logger.error(f"[CALENDLY DEBUG] Verification error details: {traceback.format_exc()}")
+                logger.error(f"[CALENDLY DEBUG] Verification error details: {error_tb}")
                 return {
                     "success": False,
                     "error": "Verification Error",
@@ -138,8 +141,9 @@ async def verify_appointment_with_service(business_id: str, search_date: datetim
             db.close()
             
     except Exception as e:
+        error_tb = traceback.format_exc()
         logger.error(f"[CALENDLY DEBUG] Exception in verify_appointment: {str(e)}")
-        logger.error(f"[CALENDLY DEBUG] Stack trace: {traceback.format_exc()}")
+        logger.error(f"[CALENDLY DEBUG] Stack trace: {error_tb}")
         return {
             "success": False,
             "error": "Internal Error",
