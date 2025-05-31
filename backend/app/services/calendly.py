@@ -293,8 +293,44 @@ class CalendlyService:
         }
         
         try:
-            logger.info(f"Making API request to: /event_types/{event_type_id}/available_times")
-            response = await self.client.get(f"/event_types/{event_type_id}/available_times", params=params)
+            # Convert event_type_id to a proper Calendly URI if it's not already
+            full_event_type_uri = None
+            
+            # If it's already a full URI, use it directly
+            if event_type_id.startswith('http'):
+                full_event_type_uri = event_type_id
+                logger.info(f"Using provided full event type URI: {full_event_type_uri}")
+            else:
+                # Extract user UUID to construct the event type URI
+                user_uuid = None
+                if self.config.user_uri:
+                    if '/' in self.config.user_uri:
+                        user_uuid = self.config.user_uri.split('/')[-1]
+                    else:
+                        user_uuid = self.config.user_uri
+                
+                if not user_uuid:
+                    raise ValueError("User UUID is required to construct event type URI")
+                
+                # Handle different formats of event_type_id
+                if '/' in event_type_id:
+                    # Assume it's a partial URI like 'user_uuid/event_type_slug'
+                    full_event_type_uri = f"https://api.calendly.com/event_types/{event_type_id}"
+                else:
+                    # Assume it's just a slug like 'consultation-demo'
+                    full_event_type_uri = f"https://api.calendly.com/event_types/{user_uuid}/{event_type_id}"
+                
+                logger.info(f"Constructed event type URI: {full_event_type_uri}")
+            
+            # Extract just the UUID or path part for the API endpoint
+            if full_event_type_uri.startswith('https://api.calendly.com/event_types/'):
+                endpoint_path = full_event_type_uri.replace('https://api.calendly.com/event_types/', '')
+                logger.info(f"Making API request to: /event_types/{endpoint_path}/available_times")
+                response = await self.client.get(f"/event_types/{endpoint_path}/available_times", params=params)
+            else:
+                # Fallback to using the original ID directly
+                logger.info(f"Making API request to: /event_types/{event_type_id}/available_times")
+                response = await self.client.get(f"/event_types/{event_type_id}/available_times", params=params)
             
             # Log response status
             logger.info(f"Calendly API response status: {response.status_code}")
@@ -386,11 +422,15 @@ class CalendlyService:
                 
             logger.info(f"Fetching scheduled events using user UUID: {user_uuid}")
                 
-            # Use just the UUID for the API call
+            # Use the fully qualified URI for user - Calendly API requires full URIs
+            user_uri = f"https://api.calendly.com/users/{user_uuid}"
+            logger.info(f"Using user URI for API request: {user_uri}")
+                
+            # Use the correct endpoint structure for the API call
             response = await self.client.get(
                 "/scheduled_events",
                 params={
-                    "user": user_uuid,
+                    "user": user_uri,  # Use the full URI, not just the UUID
                     "min_start_time": min_start_time,
                     "max_start_time": max_start_time,
                     "status": "active"
