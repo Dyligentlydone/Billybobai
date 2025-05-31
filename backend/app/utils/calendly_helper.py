@@ -51,23 +51,56 @@ async def verify_appointment_with_service(business_id: str, search_date: datetim
                     "message": f"Workflow {business_id} not found"
                 }
                 
-            # Extract Calendly config from workflow actions
-            calendly_config = workflow.actions.get('calendly', {})
-            logger.info(f"[CALENDLY DEBUG] Calendly config: {calendly_config}")
+            # Log the entire workflow for debugging
+            logger.info(f"[CALENDLY DEBUG] Full workflow object: id={workflow.id}, name={workflow.name}")
+            logger.info(f"[CALENDLY DEBUG] Config column type: {type(workflow.config).__name__}")
+            logger.info(f"[CALENDLY DEBUG] Actions column type: {type(workflow.actions).__name__}")
+            logger.info(f"[CALENDLY DEBUG] Config keys: {list(workflow.config.keys()) if workflow.config else 'None'}")
+            logger.info(f"[CALENDLY DEBUG] Actions keys: {list(workflow.actions.keys()) if workflow.actions else 'None'}")
             
-            # If config is empty, try looking for token in the overall workflow config
-            if not calendly_config or not calendly_config.get('access_token'):
-                logger.warning(f"[CALENDLY DEBUG] No Calendly config found in workflow actions, checking main config")
-                if workflow.config and 'calendly' in workflow.config:
-                    calendly_config = workflow.config.get('calendly', {})
-                    logger.info(f"[CALENDLY DEBUG] Found Calendly config in main workflow config: {calendly_config}")
+            # Check if 'calendly' exists in either column
+            if workflow.config and 'calendly' in workflow.config:
+                logger.info(f"[CALENDLY DEBUG] Found 'calendly' in config column with keys: {list(workflow.config['calendly'].keys()) if isinstance(workflow.config['calendly'], dict) else 'Not a dict'}")
+            
+            if workflow.actions and 'calendly' in workflow.actions:
+                logger.info(f"[CALENDLY DEBUG] Found 'calendly' in actions column with keys: {list(workflow.actions['calendly'].keys()) if isinstance(workflow.actions['calendly'], dict) else 'Not a dict'}")
+
+                
+            # Let's be thorough in finding the Calendly config, checking all possible locations
+            calendly_config = {}
+            possible_locations = [
+                # Check direct in actions
+                ('actions.calendly', workflow.actions.get('calendly') if workflow.actions else None),
+                # Check direct in config
+                ('config.calendly', workflow.config.get('calendly') if workflow.config else None),
+                # Check in integrations
+                ('actions.integrations.calendly', 
+                 workflow.actions.get('integrations', {}).get('calendly') if workflow.actions else None),
+                # Check if config itself is the calendly config (in case of unusual structure)
+                ('config_direct', workflow.config if workflow.config and 'access_token' in workflow.config else None),
+                # Check if actions itself is the calendly config (in case of unusual structure)
+                ('actions_direct', workflow.actions if workflow.actions and 'access_token' in workflow.actions else None),
+            ]
+            
+            # Log all locations
+            for location_name, config in possible_locations:
+                logger.info(f"[CALENDLY DEBUG] Checking {location_name}: {'Found data' if config else 'Empty'}")
+                if config and isinstance(config, dict) and 'access_token' in config:
+                    logger.info(f"[CALENDLY DEBUG] Found access_token in {location_name}!")
+                    calendly_config = config
+                    break
                     
-            # If still no token, look for integrations section
-            if not calendly_config or not calendly_config.get('access_token'):
-                logger.warning(f"[CALENDLY DEBUG] No Calendly token in calendly config, checking integrations")
-                if 'integrations' in workflow.actions and 'calendly' in workflow.actions['integrations']:
-                    calendly_config = workflow.actions['integrations']['calendly']
-                    logger.info(f"[CALENDLY DEBUG] Found Calendly config in integrations: {calendly_config}")
+            # Direct access token check (in case it's not nested properly)
+            if not calendly_config.get('access_token'):
+                if workflow.config and 'access_token' in workflow.config:
+                    calendly_config = {'access_token': workflow.config['access_token'], 'enabled': True}
+                    logger.info(f"[CALENDLY DEBUG] Found access_token at top-level of config")
+                elif workflow.actions and 'access_token' in workflow.actions:
+                    calendly_config = {'access_token': workflow.actions['access_token'], 'enabled': True}
+                    logger.info(f"[CALENDLY DEBUG] Found access_token at top-level of actions")
+                    
+            logger.info(f"[CALENDLY DEBUG] Final Calendly config: {calendly_config}")
+
             
             # Check if Calendly is configured and access token exists
             if not calendly_config or not calendly_config.get('access_token'):
