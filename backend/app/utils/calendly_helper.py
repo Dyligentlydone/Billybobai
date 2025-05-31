@@ -343,12 +343,23 @@ async def create_appointment_with_service(business_id: str, date_time: datetime,
                 if not config_obj.user_uri:
                     await calendly_service.initialize()
                 
+                # Try to get default event type if we don't have one
+                default_event_type = calendly_config.get('default_event_type', '')
+                
+                # For testing - use this event type if we can't get one from the service
+                # You would replace this with your actual event type UUID for a specific Calendly account
+                fallback_event_type = "https://api.calendly.com/event_types/0299df1c-b13d-4e9b-9dd4-074475d5ae8f"
+                
+                # Log what we're using
+                logger.info(f"[CALENDLY DEBUG] Using event type: {default_event_type or fallback_event_type}")
+                
                 # Create the appointment
                 booking_result = await calendly_service.create_appointment(
                     date_time=date_time, 
                     name=name,
                     email=email,
-                    phone=phone
+                    phone=phone,
+                    event_type_id=default_event_type or fallback_event_type
                 )
                 
                 logger.info(f"[CALENDLY DEBUG] Booking result: {booking_result}")

@@ -233,15 +233,36 @@ class CalendlyService:
             await self.initialize()
             if not self.config.user_uri:
                 raise ValueError("User URI is required to fetch event types")
+        
+        # Extract just the UUID from the user URI if it's a full URL
+        user_uuid = self.config.user_uri
+        if self.config.user_uri and self.config.user_uri.startswith('http'):
+            # Try to extract just the UUID part
+            try:
+                # The URI should have format https://api.calendly.com/users/UUID
+                parts = self.config.user_uri.split('/')
+                if 'users' in parts:
+                    user_index = parts.index('users')
+                    if user_index + 1 < len(parts):
+                        user_uuid = parts[user_index + 1]
+                        logger.info(f"Extracted user UUID for event types: {user_uuid}")
+            except Exception as e:
+                logger.warning(f"Error extracting UUID from URI for event types: {str(e)}")
+                # Continue with original URI as fallback
                 
-        response = await self.client.get(
-            f"/users/{self.config.user_uri}/event_types"
-        )
-        response.raise_for_status()
-        return [
-            CalendlyEventType(**event_type)
-            for event_type in response.json()["data"]
-        ]
+        try:
+            logger.info(f"Fetching event types for user UUID: {user_uuid}")
+            response = await self.client.get(
+                f"/users/{user_uuid}/event_types"
+            )
+            response.raise_for_status()
+            return [
+                CalendlyEventType(**event_type)
+                for event_type in response.json()["data"]
+            ]
+        except Exception as e:
+            logger.error(f"Failed to get event types: {str(e)}")
+            raise
     
     async def get_available_slots(
         self,
@@ -478,8 +499,16 @@ class CalendlyService:
         
         try:
             # Create the booking payload
+            # Important: Calendly API requires full URI for event types
+            # Handle case where event_type_id might be a full URI or just an ID
+            event_type_uri = event_type_id
+            if event_type_id and not event_type_id.startswith('http'):
+                event_type_uri = f"https://api.calendly.com/event_types/{event_type_id}"
+                
+            logger.info(f"Using event type URI for booking: {event_type_uri}")
+            
             booking_payload = {
-                "event_type_uri": f"https://api.calendly.com/event_types/{event_type_id}",
+                "event_type_uri": event_type_uri,
                 "start_time": start_time,
                 "invitee": {
                     "name": name,
