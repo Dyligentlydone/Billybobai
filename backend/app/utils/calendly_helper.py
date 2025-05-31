@@ -2,6 +2,7 @@ from datetime import datetime
 import logging
 from typing import Dict, Any, Optional
 import traceback
+from datetime import datetime, timedelta
 
 # Import directly from services to avoid circular imports
 from sqlalchemy.orm import Session
