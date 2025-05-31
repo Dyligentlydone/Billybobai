@@ -23,9 +23,16 @@ async def verify_appointment_with_service(business_id: str, search_date: datetim
     """
     try:
         # Import here to avoid circular imports
-        from ..services.calendly import CalendlyService
-        from ..schemas.calendly import CalendlyConfig, WorkflowStep
-        # No need to import traceback here as it's now imported at the top level
+        from typing import TYPE_CHECKING
+        if TYPE_CHECKING:
+            from ..services.calendly import CalendlyService
+        else:
+            # Import dynamically to avoid circular imports
+            import importlib
+            calendly_module = importlib.import_module("..services.calendly", package=__package__)
+            CalendlyService = getattr(calendly_module, "CalendlyService")
+        
+        from ..schemas.calendly import CalendlyConfig
         
         logger.info(f"[CALENDLY DEBUG] Verifying appointment for business {business_id} at {search_date}")
         
@@ -33,63 +40,58 @@ async def verify_appointment_with_service(business_id: str, search_date: datetim
         db = next(get_db())
         
         try:
-            # Get the workflow
+            # Get workflow and check if Calendly is configured
             workflow = db.query(Workflow).filter(Workflow.id == business_id).first()
+            
             if not workflow:
-                logger.error(f"[CALENDLY DEBUG] Workflow not found for business ID: {business_id}")
+                logger.error(f"[CALENDLY DEBUG] Workflow not found for ID {business_id}")
                 return {
                     "success": False,
-                    "error": "Workflow not found",
-                    "message": f"No workflow found for business ID: {business_id}"
-                }
-            
-            # Dump the whole workflow for debugging
-            logger.info(f"[CALENDLY DEBUG] Workflow found: {workflow.id}")
-            
-            # Check if Calendly is configured
-            actions = workflow.actions if workflow.actions else {}
-            logger.info(f"[CALENDLY DEBUG] Workflow actions keys: {list(actions.keys())}")
-            
-            calendly_config = actions.get('calendly', {})
-            logger.info(f"[CALENDLY DEBUG] Calendly config in workflow: {calendly_config}")
-            
-            # Force enable for testing if needed
-            if not calendly_config:
-                logger.warning(f"[CALENDLY DEBUG] No Calendly config found, creating default for testing")
-                calendly_config = {
-                    'enabled': True
-                }
-            
-            if not calendly_config.get('enabled'):
-                logger.error(f"[CALENDLY DEBUG] Calendly not enabled for business ID: {business_id}")
-                return {
-                    "success": False,
-                    "error": "Calendly not enabled",
-                    "message": "Calendly integration is not enabled for this workflow"
-                }
-            
-            # Log token preview for debugging
-            token = calendly_config.get('access_token', '')
-            if not token:
-                logger.error(f"[CALENDLY DEBUG] No Calendly access token found in config")
-                return {
-                    "success": False,
-                    "error": "No Calendly token",
-                    "message": "No Calendly access token configured"
+                    "error": "Not Found",
+                    "message": f"Workflow {business_id} not found"
                 }
                 
-            token_preview = token[:5] + "..." if len(token) > 5 else "<empty>"
-            logger.info(f"[CALENDLY DEBUG] Using Calendly access token starting with: {token_preview}")
+            # Extract Calendly config from workflow actions
+            calendly_config = workflow.actions.get('calendly', {})
+            logger.info(f"[CALENDLY DEBUG] Calendly config: {calendly_config}")
             
-            # Create Calendly service
-            calendly_service = CalendlyService(CalendlyConfig(
-                enabled=True,
-                access_token=token,
+            # If config is empty, try looking for token in the overall workflow config
+            if not calendly_config or not calendly_config.get('access_token'):
+                logger.warning(f"[CALENDLY DEBUG] No Calendly config found in workflow actions, checking main config")
+                if workflow.config and 'calendly' in workflow.config:
+                    calendly_config = workflow.config.get('calendly', {})
+                    logger.info(f"[CALENDLY DEBUG] Found Calendly config in main workflow config: {calendly_config}")
+                    
+            # If still no token, look for integrations section
+            if not calendly_config or not calendly_config.get('access_token'):
+                logger.warning(f"[CALENDLY DEBUG] No Calendly token in calendly config, checking integrations")
+                if 'integrations' in workflow.actions and 'calendly' in workflow.actions['integrations']:
+                    calendly_config = workflow.actions['integrations']['calendly']
+                    logger.info(f"[CALENDLY DEBUG] Found Calendly config in integrations: {calendly_config}")
+            
+            # Check if Calendly is configured and access token exists
+            if not calendly_config or not calendly_config.get('access_token'):
+                logger.error(f"[CALENDLY DEBUG] No valid Calendly configuration found with access token")
+                return {
+                    "success": False, 
+                    "error": "Configuration Error",
+                    "message": "Calendly access token not found in configuration"
+                }
+                
+            # Log that we've found a valid configuration
+            token_preview = calendly_config.get('access_token', '')[:5] + '...' if calendly_config.get('access_token') else 'None'
+            logger.info(f"[CALENDLY DEBUG] Found valid Calendly configuration with access token: {token_preview}")
+            
+            # Create config object for Calendly service
+            config = CalendlyConfig(
+                access_token=calendly_config.get('access_token'),
                 user_uri=calendly_config.get('user_uri'),
-                default_event_type=calendly_config.get('default_event_type', ''),
-                booking_window_days=calendly_config.get('booking_window_days', 14),
-                min_notice_hours=calendly_config.get('min_notice_hours', 1),
-            ))
+                enabled=True
+            )
+            
+            # Initialize the Calendly service
+            calendly_service = CalendlyService(config)
+            logger.info(f"[CALENDLY DEBUG] Created Calendly service with config: {config}")
             
             # Check if we need to initialize to get user_uri
             if not calendly_config.get('user_uri'):

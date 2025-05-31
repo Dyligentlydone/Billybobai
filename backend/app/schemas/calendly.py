@@ -82,11 +82,14 @@ class CalendlyTokenRequest(BaseModel):
     """Request schema for validating a Calendly token"""
     access_token: str
 
+# Forward reference for type hints
+WorkflowStepType = Any  # Will be used as a type annotation for WorkflowStep
+
 class WorkflowCreate(BaseModel):
     """Create a Calendly Workflow for SMS notifications"""
     name: str
     owner_uri: str
-    steps: List[WorkflowStep]
+    steps: List[Any]  # Using Any instead of forward reference to avoid circular imports
 
 class WorkflowStep(BaseModel):
     """A step in a Calendly Workflow"""
