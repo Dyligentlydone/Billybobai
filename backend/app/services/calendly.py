@@ -57,7 +57,7 @@ class CalendlyService:
         self.client = httpx.AsyncClient(
             base_url=self.BASE_URL,
             headers={
-                "Authorization": f"Bearer {config.access_token}",
+                "Authorization": f"Bearer {self.config.access_token}",
                 "Content-Type": "application/json"
             },
             timeout=20.0  # Set a reasonable timeout
@@ -422,6 +422,118 @@ class CalendlyService:
         except Exception as e:
             logger.error(f"Failed to get scheduled events: {str(e)}")
             raise
+    
+    async def create_appointment(self, date_time: datetime, name: str, email: str, phone: Optional[str] = None, event_type_id: Optional[str] = None) -> Dict[str, Any]:
+        """Create a new appointment in Calendly
+        
+        Args:
+            date_time: The date and time for the appointment
+            name: Customer's name
+            email: Customer's email
+            phone: Customer's phone number (optional)
+            event_type_id: Specific event type ID (optional, will use default if not provided)
+            
+        Returns:
+            Dict with booking results including:
+            - success: Boolean indicating if booking was successful
+            - appointment_uri: URI of the created appointment if successful
+            - details: Additional appointment details
+            - error: Error message if unsuccessful
+        """
+        if not self.config.enabled or not self.config.access_token:
+            logger.error("Calendly is not properly configured for booking")
+            return {
+                "success": False,
+                "error": "Calendly not configured",
+                "message": "The Calendly integration is not properly configured"
+            }
+            
+        # If no event type provided, use default or get the first available one
+        if not event_type_id:
+            event_type_id = self.config.default_event_type
+            
+        # If still no event type, fetch available event types
+        if not event_type_id:
+            try:
+                event_types = await self.get_event_types()
+                if event_types:
+                    event_type_id = event_types[0].id
+                    logger.info(f"Using first available event type: {event_type_id}")
+                else:
+                    return {
+                        "success": False,
+                        "error": "No event types",
+                        "message": "No event types found in Calendly account"
+                    }
+            except Exception as e:
+                logger.error(f"Failed to get event types: {str(e)}")
+                return {
+                    "success": False,
+                    "error": "Event type error",
+                    "message": f"Error retrieving event types: {str(e)}"
+                }
+                
+        # Format date for Calendly API
+        start_time = date_time.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+        
+        try:
+            # Create the booking payload
+            booking_payload = {
+                "event_type_uri": f"https://api.calendly.com/event_types/{event_type_id}",
+                "start_time": start_time,
+                "invitee": {
+                    "name": name,
+                    "email": email
+                }
+            }
+            
+            # Add phone if provided
+            if phone:
+                booking_payload["invitee"]["phone_number"] = phone
+                
+            logger.info(f"Creating Calendly appointment with payload: {booking_payload}")
+            
+            # Send request to Calendly API
+            response = await self.client.post(
+                "/scheduled_events",
+                json=booking_payload
+            )
+            
+            response.raise_for_status()
+            booking_data = response.json()
+            
+            logger.info(f"Successfully created Calendly appointment: {booking_data}")
+            
+            return {
+                "success": True,
+                "appointment_uri": booking_data.get("uri"),
+                "details": booking_data,
+                "message": "Appointment successfully created"
+            }
+            
+        except httpx.HTTPStatusError as e:
+            error_message = f"Failed to create appointment: {str(e)}"
+            try:
+                error_data = e.response.json()
+                if "message" in error_data:
+                    error_message = error_data["message"]
+            except:
+                pass
+                
+            logger.error(f"Calendly booking error: {error_message} | Status: {e.response.status_code}")
+            return {
+                "success": False,
+                "error": "Booking failed",
+                "status_code": e.response.status_code,
+                "message": error_message
+            }
+        except Exception as e:
+            logger.error(f"Unexpected error creating appointment: {str(e)}")
+            return {
+                "success": False,
+                "error": "Unexpected error",
+                "message": f"An unexpected error occurred: {str(e)}"
+            }
     
     async def verify_appointment(self, search_date: datetime) -> Dict[str, Any]:
         """Verify if an appointment exists on a specific date and time
