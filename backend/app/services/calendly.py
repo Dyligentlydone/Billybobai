@@ -500,11 +500,31 @@ class CalendlyService:
         try:
             # Create the booking payload
             # Important: Calendly API requires full URI for event types
-            # Handle case where event_type_id might be a full URI or just an ID
+            # Handle case where event_type_id might be a full URI, ID, or slug
             event_type_uri = event_type_id
+            
+            # If not a full URI, we need to construct it
             if event_type_id and not event_type_id.startswith('http'):
-                event_type_uri = f"https://api.calendly.com/event_types/{event_type_id}"
-                
+                # Extract user UUID from user_uri if available
+                user_uuid = None
+                if self.config.user_uri:
+                    # Extract UUID from URIs like 'https://api.calendly.com/users/16cfdbfb-1192-4b4d-938f-33613cbc197b'
+                    parts = self.config.user_uri.split('/')
+                    if len(parts) > 0:
+                        user_uuid = parts[-1]
+                        
+                if '/' in event_type_id:
+                    # It might be a partial URI or contain a user UUID already
+                    event_type_uri = f"https://api.calendly.com/event_types/{event_type_id}"
+                elif user_uuid:
+                    # If we have the user UUID and a simple slug, construct a proper URI
+                    event_type_uri = f"https://api.calendly.com/event_types/{user_uuid}/{event_type_id}"
+                else:
+                    # Fallback to simple format if we can't construct a complete URI
+                    event_type_uri = f"https://api.calendly.com/event_types/{event_type_id}"
+                    
+                logger.info(f"Converted event type ID '{event_type_id}' to URI: {event_type_uri}")
+                    
             logger.info(f"Using event type URI for booking: {event_type_uri}")
             
             booking_payload = {

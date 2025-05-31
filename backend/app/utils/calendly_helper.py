@@ -355,6 +355,12 @@ async def create_appointment_with_service(business_id: str, date_time: datetime,
                         "message": "No default event type is configured. Please select an event type in the SMS configuration."
                     }
                 
+                # At this point we have a default_event_type which could be:
+                # 1. A slug like "consultation-demo"
+                # 2. A full URI like "https://api.calendly.com/event_types/abc123/consultation-demo"
+                # 3. An ID or partial path
+                # The service will handle proper formatting to a full URI
+                
                 # Log what we're using
                 logger.info(f"[CALENDLY DEBUG] Using event type: {default_event_type}")
                 
