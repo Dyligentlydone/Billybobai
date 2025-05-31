@@ -155,11 +155,13 @@ async def sms_webhook(business_id: str, request: Request, db: Session = Depends(
             logger.info(f"AI DEBUG: Prepared conversation_history for AI: {conversation_history}")
             
             # Check if this is an appointment-related query
-            appointment_context = None
-            appointment_keywords = ["appointment", "meeting", "schedule", "calendly", "booked"]
+            appointment_keywords = ['appointment', 'booking', 'schedule', 'consultation', 'availability']
             is_appointment_query = any(keyword in body.lower() for keyword in appointment_keywords)
             
             logger.info(f"Checking if message is appointment query: '{body}' - Result: {is_appointment_query}")
+            
+            # Initialize appointment context as None
+            appointment_context = None
             
             if is_appointment_query and workflow.actions.get('calendly', {}).get('enabled'):
                 try:                    
@@ -189,9 +191,33 @@ async def sms_webhook(business_id: str, request: Request, db: Session = Depends(
                         
                         logger.info(f"Appointment verification context: {appointment_context}")
                     else:
-                        logger.warning(f"Could not extract date/time from message: '{body}'")
+                        # Even with no specific date, we should attempt to get general availability
+                        logger.info("No specific date extracted, fetching general availability")
+                        # Use current date as fallback for general availability query
+                        current_date = datetime.now()
+                        verification_result = await verify_appointment_with_service(
+                            workflow.id, 
+                            current_date
+                        )
+                        
+                        logger.info(f"General availability verification result: {verification_result}")
+                        
+                        # Format a human-readable response
+                        appointment_response = format_appointment_response(verification_result)
+                        
+                        # Add context to AI service
+                        appointment_context = {
+                            "verification_result": verification_result,
+                            "formatted_response": appointment_response,
+                            "is_general_availability": True
+                        }
+                        
+                        logger.info(f"General appointment verification context: {appointment_context}")
                 except Exception as e:
                     logger.error(f"Error in appointment verification: {str(e)}", exc_info=True)
+                    # Log the full stack trace for debugging
+                    import traceback
+                    logger.error(traceback.format_exc())
             
             # Call AI service
             workflow_response = ai_service.analyze_requirements(
