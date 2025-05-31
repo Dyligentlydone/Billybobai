@@ -44,6 +44,8 @@ async def verify_appointment_with_service(business_id: str, search_date: datetim
             # Check if Calendly is configured
             actions = workflow.actions
             calendly_config = actions.get('calendly', {})
+            logger.info(f"Calendly config in workflow: {calendly_config}")
+            
             if not calendly_config.get('enabled'):
                 logger.error(f"Calendly not enabled for business ID: {business_id}")
                 return {
@@ -51,21 +53,46 @@ async def verify_appointment_with_service(business_id: str, search_date: datetim
                     "error": "Calendly not enabled",
                     "message": "Calendly integration is not enabled for this workflow"
                 }
-                
+            
+            # Log token preview for debugging
+            token = calendly_config.get('access_token', '')
+            token_preview = token[:5] + "..." if len(token) > 5 else "<empty>"
+            logger.info(f"Using Calendly access token starting with: {token_preview}")
+            
             # Create Calendly service
             calendly_service = CalendlyService(CalendlyConfig(
                 enabled=True,
-                access_token=calendly_config.get('access_token', ''),
+                access_token=token,
                 user_uri=calendly_config.get('user_uri'),
                 default_event_type=calendly_config.get('default_event_type', ''),
                 booking_window_days=calendly_config.get('booking_window_days', 14),
                 min_notice_hours=calendly_config.get('min_notice_hours', 1),
             ))
             
+            # Check if we need to initialize to get user_uri
+            if not calendly_config.get('user_uri'):
+                logger.info("No user_uri found, attempting to initialize Calendly service")
+                try:
+                    await calendly_service.initialize()
+                    logger.info(f"Initialized Calendly service, user_uri: {calendly_service.config.user_uri}")
+                except Exception as init_error:
+                    logger.error(f"Failed to initialize Calendly service: {str(init_error)}")
+            
             # Call the verification method directly
+            logger.info("Calling Calendly verify_appointment method")
             verification_result = await calendly_service.verify_appointment(search_date)
             
             logger.info(f"Successfully verified appointment: {verification_result}")
+            
+            # Log important details for debugging
+            if verification_result.get("exists"):
+                logger.info("Found an existing appointment")
+            else:
+                logger.info(f"No exact appointment found. Available slots: {len(verification_result.get('available_slots', []))}")
+                if verification_result.get('available_slots'):
+                    sample_slots = verification_result.get('available_slots')[:2]
+                    logger.info(f"Sample available slots: {sample_slots}")
+            
             return {
                 "success": True,
                 "verification": verification_result

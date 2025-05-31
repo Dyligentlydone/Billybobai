@@ -217,32 +217,79 @@ class CalendlyService:
         days: Optional[int] = None
     ) -> List[TimeSlot]:
         """Get available time slots for an event type"""
+        logger.info(f"Fetching available slots for event_type_id: {event_type_id}")
+        
         if not start_time:
-            start_time = datetime.now() + timedelta(hours=self.config.min_notice_hours)
+            start_time = datetime.now()
+        
         if not days:
-            days = self.config.booking_window_days
+            days = self.config.booking_window_days or 14
             
         end_time = start_time + timedelta(days=days)
         
-        response = await self.client.get(
-            f"/event_types/{event_type_id}/available_times",
-            params={
-                "start_time": start_time.isoformat(),
-                "end_time": end_time.isoformat()
-            }
-        )
-        response.raise_for_status()
+        # Format dates for Calendly API
+        start_time_iso = start_time.isoformat()
+        end_time_iso = end_time.isoformat()
         
-        slots = []
-        for i, slot_data in enumerate(response.json()["data"], 1):
-            slot = TimeSlot(
-                start_time=datetime.fromisoformat(slot_data["start_time"]),
-                end_time=datetime.fromisoformat(slot_data["end_time"]),
-                event_type_id=event_type_id,
-                display_id=i
-            )
-            slots.append(slot)
-        return slots
+        logger.info(f"Searching for slots between {start_time_iso} and {end_time_iso}")
+        
+        params = {
+            "start_time": start_time_iso,
+            "end_time": end_time_iso
+        }
+        
+        try:
+            logger.info(f"Making API request to: /event_types/{event_type_id}/available_times")
+            response = await self.client.get(f"/event_types/{event_type_id}/available_times", params=params)
+            
+            # Log response status
+            logger.info(f"Calendly API response status: {response.status_code}")
+            
+            # For debugging, log part of the response content
+            response_text = response.text[:200] + "..." if len(response.text) > 200 else response.text
+            logger.info(f"Response preview: {response_text}")
+            
+            response.raise_for_status()
+            
+            data = response.json()
+            
+            # Log the number of available slots found
+            slots_count = len(data.get("data", []))
+            logger.info(f"Found {slots_count} available slots")
+            
+            slots = []
+            
+            for slot_data in data.get("data", []):
+                start_time = datetime.fromisoformat(slot_data["start_time"].replace("Z", "+00:00"))
+                end_time = datetime.fromisoformat(slot_data["end_time"].replace("Z", "+00:00"))
+                
+                # Convert to naive datetime for easier comparison
+                start_time = start_time.replace(tzinfo=None)
+                end_time = end_time.replace(tzinfo=None)
+                
+                slots.append(TimeSlot(
+                    start_time=start_time,
+                    end_time=end_time,
+                    display_id=slot_data.get("display_id", "")
+                ))
+            
+            # Log a few sample slots for debugging
+            if slots:
+                sample_slots = slots[:2]
+                logger.info(f"Sample slots: {[s.start_time.isoformat() for s in sample_slots]}")
+            
+            return slots
+        except httpx.HTTPStatusError as e:
+            logger.error(f"HTTP error while getting available slots: {e.response.status_code} - {str(e)}")
+            try:
+                error_body = e.response.json()
+                logger.error(f"Error details: {error_body}")
+            except:
+                logger.error(f"Could not parse error response body")
+            raise
+        except Exception as e:
+            logger.error(f"Failed to get available slots: {str(e)}")
+            raise
     
     async def get_scheduled_events(self, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None) -> List[Dict[str, Any]]:
         """Get all scheduled events (appointments) for the user
