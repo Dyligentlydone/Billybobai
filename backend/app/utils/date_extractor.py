@@ -57,6 +57,16 @@ def extract_date_time(text: str) -> Optional[Dict[str, Any]]:
         result["date_found"] = True
         result["date_text"] = "day after tomorrow"
         result["confidence"] += 0.5
+    # Handle 'next week' queries
+    elif re.search(r'\b(next\s+week)\b', text):
+        # Calculate the start of next week (next Monday)
+        days_until_next_monday = (7 - today.weekday()) % 7
+        if days_until_next_monday == 0:
+            days_until_next_monday = 7  # If today is Monday, go to next Monday
+        target_date = today + timedelta(days=days_until_next_monday)
+        result["date_found"] = True
+        result["date_text"] = "next week"
+        result["confidence"] += 0.8  # High confidence for this pattern
     
     # Time patterns
     time_match = re.search(r'(?:at|for|@)?\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)', text)

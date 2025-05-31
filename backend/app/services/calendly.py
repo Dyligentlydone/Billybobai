@@ -264,109 +264,75 @@ class CalendlyService:
             logger.error(f"Failed to get event types: {str(e)}")
             raise
     
-    async def get_available_slots(
-        self,
-        event_type_id: str,
-        start_time: Optional[datetime] = None,
-        days: Optional[int] = None
-    ) -> List[TimeSlot]:
-        """Get available time slots for an event type"""
-        logger.info(f"Fetching available slots for event_type_id: {event_type_id}")
-        
-        if not start_time:
-            start_time = datetime.now()
-        
-        if not days:
-            days = self.config.booking_window_days or 14
-            
-        end_time = start_time + timedelta(days=days)
-        
-        # Format dates for Calendly API
-        start_time_iso = start_time.isoformat()
-        end_time_iso = end_time.isoformat()
-        
-        logger.info(f"Searching for slots between {start_time_iso} and {end_time_iso}")
-        
-        params = {
-            "start_time": start_time_iso,
-            "end_time": end_time_iso
-        }
-        
+    async def get_available_slots(self, event_type_id: str, start_time: Optional[datetime] = None, days: Optional[int] = None) -> List[TimeSlot]:
+        """Get available time slots for a specific event type"""
         try:
-            # Convert event_type_id to a proper Calendly URI if it's not already
-            full_event_type_uri = None
+            # Make sure we have the user URI
+            if not self.config.user_uri:
+                await self.initialize()
+                
+            # Default to today if no start time is provided
+            if not start_time:
+                start_time = datetime.now()
+                
+            # Default to 7 days if not specified
+            if days is None:
+                days = 7
+                
+            # Calculate end time
+            end_time = start_time + timedelta(days=days)
             
-            # If it's already a full URI, use it directly
+            # Format dates for API
+            start_str = start_time.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+            end_str = end_time.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+            
+            # Handle different formats of event_type_id
+            # If it's a full URI, use it directly
             if event_type_id.startswith('http'):
                 full_event_type_uri = event_type_id
-                logger.info(f"Using provided full event type URI: {full_event_type_uri}")
             else:
-                # Extract user UUID to construct the event type URI
-                user_uuid = None
-                if self.config.user_uri:
-                    if '/' in self.config.user_uri:
-                        user_uuid = self.config.user_uri.split('/')[-1]
-                    else:
-                        user_uuid = self.config.user_uri
+                # If it's a slug or UUID, construct the full URI
+                user_uuid = self.config.user_uri.split('/')[-1]
+                full_event_type_uri = f"https://api.calendly.com/event_types/{user_uuid}/{event_type_id}"
                 
-                if not user_uuid:
-                    raise ValueError("User UUID is required to construct event type URI")
-                
-                # Handle different formats of event_type_id
-                if '/' in event_type_id:
-                    # Assume it's a partial URI like 'user_uuid/event_type_slug'
-                    full_event_type_uri = f"https://api.calendly.com/event_types/{event_type_id}"
-                else:
-                    # Assume it's just a slug like 'consultation-demo'
-                    full_event_type_uri = f"https://api.calendly.com/event_types/{user_uuid}/{event_type_id}"
-                
-                logger.info(f"Constructed event type URI: {full_event_type_uri}")
+            # Parse event type URI to get the relative path
+            endpoint_path = full_event_type_uri.replace('https://api.calendly.com/event_types/', '')
+            logger.info(f"[CALENDLY DEBUG] Getting available slots for event type: {endpoint_path} from {start_str} to {end_str}")
+            logger.info(f"Constructed event type URI: {full_event_type_uri}")
             
-            # Extract just the UUID or path part for the API endpoint
-            if full_event_type_uri.startswith('https://api.calendly.com/event_types/'):
-                endpoint_path = full_event_type_uri.replace('https://api.calendly.com/event_types/', '')
-                logger.info(f"Making API request to: /event_types/{endpoint_path}/available_times")
-                response = await self.client.get(f"/event_types/{endpoint_path}/available_times", params=params)
-            else:
-                # Fallback to using the original ID directly
-                logger.info(f"Making API request to: /event_types/{event_type_id}/available_times")
-                response = await self.client.get(f"/event_types/{event_type_id}/available_times", params=params)
+            # Make the API call
+            params = {
+                "start_time": start_str,
+                "end_time": end_str
+            }
             
-            # Log response status
-            logger.info(f"Calendly API response status: {response.status_code}")
-            
-            # For debugging, log part of the response content
-            response_text = response.text[:200] + "..." if len(response.text) > 200 else response.text
-            logger.info(f"Response preview: {response_text}")
-            
-            response.raise_for_status()
-            
-            data = response.json()
-            
-            # Log the number of available slots found
-            slots_count = len(data.get("data", []))
-            logger.info(f"Found {slots_count} available slots")
+            response = await self.client.get(f"/event_types/{endpoint_path}/available_times", params=params)
+            logger.info(f"[CALENDLY DEBUG] Available times response status: {response.status_code}")
             
             slots = []
-            
-            for slot_data in data.get("data", []):
-                start_time = datetime.fromisoformat(slot_data["start_time"].replace("Z", "+00:00"))
-                end_time = datetime.fromisoformat(slot_data["end_time"].replace("Z", "+00:00"))
+            if response.status_code == 200:
+                try:
+                    data = response.json()
+                    logger.info(f"[CALENDLY DEBUG] Available times response data: {data}")
+                    for time_slot in data.get('collection', []):
+                        status = time_slot.get('status')
+                        if status == 'available':
+                            start_time_str = time_slot.get('start_time')
+                            end_time_str = time_slot.get('end_time')
+                            
+                            if start_time_str and end_time_str:
+                                # Convert ISO format strings to datetime objects
+                                start = datetime.fromisoformat(start_time_str.replace('Z', '+00:00'))
+                                end = datetime.fromisoformat(end_time_str.replace('Z', '+00:00'))
+                                slots.append(TimeSlot(start_time=start, end_time=end))
+                except Exception as json_error:
+                    logger.error(f"[CALENDLY DEBUG] Error parsing JSON response: {str(json_error)}")
+                    logger.error(f"[CALENDLY DEBUG] Raw response: {response.text}")
+                    # Return empty list instead of crashing
+            else:
+                logger.error(f"[CALENDLY DEBUG] Error from Calendly API: {response.status_code} - {response.text}")
                 
-                # Convert to naive datetime for easier comparison
-                start_time = start_time.replace(tzinfo=None)
-                end_time = end_time.replace(tzinfo=None)
-                
-                slots.append(TimeSlot(
-                    start_time=start_time,
-                    end_time=end_time,
-                    display_id=slot_data.get("display_id", "")
-                ))
-            
-            # Log a few sample slots for debugging
-            if slots:
-                sample_slots = slots[:2]
-                logger.info(f"Sample slots: {[s.start_time.isoformat() for s in sample_slots]}")
+            logger.info(f"[CALENDLY DEBUG] Found {len(slots)} available slots")
             
             return slots
         except httpx.HTTPStatusError as e:
