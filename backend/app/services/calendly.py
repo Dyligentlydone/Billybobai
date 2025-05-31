@@ -702,6 +702,145 @@ class CalendlyService:
         
         return result
     
+    async def get_available_days(self, days: int = 7, start_date: Optional[datetime] = None) -> Dict[str, Any]:
+        """
+        Get available days for appointment booking from Calendly
+        
+        Args:
+            days: Number of days to check (default 7)
+            start_date: Starting date (defaults to today)
+            
+        Returns:
+            Dict with information about available days and a formatted message
+        """
+        try:
+            logger.info(f"Getting available days for the next {days} days")
+            
+            if not start_date:
+                start_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+                
+            end_date = start_date + timedelta(days=days)
+            
+            # Get event types to find the default one
+            event_types = await self.get_event_types()
+            if not event_types:
+                logger.error("No event types found for this Calendly account")
+                return {
+                    "success": False,
+                    "error": "No event types found",
+                    "message": "No event types are configured in your Calendly account",
+                    "available_days": []
+                }
+                
+            # Use default event type if configured, otherwise use the first one
+            default_event_type = None
+            for et in event_types:
+                # Try to match by ID or URI
+                if self.config.default_event_type:
+                    event_id = et.id
+                    if event_id.endswith(self.config.default_event_type) or \
+                       et.uri.endswith(self.config.default_event_type) or \
+                       et.slug == self.config.default_event_type:
+                        default_event_type = et
+                        break
+                        
+            if not default_event_type and event_types:
+                default_event_type = event_types[0]
+                logger.info(f"Using first available event type: {default_event_type.name}")
+                
+            if not default_event_type:
+                logger.error("Could not find a valid event type")
+                return {
+                    "success": False,
+                    "error": "Event type not found",
+                    "message": "Could not find a valid event type in your Calendly account",
+                    "available_days": []
+                }
+                
+            logger.info(f"Using event type: {default_event_type.name} (ID: {default_event_type.id})")
+                
+            # Get all available slots for this period
+            slots = await self.get_available_slots(
+                event_type_id=default_event_type.id,
+                start_time=start_date,
+                days=days
+            )
+            
+            if not slots:
+                logger.info("No available slots found in the date range")
+                return {
+                    "success": True,
+                    "message": "No availability found for the next week",
+                    "available_days": []
+                }
+                
+            # Group slots by day
+            days_with_slots = {}
+            for slot in slots:
+                day = slot.start_time.date()
+                day_str = day.strftime('%Y-%m-%d')
+                day_name = day.strftime('%A')
+                
+                if day_str not in days_with_slots:
+                    days_with_slots[day_str] = {
+                        "date": day_str,
+                        "day_name": day_name,
+                        "slots": []
+                    }
+                    
+                # Add time info
+                time_str = slot.start_time.strftime('%I:%M %p')
+                days_with_slots[day_str]["slots"].append({
+                    "time": time_str,
+                    "start_iso": slot.start_time.isoformat(),
+                    "end_iso": slot.end_time.isoformat()
+                })
+                
+            # Convert to list and sort by date
+            available_days = list(days_with_slots.values())
+            available_days.sort(key=lambda x: x["date"])
+            
+            # Create a human-readable message
+            if available_days:
+                day_strs = []
+                for day_info in available_days:
+                    # Get time range for each day (e.g., "10:00 AM to 5:00 PM")
+                    if day_info["slots"]:
+                        times = [slot["time"] for slot in day_info["slots"]]
+                        first_time = times[0]
+                        last_time = times[-1]
+                        day_strs.append(f"{day_info['day_name']} from {first_time} to {last_time}")
+                    else:
+                        day_strs.append(day_info['day_name'])
+                        
+                if day_strs:
+                    days_text = ", ".join(day_strs[:-1])
+                    if len(day_strs) > 1:
+                        days_text += f", and {day_strs[-1]}"
+                    else:
+                        days_text = day_strs[0]
+                        
+                    message = f"We have availability for appointments next week on {days_text}."
+                else:
+                    message = "We don't have any availability for appointments next week."
+            else:
+                message = "We don't have any availability for appointments next week."
+                
+            return {
+                "success": True,
+                "message": message,
+                "available_days": available_days
+            }
+                
+        except Exception as e:
+            logger.error(f"Error getting available days: {str(e)}")
+            return {
+                "success": False,
+                "error": str(e),
+                "message": "Failed to retrieve availability information",
+                "available_days": []
+            }
+    
     async def create_booking(self, request: BookingRequest) -> Booking:
         """Create a new booking"""
         # Ensure we have the user URI

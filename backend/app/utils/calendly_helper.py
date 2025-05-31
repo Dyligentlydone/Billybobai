@@ -12,14 +12,14 @@ logger = logging.getLogger(__name__)
 
 async def verify_appointment_with_service(business_id: str, search_date: datetime) -> Dict[str, Any]:
     """
-    Directly call the Calendly service to verify if an appointment exists
+    Directly call the Calendly service to verify if an appointment exists or get available days
     
     Args:
         business_id: The business/workflow ID
         search_date: The date/time to verify
         
     Returns:
-        Dict containing verification results
+        Dict containing verification results or availability information
     """
     try:
         # Import here to avoid circular imports
@@ -109,15 +109,6 @@ async def verify_appointment_with_service(business_id: str, search_date: datetim
                     calendly_config = config
                     break
                     
-            # Direct access token check (in case it's not nested properly)
-            if not calendly_config.get('access_token'):
-                if workflow.config and 'access_token' in workflow.config:
-                    calendly_config = {'access_token': workflow.config['access_token'], 'enabled': True}
-                    logger.info(f"[CALENDLY DEBUG] Found access_token at top-level of config")
-                elif workflow.actions and 'access_token' in workflow.actions:
-                    calendly_config = {'access_token': workflow.actions['access_token'], 'enabled': True}
-                    logger.info(f"[CALENDLY DEBUG] Found access_token at top-level of actions")
-                    
             # Special check for systemIntegration.calendly path (based on user's screenshot)
             if not calendly_config.get('access_token'):
                 if workflow.actions and 'systemIntegration' in workflow.actions:
@@ -135,7 +126,7 @@ async def verify_appointment_with_service(business_id: str, search_date: datetim
                         if isinstance(calendly_in_sys, dict) and 'access_token' in calendly_in_sys:
                             logger.info(f"[CALENDLY DEBUG] Found access_token in config.systemIntegration.calendly!")
                             calendly_config = calendly_in_sys
-                    
+            
             logger.info(f"[CALENDLY DEBUG] Final Calendly config: {calendly_config}")
 
             
@@ -179,35 +170,70 @@ async def verify_appointment_with_service(business_id: str, search_date: datetim
                         "message": f"Failed to initialize Calendly: {str(init_error)}"
                     }
             
-            # Call the verification method directly
-            logger.info("[CALENDLY DEBUG] Calling Calendly verify_appointment method")
-            try:
-                verification_result = await calendly_service.verify_appointment(search_date)
+            # Determine if this is a general availability query ("what days are available next week?")
+            # or a specific appointment verification query
+            
+            # Check if the date is for "next week" - this is a heuristic for detecting availability queries
+            today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            next_week_start = today + timedelta(days=(7 - today.weekday()))
+            next_week_end = next_week_start + timedelta(days=6)
+            
+            # If the date is in the next week range or missing specific time, treat as an availability query
+            is_availability_query = False
+            if search_date.hour == 0 and search_date.minute == 0:  # Only date was provided, not time
+                is_availability_query = True
+                logger.info(f"[CALENDLY DEBUG] Detected availability query - no specific time")
+            elif next_week_start <= search_date.replace(hour=0, minute=0, second=0, microsecond=0) <= next_week_end:
+                # Query is for next week
+                is_availability_query = True
+                logger.info(f"[CALENDLY DEBUG] Detected availability query - date is next week")
                 
-                logger.info(f"[CALENDLY DEBUG] Successfully verified appointment: {verification_result}")
+            if is_availability_query:
+                # Get available days for next week
+                start_date = next_week_start
+                logger.info(f"[CALENDLY DEBUG] Getting available days for next week starting {start_date}")
                 
-                # Log important details for debugging
-                if verification_result.get("exists"):
-                    logger.info("[CALENDLY DEBUG] Found an existing appointment")
-                else:
-                    logger.info(f"[CALENDLY DEBUG] No exact appointment found. Available slots: {len(verification_result.get('available_slots', []))}")
-                    if verification_result.get('available_slots'):
-                        sample_slots = verification_result.get('available_slots')[:2]
-                        logger.info(f"[CALENDLY DEBUG] Sample available slots: {sample_slots}")
+                # Call the new get_available_days method
+                availability_result = await calendly_service.get_available_days(
+                    days=7,  # One week
+                    start_date=start_date
+                )
+                logger.info(f"[CALENDLY DEBUG] Available days result: {availability_result}")
                 
+                # Return success result with availability information
                 return {
                     "success": True,
+                    "is_availability_query": True,
+                    "verification": {
+                        "exists": False,  # No specific appointment
+                        "details": None,
+                        "closest_time": None,
+                        "available_slots": availability_result.get("available_days", []),
+                        "search_date": search_date.isoformat(),
+                        "message": availability_result.get("message", "")
+                    },
+                    "availability": availability_result
+                }
+            else:
+                # Regular appointment verification
+                verification_result = await calendly_service.verify_appointment(search_date)
+                logger.info(f"[CALENDLY DEBUG] Verification result: {verification_result}")
+                
+                # Return success result
+                return {
+                    "success": True,
+                    "is_availability_query": False,
                     "verification": verification_result
                 }
-            except Exception as verify_error:
-                error_tb = traceback.format_exc()
-                logger.error(f"[CALENDLY DEBUG] Error verifying appointment: {str(verify_error)}")
-                logger.error(f"[CALENDLY DEBUG] Verification error details: {error_tb}")
-                return {
-                    "success": False,
-                    "error": "Verification Error",
-                    "message": f"Failed to verify appointment: {str(verify_error)}"
-                }
+        except Exception as verify_error:
+            error_tb = traceback.format_exc()
+            logger.error(f"[CALENDLY DEBUG] Error verifying appointment: {str(verify_error)}")
+            logger.error(f"[CALENDLY DEBUG] Verification error details: {error_tb}")
+            return {
+                "success": False,
+                "error": "Verification Error",
+                "message": f"Failed to verify appointment: {str(verify_error)}"
+            }
             
         finally:
             db.close()
@@ -421,6 +447,39 @@ def format_appointment_response(verification_result: Dict[str, Any]) -> str:
     if not verification_result.get("success", False):
         return "I'm sorry, I couldn't verify your appointment due to a technical issue."
     
+    # Check if this is an availability query (what days are available next week?)
+    if verification_result.get("is_availability_query", False):
+        # If there's a custom message, use that
+        if "availability" in verification_result and verification_result["availability"].get("message"):
+            return verification_result["availability"]["message"]
+            
+        # Otherwise, format the available days
+        verification = verification_result.get("verification", {})
+        available_slots = verification.get("available_slots", [])
+        
+        if not available_slots or len(available_slots) == 0:
+            return "I don't see any available appointment slots for next week."
+            
+        # Group slots by day
+        days_with_slots = {}
+        for slot in available_slots:
+            day_name = slot.get("day_name", "")
+            if day_name and day_name not in days_with_slots:
+                days_with_slots[day_name] = True
+                
+        if days_with_slots:
+            day_names = list(days_with_slots.keys())
+            if len(day_names) == 1:
+                return f"We have availability next week on {day_names[0]}."
+            elif len(day_names) == 2:
+                return f"We have availability next week on {day_names[0]} and {day_names[1]}."
+            else:
+                day_list = ", ".join(day_names[:-1]) + f", and {day_names[-1]}"
+                return f"We have availability next week on {day_list}."
+        else:
+            return "I don't see any available appointment slots for next week."
+    
+    # Regular appointment verification
     verification = verification_result.get("verification", {})
     
     if verification.get("exists", False):
@@ -442,6 +501,10 @@ def format_appointment_response(verification_result: Dict[str, Any]) -> str:
         closest_time = verification.get("closest_time")
         available_slots = verification.get("available_slots", [])
         
+        # If there's a custom message, use that
+        if verification.get("message"):
+            return verification.get("message")
+            
         if closest_time:
             try:
                 dt = datetime.fromisoformat(closest_time.replace("Z", "+00:00"))
