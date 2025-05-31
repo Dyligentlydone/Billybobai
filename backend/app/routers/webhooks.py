@@ -158,13 +158,76 @@ async def sms_webhook(business_id: str, request: Request, db: Session = Depends(
             appointment_keywords = ['appointment', 'booking', 'schedule', 'consultation', 'availability', 'times']
             is_appointment_query = any(keyword in body.lower() for keyword in appointment_keywords)
             
-            logger.info(f"[CALENDLY DEBUG] Checking if message is appointment query: '{body}' - Result: {is_appointment_query}")
+            # Check if this is a booking request (user wants to book a specific time)
+            booking_keywords = ['book', "let's book", 'schedule me', 'make an appointment', 'reserve']
+            is_booking_request = any(keyword in body.lower() for keyword in booking_keywords)
+            
+            logger.info(f"[CALENDLY DEBUG] Checking message: '{body}' - Query: {is_appointment_query}, Booking: {is_booking_request}")
             
             # Initialize appointment context as None
             appointment_context = None
             
-            # ALWAYS try Calendly for appointment queries, even if not explicitly enabled
-            if is_appointment_query:
+            # Handle booking request first
+            if is_booking_request:
+                try:
+                    # Import the booking function
+                    from ..utils.calendly_helper import create_appointment_with_service
+                    
+                    # Extract date/time from message
+                    date_info = extract_date_time(body)
+                    logger.info(f"[CALENDLY DEBUG] Extracted date info for booking: {date_info}")
+                    
+                    if date_info and date_info.get("datetime"):
+                        # We have a date, try to create the appointment
+                        booking_date = date_info.get("datetime")
+                        
+                        # Attempt to find contact info (use placeholder if not found)
+                        # In a real implementation, you'd get this from your database or prompt the user
+                        customer_name = "SMS Customer"  # Placeholder
+                        customer_email = "customer@example.com"  # Placeholder
+                        customer_phone = from_number
+                        
+                        # Create the appointment
+                        booking_result = await create_appointment_with_service(
+                            workflow.id,
+                            booking_date,
+                            customer_name,
+                            customer_email,
+                            customer_phone
+                        )
+                        
+                        logger.info(f"[CALENDLY DEBUG] Booking result: {booking_result}")
+                        
+                        # Provide booking result context to AI
+                        appointment_context = {
+                            "booking_result": booking_result,
+                            "booking_date": booking_date.isoformat(),
+                            "is_booking_request": True,
+                            "success": booking_result.get("success", False)
+                        }
+                    else:
+                        # No date found, provide context to AI
+                        appointment_context = {
+                            "is_booking_request": True,
+                            "success": False,
+                            "error": "No date found",
+                            "message": "Could not determine what date/time you want to book"
+                        }
+                except Exception as e:
+                    logger.error(f"[CALENDLY DEBUG] Error creating appointment: {str(e)}")
+                    import traceback
+                    logger.error(f"[CALENDLY DEBUG] {traceback.format_exc()}")
+                    
+                    # Provide error context to AI
+                    appointment_context = {
+                        "is_booking_request": True,
+                        "success": False,
+                        "error": "Booking error",
+                        "message": str(e)
+                    }
+            
+            # Handle appointment query (checking availability)
+            elif is_appointment_query:
                 try:                    
                     # Log the workflow actions for debugging
                     logger.info(f"[CALENDLY DEBUG] Workflow actions keys: {list(workflow.actions.keys() if workflow.actions else [])}")

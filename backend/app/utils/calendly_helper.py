@@ -222,6 +222,168 @@ async def verify_appointment_with_service(business_id: str, search_date: datetim
             "message": str(e)
         }
 
+async def create_appointment_with_service(business_id: str, date_time: datetime, name: str, email: str, phone: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Create an appointment in Calendly using the service
+    
+    Args:
+        business_id: The business/workflow ID
+        date_time: The date and time for the appointment
+        name: Customer's name
+        email: Customer's email address
+        phone: Customer's phone number (optional)
+        
+    Returns:
+        Dict containing booking results
+    """
+    try:
+        # Import here to avoid circular imports
+        from typing import TYPE_CHECKING
+        if TYPE_CHECKING:
+            from ..services.calendly import CalendlyService
+        else:
+            # Import dynamically to avoid circular imports
+            import importlib
+            calendly_module = importlib.import_module("..services.calendly", package=__package__)
+            CalendlyService = getattr(calendly_module, "CalendlyService")
+        
+        from ..schemas.calendly import CalendlyConfig
+        import traceback
+        
+        logger.info(f"[CALENDLY DEBUG] Creating appointment for business {business_id} at {date_time}")
+        
+        # Get database session
+        db = next(get_db())
+        
+        try:
+            # Get workflow and check if Calendly is configured
+            workflow = db.query(Workflow).filter(Workflow.id == business_id).first()
+            
+            if not workflow:
+                logger.error(f"[CALENDLY DEBUG] Workflow not found for ID {business_id}")
+                return {
+                    "success": False,
+                    "error": "Not Found",
+                    "message": f"Workflow {business_id} not found"
+                }
+            
+            # Let's be thorough in finding the Calendly config, checking all possible locations
+            calendly_config = {}
+            possible_locations = [
+                # Check direct in actions
+                ('actions.calendly', workflow.actions.get('calendly') if workflow.actions else None),
+                # Check direct in config
+                ('config.calendly', workflow.config.get('calendly') if workflow.config else None),
+                # Check in integrations
+                ('actions.integrations.calendly', 
+                 workflow.actions.get('integrations', {}).get('calendly') if workflow.actions else None),
+                # Check in systemIntegration (based on user's screenshot)
+                ('actions.systemIntegration.calendly',
+                 workflow.actions.get('systemIntegration', {}).get('calendly') if workflow.actions else None),
+                ('config.systemIntegration.calendly',
+                 workflow.config.get('systemIntegration', {}).get('calendly') if workflow.config else None),
+                # Check if config itself is the calendly config (in case of unusual structure)
+                ('config_direct', workflow.config if workflow.config and 'access_token' in workflow.config else None),
+                # Check if actions itself is the calendly config (in case of unusual structure)
+                ('actions_direct', workflow.actions if workflow.actions and 'access_token' in workflow.actions else None),
+            ]
+            
+            # Log all locations
+            for location_name, config in possible_locations:
+                logger.info(f"[CALENDLY DEBUG] Checking {location_name}: {'Found data' if config else 'Empty'}")
+                if config and isinstance(config, dict) and 'access_token' in config:
+                    logger.info(f"[CALENDLY DEBUG] Found access_token in {location_name}!")
+                    calendly_config = config
+                    break
+                    
+            # Special check for systemIntegration.calendly path (based on user's screenshot)
+            if not calendly_config.get('access_token'):
+                if workflow.actions and 'systemIntegration' in workflow.actions:
+                    system_integration = workflow.actions.get('systemIntegration', {})
+                    if isinstance(system_integration, dict) and 'calendly' in system_integration:
+                        calendly_in_sys = system_integration.get('calendly', {})
+                        if isinstance(calendly_in_sys, dict) and 'access_token' in calendly_in_sys:
+                            logger.info(f"[CALENDLY DEBUG] Found access_token in actions.systemIntegration.calendly!")
+                            calendly_config = calendly_in_sys
+                            
+                if workflow.config and 'systemIntegration' in workflow.config:
+                    system_integration = workflow.config.get('systemIntegration', {})
+                    if isinstance(system_integration, dict) and 'calendly' in system_integration:
+                        calendly_in_sys = system_integration.get('calendly', {})
+                        if isinstance(calendly_in_sys, dict) and 'access_token' in calendly_in_sys:
+                            logger.info(f"[CALENDLY DEBUG] Found access_token in config.systemIntegration.calendly!")
+                            calendly_config = calendly_in_sys
+            
+            logger.info(f"[CALENDLY DEBUG] Final Calendly config: {calendly_config}")
+            
+            # Check if Calendly is configured
+            if not calendly_config or not calendly_config.get('access_token'):
+                logger.error(f"[CALENDLY DEBUG] No valid Calendly configuration found with access token")
+                return {
+                    "success": False,
+                    "error": "Configuration Error",
+                    "message": "Calendly access token not found in configuration"
+                }
+            
+            # Create the Calendly service
+            if isinstance(calendly_config, dict):
+                # Convert dict to CalendlyConfig object
+                # Include all the fields that are in the dict
+                config_obj = CalendlyConfig(
+                    enabled=True,
+                    access_token=calendly_config.get('access_token'),
+                    user_uri=calendly_config.get('user_uri'),
+                    webhook_uri=calendly_config.get('webhook_uri'),
+                    default_event_type=calendly_config.get('default_event_type', ''),
+                )
+                logger.info(f"[CALENDLY DEBUG] Created Calendly service with config: {config_obj}")
+                calendly_service = CalendlyService(config_obj)
+                
+                # Initialize the service if needed (will auto-fetch user URI if not provided)
+                if not config_obj.user_uri:
+                    await calendly_service.initialize()
+                
+                # Create the appointment
+                booking_result = await calendly_service.create_appointment(
+                    date_time=date_time, 
+                    name=name,
+                    email=email,
+                    phone=phone
+                )
+                
+                logger.info(f"[CALENDLY DEBUG] Booking result: {booking_result}")
+                return booking_result
+            else:
+                logger.error(f"[CALENDLY DEBUG] Calendly configuration is not a dictionary: {type(calendly_config)}")
+                return {
+                    "success": False,
+                    "error": "Configuration Error",
+                    "message": "Invalid Calendly configuration format"
+                }
+            
+        except Exception as verify_error:
+            error_tb = traceback.format_exc()
+            logger.error(f"[CALENDLY DEBUG] Error creating appointment: {str(verify_error)}")
+            logger.error(f"[CALENDLY DEBUG] Booking error details: {error_tb}")
+            return {
+                "success": False,
+                "error": "Booking Error",
+                "message": f"Failed to create appointment: {str(verify_error)}"
+            }
+        
+        finally:
+            db.close()
+            
+    except Exception as e:
+        error_tb = traceback.format_exc()
+        logger.error(f"[CALENDLY DEBUG] Exception in create_appointment: {str(e)}")
+        logger.error(f"[CALENDLY DEBUG] Stack trace: {error_tb}")
+        return {
+            "success": False,
+            "error": "Internal Error",
+            "message": str(e)
+        }
+        
 def format_appointment_response(verification_result: Dict[str, Any]) -> str:
     """
     Format the appointment verification result into a human-readable response
