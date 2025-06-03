@@ -1,4 +1,5 @@
 import httpx
+import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Dict, Tuple, Any
 from ..schemas.calendly import (
@@ -503,75 +504,193 @@ class CalendlyService:
         min_start_time = start_date.isoformat()
         max_start_time = end_date.isoformat()
         
-        try:
-            # Extract just the UUID from the user URI for API calls
-            user_uuid = None
-            if self.config.user_uri and '/' in self.config.user_uri:
-                # Extract UUID from the URI (e.g., https://api.calendly.com/users/16cfdbfb-1192-4b4d-938f-33613cbc197b)
-                user_uuid = self.config.user_uri.split('/')[-1]
-            else:
-                # If no slashes, assume it's already a UUID
-                user_uuid = self.config.user_uri
-                
-            if not user_uuid:
-                raise ValueError("Could not extract user UUID from user URI")
-                
-            logger.info(f"Fetching scheduled events using user UUID: {user_uuid}")
-                
-            # Use the fully qualified URI for user - Calendly API requires full URIs
-            user_uri = f"https://api.calendly.com/users/{user_uuid}"
-            logger.info(f"Using user URI for API request: {user_uri}")
-                
-            # Use the correct endpoint structure for the API call
-            response = await self.client.get(
-                "/scheduled_events",
-                params={
-                    "user": user_uri,  # Use the full URI, not just the UUID
+        # Extract just the UUID from the user URI for API calls
+        user_uuid = None
+        if self.config.user_uri and '/' in self.config.user_uri:
+            # Extract UUID from the URI (e.g., https://api.calendly.com/users/16cfdbfb-1192-4b4d-938f-33613cbc197b)
+            user_uuid = self.config.user_uri.split('/')[-1]
+        else:
+            # If no slashes, assume it's already a UUID
+            user_uuid = self.config.user_uri
+            
+        if not user_uuid:
+            raise ValueError("Could not extract user UUID from user URI")
+            
+        logger.info(f"[CALENDLY DEBUG] Fetching scheduled events using user UUID: {user_uuid}")
+            
+        # Define possible endpoints to try with different formats
+        endpoints = [
+            # Standard v2 API - scheduled_events with user as parameter
+            {
+                "endpoint": "/scheduled_events",
+                "params": {
+                    "user": f"https://api.calendly.com/users/{user_uuid}",
                     "min_start_time": min_start_time,
                     "max_start_time": max_start_time,
                     "status": "active"
                 }
-            )
-            
-            response.raise_for_status()
-            events_data = response.json().get("data", [])
-            
-            # Enhance with detailed information
-            detailed_events = []
-            for event in events_data:
-                # Add basic info first
-                detailed_event = {
-                    "id": event.get("id"),
-                    "uri": event.get("uri"),
-                    "start_time": event.get("start_time"),
-                    "end_time": event.get("end_time"),
-                    "status": event.get("status"),
-                    "event_type": event.get("event_type"),
-                    "cancellation_url": event.get("cancellation_url"),
-                    "reschedule_url": event.get("reschedule_url"),
+            },
+            # Alternative format - using just UUID in query string
+            {
+                "endpoint": "/scheduled_events",
+                "params": {
+                    "user": user_uuid,
+                    "min_start_time": min_start_time,
+                    "max_start_time": max_start_time,
+                    "status": "active"
                 }
-                
-                # Try to get invitee details
+            },
+            # Alternative format - user-specific endpoint
+            {
+                "endpoint": f"/users/{user_uuid}/scheduled_events",
+                "params": {
+                    "min_start_time": min_start_time,
+                    "max_start_time": max_start_time,
+                    "status": "active"
+                }
+            },
+            # V1 API format (without v2 in URL)
+            {
+                "endpoint": "/users/{user_uuid}/scheduled_events",
+                "params": {
+                    "min_start_time": min_start_time,
+                    "max_start_time": max_start_time,
+                    "status": "active"
+                },
+                "use_alt_base_url": True
+            }
+        ]
+        
+        # Define retry delays
+        retry_delays = [1, 3, 5]  # seconds
+        last_error = None
+        
+        # Try each endpoint with retries
+        for endpoint_config in endpoints:
+            endpoint = endpoint_config["endpoint"].format(user_uuid=user_uuid)
+            params = endpoint_config["params"]
+            use_alt_base_url = endpoint_config.get("use_alt_base_url", False)
+            
+            # Get the right client based on base URL
+            client = self.client
+            if use_alt_base_url:
+                # Create a temporary client with the alternate base URL
+                client = httpx.AsyncClient(
+                    base_url=self.ALT_BASE_URL,
+                    headers={
+                        "Authorization": f"Bearer {self.config.access_token}",
+                        "Content-Type": "application/json"
+                    },
+                    timeout=20.0
+                )
+            
+            logger.info(f"[CALENDLY DEBUG] Trying endpoint: {endpoint} with params: {params}")
+            
+            # Try with retries
+            for retry_idx, delay in enumerate(retry_delays):
                 try:
-                    if "uri" in event:
-                        invitee_response = await self.client.get(f"{event['uri']}/invitees")
-                        if invitee_response.status_code == 200:
-                            invitees = invitee_response.json().get("data", [])
-                            if invitees:
-                                detailed_event["invitee"] = {
-                                    "name": invitees[0].get("name"),
-                                    "email": invitees[0].get("email"),
-                                    "phone": invitees[0].get("phone_number")
-                                }
-                except Exception as e:
-                    logger.warning(f"Failed to get invitee details: {str(e)}")
+                    # Make the API call
+                    response = await client.get(endpoint, params=params)
                     
-                detailed_events.append(detailed_event)
-                
-            return detailed_events
-        except Exception as e:
-            logger.error(f"Failed to get scheduled events: {str(e)}")
-            raise
+                    # Log the response status
+                    logger.info(f"[CALENDLY DEBUG] Response status: {response.status_code}")
+                    
+                    # Don't retry on auth errors or not found errors
+                    if response.status_code in [401, 403, 404]:
+                        logger.warning(f"[CALENDLY DEBUG] Authentication error or not found: {response.status_code}")
+                        break
+                    
+                    # If successful, process the data
+                    if response.status_code == 200:
+                        data = response.json()
+                        logger.info(f"[CALENDLY DEBUG] Response keys: {list(data.keys())}")
+                        
+                        # Extract events data based on response structure
+                        events_data = []
+                        if "data" in data and isinstance(data["data"], list):
+                            events_data = data["data"]
+                        elif "collection" in data and isinstance(data["collection"], list):
+                            events_data = data["collection"]
+                        
+                        if events_data:
+                            logger.info(f"[CALENDLY DEBUG] Found {len(events_data)} events")
+                            
+                            # Enhance with detailed information
+                            detailed_events = []
+                            for event in events_data:
+                                # Add basic info first
+                                detailed_event = {
+                                    "id": event.get("id"),
+                                    "uri": event.get("uri"),
+                                    "start_time": event.get("start_time"),
+                                    "end_time": event.get("end_time"),
+                                    "status": event.get("status"),
+                                    "event_type": event.get("event_type"),
+                                    "cancellation_url": event.get("cancellation_url"),
+                                    "reschedule_url": event.get("reschedule_url"),
+                                }
+                                
+                                # Try to get invitee details if URI is available
+                                try:
+                                    if "uri" in event:
+                                        invitee_endpoint = f"{event['uri']}/invitees"
+                                        if not invitee_endpoint.startswith('http'):
+                                            # If it's a relative path, use it directly
+                                            invitee_response = await client.get(invitee_endpoint)
+                                        else:
+                                            # If it's a full URL, create a new request
+                                            invitee_response = await httpx.AsyncClient().get(
+                                                invitee_endpoint,
+                                                headers={
+                                                    "Authorization": f"Bearer {self.config.access_token}",
+                                                    "Content-Type": "application/json"
+                                                }
+                                            )
+                                        
+                                        if invitee_response.status_code == 200:
+                                            invitees = invitee_response.json().get("data", [])
+                                            if invitees:
+                                                detailed_event["invitee"] = {
+                                                    "name": invitees[0].get("name"),
+                                                    "email": invitees[0].get("email"),
+                                                    "phone": invitees[0].get("phone_number")
+                                                }
+                                except Exception as e:
+                                    logger.warning(f"[CALENDLY DEBUG] Failed to get invitee details: {str(e)}")
+                                
+                                detailed_events.append(detailed_event)
+                            
+                            # Close the temporary client if we created one
+                            if use_alt_base_url:
+                                await client.aclose()
+                                
+                            return detailed_events
+                    
+                    # If not successful, log and try the next retry or endpoint
+                    if retry_idx < len(retry_delays) - 1:
+                        logger.warning(f"[CALENDLY DEBUG] Retrying after {delay} seconds. Status: {response.status_code}")
+                        await asyncio.sleep(delay)
+                    else:
+                        logger.warning(f"[CALENDLY DEBUG] All retries failed for endpoint {endpoint}")
+                    
+                except Exception as e:
+                    last_error = e
+                    logger.error(f"[CALENDLY DEBUG] Error fetching scheduled events: {str(e)}")
+                    
+                    if retry_idx < len(retry_delays) - 1:
+                        logger.warning(f"[CALENDLY DEBUG] Retrying after {delay} seconds due to error")
+                        await asyncio.sleep(delay)
+                    else:
+                        logger.warning(f"[CALENDLY DEBUG] All retries failed for endpoint {endpoint} due to error")
+            
+            # Close the temporary client if we created one
+            if use_alt_base_url:
+                await client.aclose()
+        
+        # If we reach here, all endpoints and retries failed
+        error_message = f"Failed to fetch scheduled events after trying all endpoints: {str(last_error)}"
+        logger.error(f"[CALENDLY DEBUG] {error_message}")
+        raise Exception(error_message)
     
     async def create_appointment(self, date_time: datetime, name: str, email: str, phone: Optional[str] = None, event_type_id: Optional[str] = None) -> Dict[str, Any]:
         """Create a new appointment in Calendly
