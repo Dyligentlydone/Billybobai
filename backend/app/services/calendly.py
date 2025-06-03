@@ -849,13 +849,21 @@ class CalendlyService:
         day_start = search_date.replace(hour=0, minute=0, second=0, microsecond=0)
         day_end = day_start + timedelta(days=1)
         
-        # Get all events for the day
-        events = await self.get_scheduled_events(day_start, day_end)
+        # Get all events for the day - handle the case where no events exist yet
+        events = []
+        try:
+            events = await self.get_scheduled_events(day_start, day_end)
+            logger.info(f"[CALENDLY DEBUG] Found {len(events)} scheduled events")
+        except Exception as e:
+            # If there's an error fetching events (like 404 not found), just log it and continue
+            # This allows the process to continue checking available slots instead of failing
+            logger.warning(f"[CALENDLY DEBUG] Could not fetch scheduled events, assuming none exist: {str(e)}")
         
         # Look for exact match (within 15 minutes)
         exact_match = None
         closest_time = None
         closest_diff = timedelta(days=1)  # Initialize with a large value
+        closest_event = None  # Initialize to avoid reference errors
         
         for event in events:
             event_time = datetime.fromisoformat(event.get("start_time").replace("Z", "+00:00"))
@@ -903,14 +911,14 @@ class CalendlyService:
                     "display_id": slot.display_id
                 } for slot in slots]
         except Exception as e:
-            logger.warning(f"Failed to get available slots: {str(e)}")
+            logger.warning(f"[CALENDLY DEBUG] Failed to get available slots: {str(e)}")
         
         # Prepare result
         result = {
             "exists": exact_match is not None,
             "details": exact_match if exact_match else None,
             "closest_time": closest_time.isoformat() if closest_time else None,
-            "closest_event": closest_event if 'closest_event' in locals() else None,
+            "closest_event": closest_event if closest_event else None,
             "available_slots": available_slots,
             "search_date": search_date.isoformat()
         }
