@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Query
+from datetime import datetime
 import httpx
 import logging
 import os
@@ -152,37 +153,130 @@ async def try_all_endpoints(
     # Step 1: Get user info
     user_response = await get_user_info(token=token)
     
-    # Extract user UUID if successful
+    # Extract user UUID and other useful information if successful
     user_uuid = None
+    username = None
+    organization_uri = None
+    
     if user_response.success and "resource" in user_response.response_body:
-        user_uri = user_response.response_body["resource"].get("uri")
+        user_data = user_response.response_body["resource"]
+        
+        # Get user URI
+        user_uri = user_data.get("uri")
         if user_uri:
             user_uuid = user_uri.split("/")[-1]
+        
+        # Extract username from email
+        email = user_data.get("email")
+        if email:
+            username = email.split("@")[0]
+        
+        # Check for organization membership
+        if "current_organization" in user_data:
+            organization_uri = user_data["current_organization"].get("uri")
     
     results = {
         "user_info": user_response,
+        "user_uuid": user_uuid,
+        "username": username,
+        "organization_uri": organization_uri,
         "endpoints_tested": []
     }
     
     # If we have a user UUID, try multiple endpoint formats
     if user_uuid:
-        # List of endpoints to test
-        endpoints_to_test = [
-            f"https://api.calendly.com/users/{user_uuid}/event_types",
-            f"https://api.calendly.com/event_types?user={user_uuid}",
-            f"https://api.calendly.com/scheduling_links?owner={user_uuid}",
-            f"https://api.calendly.com/scheduled_events?user=https://api.calendly.com/users/{user_uuid}",
-            f"https://api.calendly.com/users/{user_uuid}/scheduled_events",
+        # Basic URLs to test with different formats
+        base_urls = [
+            "https://api.calendly.com",
+            "https://calendly.com/api"
         ]
         
-        # Test each endpoint
-        for endpoint in endpoints_to_test:
-            response = await test_direct_calendly_api(token=token, url=endpoint)
-            results["endpoints_tested"].append({
-                "url": endpoint,
-                "success": response.success,
-                "status": response.status_code,
-                "response": response.response_body
-            })
+        # EVENT TYPES ENDPOINTS
+        event_types_endpoint_patterns = [
+            # User-based endpoints
+            f"/users/{user_uuid}/event_types",
+            f"/event_types?user={user_uuid}",
+            f"/event_types?user=https://api.calendly.com/users/{user_uuid}",
+            f"/v1/users/{user_uuid}/event_types",
+            f"/v2/users/{user_uuid}/event_types",
+            f"/scheduling_links?owner={user_uuid}",
+            f"/scheduling_links?owner=https://api.calendly.com/users/{user_uuid}",
+            
+            # Organization-based endpoints (if available)
+            f"/organizations/{user_uuid}/event_types",
+            
+            # Global endpoints
+            f"/event_types",
+            f"/users/me/event_types"
+        ]
+        
+        # SCHEDULED EVENTS ENDPOINTS
+        scheduled_events_endpoint_patterns = [
+            f"/users/{user_uuid}/scheduled_events",
+            f"/scheduled_events?user={user_uuid}",
+            f"/scheduled_events?user=https://api.calendly.com/users/{user_uuid}",
+            f"/v1/users/{user_uuid}/scheduled_events",
+            f"/v2/users/{user_uuid}/scheduled_events",
+            
+            # Organization-based endpoints (if available)
+            f"/organizations/{user_uuid}/scheduled_events",
+            
+            # Global endpoints
+            f"/scheduled_events",
+            f"/users/me/scheduled_events",
+        ]
+        
+        # If we have a username, add username-based endpoints
+        if username:
+            event_types_endpoint_patterns.extend([
+                f"/users/{username}/event_types",
+                f"/event_types?user={username}"
+            ])
+            
+            scheduled_events_endpoint_patterns.extend([
+                f"/users/{username}/scheduled_events",
+                f"/scheduled_events?user={username}"
+            ])
+        
+        # If we have an organization URI, add organization-based endpoints
+        if organization_uri:
+            org_uuid = organization_uri.split("/")[-1]
+            event_types_endpoint_patterns.extend([
+                f"/organizations/{org_uuid}/event_types",
+                f"/organizations/{org_uuid}/invitees"
+            ])
+            
+            scheduled_events_endpoint_patterns.extend([
+                f"/organizations/{org_uuid}/scheduled_events",
+                f"/organizations/{org_uuid}/invitees"
+            ])
+        
+        # Test event types endpoints
+        results["event_types_tests"] = []
+        for base_url in base_urls:
+            for pattern in event_types_endpoint_patterns:
+                full_url = f"{base_url}{pattern}"
+                response = await test_direct_calendly_api(token=token, url=full_url)
+                results["event_types_tests"].append({
+                    "url": full_url,
+                    "success": response.success,
+                    "status": response.status_code,
+                    "response_summary": response.response_body[:200] + "..." if isinstance(response.response_body, str) and len(response.response_body) > 200 else response.response_body
+                })
+        
+        # Test scheduled events endpoints
+        results["scheduled_events_tests"] = []
+        for base_url in base_urls:
+            for pattern in scheduled_events_endpoint_patterns:
+                # Add time range parameters for scheduled events
+                params = "min_start_time=" + datetime.now().isoformat()
+                full_url = f"{base_url}{pattern}?{params}"
+                response = await test_direct_calendly_api(token=token, url=full_url)
+                results["scheduled_events_tests"].append({
+                    "url": full_url,
+                    "success": response.success,
+                    "status": response.status_code,
+                    "response_summary": response.response_body[:200] + "..." if isinstance(response.response_body, str) and len(response.response_body) > 200 else response.response_body
+                })
     
     return results
