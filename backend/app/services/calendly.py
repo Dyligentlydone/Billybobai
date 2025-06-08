@@ -81,67 +81,122 @@ class CalendlyService:
         
     async def fetch_user_uri(self) -> str:
         """Fetch the user URI using the access token"""
+        import asyncio  # For retry delays
+        
         if not self.config.access_token:
             raise ValueError("Access token is required")
         
         # Debug log the token format (first few chars)
         token_preview = self.config.access_token[:5] + "..." if len(self.config.access_token) > 5 else "<empty>"
-        logger.info(f"Attempting to fetch user URI with token starting with: {token_preview}")
+        logger.info(f"[CALENDLY DEBUG] Attempting to fetch user URI with token starting with: {token_preview}")
         
         # Check if token looks like a Calendly token (basic format check)
         if not (self.config.access_token.startswith("cal_") or self.config.access_token.startswith("eyja")):
-            logger.warning(f"Token doesn't appear to be in expected Calendly format (should start with 'cal_' or 'eyja')")
+            logger.warning(f"[CALENDLY DEBUG] Token doesn't appear to be in expected Calendly format (should start with 'cal_' or 'eyja')")
         
-        try:
-            # Set a longer timeout for API calls
-            async with httpx.AsyncClient(
-                base_url=self.BASE_URL,
-                headers={
-                    "Authorization": f"Bearer {self.config.access_token}",
-                    "Content-Type": "application/json"
-                },
-                timeout=30.0
-            ) as client:
-                logger.info("Making request to Calendly API: /users/me")
-                response = await client.get("/users/me")
+        # Define endpoints to try in order
+        endpoints_to_try = [
+            "/users/me",            # Standard endpoint
+            "/v2/users/me",         # With explicit v2 prefix
+            "/v1/users/me",         # Try v1 as fallback
+            "/api/v2/users/me",     # Additional format sometimes used
+            "/api/v1/users/me"      # Additional format sometimes used
+        ]
+        
+        # Define URLs to try
+        urls_to_try = [
+            self.BASE_URL,
+            "https://api.calendly.com",  # Direct API URL
+            "https://auth.calendly.com"   # Auth-specific URL
+        ]
+        
+        last_error = None
+        
+        # Try each combination of URL and endpoint
+        for base_url in urls_to_try:
+            for endpoint in endpoints_to_try:
+                try:
+                    logger.info(f"[CALENDLY DEBUG] Trying {base_url}{endpoint} to fetch user information")
+                    
+                    # Set a longer timeout for API calls
+                    async with httpx.AsyncClient(
+                        base_url=base_url,
+                        headers={
+                            "Authorization": f"Bearer {self.config.access_token.strip()}",
+                            "Content-Type": "application/json"
+                        },
+                        timeout=10.0  # Shorter timeout for faster failures
+                    ) as client:
+                        logger.info(f"[CALENDLY DEBUG] Making request to: {endpoint}")
+                        response = await client.get(endpoint)
+                        
+                        # Log response status
+                        logger.info(f"[CALENDLY DEBUG] API response status: {response.status_code}")
+                        
+                        if response.status_code == 200:
+                            user_data = response.json()
+                            logger.info(f"[CALENDLY DEBUG] Received user data. Keys: {list(user_data.keys())}")
+                            
+                            # Try different response formats
+                            if "resource" in user_data and "uri" in user_data["resource"]:
+                                logger.info(f"[CALENDLY DEBUG] Found user URI in resource.uri: {user_data['resource']['uri']}")
+                                return user_data["resource"]["uri"]
+                            elif "uri" in user_data:
+                                logger.info(f"[CALENDLY DEBUG] Found user URI directly: {user_data['uri']}")
+                                return user_data["uri"]
+                            elif "data" in user_data and "uri" in user_data["data"]:
+                                logger.info(f"[CALENDLY DEBUG] Found user URI in data.uri: {user_data['data']['uri']}")
+                                return user_data["data"]["uri"]
+                            else:
+                                # If we have a successful response but can't find URI in expected format,
+                                # log the structure and try a generic approach
+                                logger.info(f"[CALENDLY DEBUG] Unexpected but successful response structure: {user_data}")
+                                # Search for any field that looks like a user URI
+                                for key, value in user_data.items():
+                                    if isinstance(value, str) and "users" in value and "/" in value:
+                                        logger.info(f"[CALENDLY DEBUG] Found potential user URI in '{key}': {value}")
+                                        return value
+                                        
+                                logger.warning(f"[CALENDLY DEBUG] Could not find user URI in response")
+                                # Continue to next attempt since we couldn't parse this one
+                        
+                        # Handle specific error cases but continue trying other endpoints
+                        elif response.status_code == 401:
+                            logger.error(f"[CALENDLY DEBUG] Authentication failed ({endpoint}): Invalid token or expired")
+                            last_error = ValueError("Invalid Calendly token or token has expired. Check your Personal Access Token settings.")
+                        elif response.status_code == 403:
+                            logger.error(f"[CALENDLY DEBUG] Authorization failed ({endpoint}): Insufficient permissions")
+                            last_error = ValueError("Your token does not have sufficient permissions. Ensure you've enabled the user:read scope.")
+                        elif response.status_code == 404:
+                            logger.info(f"[CALENDLY DEBUG] Endpoint not found ({endpoint}): Will try other endpoints")
+                            # 404 just means this endpoint doesn't exist, we'll continue to try others
+                            pass
+                            
+                except httpx.HTTPStatusError as e:
+                    logger.error(f"[CALENDLY DEBUG] HTTP error with {endpoint}: {e.response.status_code} - {str(e)}")
+                    try:
+                        error_body = e.response.json()
+                        logger.error(f"[CALENDLY DEBUG] Error details: {error_body}")
+                    except:
+                        pass
+                    last_error = e
+                except httpx.RequestError as e:
+                    logger.error(f"[CALENDLY DEBUG] Request error with {endpoint}: {str(e)}")
+                    last_error = e
+                except Exception as e:
+                    logger.error(f"[CALENDLY DEBUG] Unexpected error with {endpoint}: {str(e)}")
+                    last_error = e
                 
-                # Log response status
-                logger.info(f"Calendly API response status: {response.status_code}")
-                
-                # Handle common error cases
-                if response.status_code == 401:
-                    logger.error("Authentication failed: Invalid token or insufficient permissions")
-                    raise ValueError("Invalid Calendly token or insufficient permissions. Make sure you've created a Personal Access Token with user:read scope.")
-                elif response.status_code == 403:
-                    logger.error("Authorization failed: Token does not have sufficient permissions")
-                    raise ValueError("Your token does not have sufficient permissions. Ensure you've enabled the user:read scope.")
-                
-                response.raise_for_status()
-                user_data = response.json()
-                
-                # Log successful response (limited)
-                logger.info(f"Received user data. Keys: {list(user_data.keys())}")
-                
-                if "resource" in user_data and "uri" in user_data["resource"]:
-                    logger.info(f"Successfully extracted user URI: {user_data['resource']['uri']}")
-                    return user_data["resource"]["uri"]
-                else:
-                    logger.error(f"Unexpected API response format: {user_data}")
-                    raise ValueError("Invalid API response format")
-        except httpx.HTTPStatusError as e:
-            logger.error(f"HTTP error: {e.response.status_code} - {str(e)}")
-            try:
-                error_body = e.response.json()
-                logger.error(f"Error details: {error_body}")
-            except:
-                logger.error(f"Could not parse error response body")
-            raise ValueError(f"HTTP error {e.response.status_code}: {str(e)}")
-        except httpx.RequestError as e:
-            logger.error(f"Request error: {str(e)}")
-            raise ValueError(f"Failed to connect to Calendly API: {str(e)}")
-        except Exception as e:
-            logger.error(f"Failed to fetch user URI: {str(e)}")
-            raise ValueError(f"Unexpected error: {str(e)}")
+                # Small delay between attempts
+                await asyncio.sleep(0.5)
+        
+        # If we've tried all combinations and nothing worked
+        logger.error("[CALENDLY DEBUG] All endpoints failed when trying to fetch user URI")
+        if last_error:
+            raise ValueError(f"Failed to fetch user URI from any endpoint: {str(last_error)}")
+        else:
+            raise ValueError("Failed to fetch user URI from any endpoint")
+
     
     async def setup_sms_workflow(self) -> Dict[str, Any]:
         """Set up or update Calendly Workflow for SMS notifications"""
