@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from ..services.calendly import CalendlyService
 from ..schemas.calendly import CalendlyConfig, BookingRequest, WebhookEvent, SMSNotificationSettings as SMSSchema
 from ..models import Business
-from app.db import get_session
+from config.database import get_db
 from sqlalchemy.orm import Session
 from typing import Optional
 import logging
@@ -11,12 +11,7 @@ from datetime import datetime, timedelta
 logger = logging.getLogger(__name__)
 bp = Blueprint('calendly', __name__)
 
-def get_db():
-    db = get_session()
-    try:
-        yield db
-    finally:
-        db.close()
+# Using get_db directly from config.database
 
 def get_calendly_service(business_id: int, db: Session) -> Optional[CalendlyService]:
     """Get Calendly service instance for a business"""
