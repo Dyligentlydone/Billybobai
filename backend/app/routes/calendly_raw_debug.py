@@ -257,11 +257,19 @@ async def try_all_endpoints(
             for pattern in event_types_endpoint_patterns:
                 full_url = f"{base_url}{pattern}"
                 response = await test_direct_calendly_api(token=token, url=full_url)
+                # Create a safe summary of the response content
+                response_summary = None
+                if response.success and response.response_body is not None:
+                    if isinstance(response.response_body, str):
+                        response_summary = response.response_body[:200] + "..." if len(response.response_body) > 200 else response.response_body
+                    else:
+                        response_summary = str(response.response_body)[:200] + "..." if len(str(response.response_body)) > 200 else str(response.response_body)
+                
                 results["event_types_tests"].append({
                     "url": full_url,
                     "success": response.success,
                     "status": response.status_code,
-                    "response_summary": response.response_body[:200] + "..." if isinstance(response.response_body, str) and len(response.response_body) > 200 else response.response_body
+                    "response_summary": response_summary
                 })
         
         # Test scheduled events endpoints
@@ -272,11 +280,19 @@ async def try_all_endpoints(
                 params = "min_start_time=" + datetime.now().isoformat()
                 full_url = f"{base_url}{pattern}?{params}"
                 response = await test_direct_calendly_api(token=token, url=full_url)
+                # Create a safe summary of the response content
+                response_summary = None
+                if response.success and response.response_body is not None:
+                    if isinstance(response.response_body, str):
+                        response_summary = response.response_body[:200] + "..." if len(response.response_body) > 200 else response.response_body
+                    else:
+                        response_summary = str(response.response_body)[:200] + "..." if len(str(response.response_body)) > 200 else str(response.response_body)
+                
                 results["scheduled_events_tests"].append({
                     "url": full_url,
                     "success": response.success,
                     "status": response.status_code,
-                    "response_summary": response.response_body[:200] + "..." if isinstance(response.response_body, str) and len(response.response_body) > 200 else response.response_body
+                    "response_summary": response_summary
                 })
     
     return results
