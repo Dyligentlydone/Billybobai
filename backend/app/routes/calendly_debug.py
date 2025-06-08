@@ -4,8 +4,8 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, List
 from pydantic import BaseModel
 
-from ..services.calendly import CalendlyService
-from ..dependencies.services import get_calendly_service
+from app.services.calendly import CalendlyService
+from app.dependencies.services import get_calendly_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/calendly-debug", tags=["debug"])
