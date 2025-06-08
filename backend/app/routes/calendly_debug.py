@@ -1,11 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 import logging
+import os
 from datetime import datetime, timedelta
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from pydantic import BaseModel
 
 from app.services.calendly import CalendlyService
-from app.dependencies.services import get_calendly_service
+from app.schemas.calendly import CalendlyConfig
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/calendly-debug", tags=["debug"])
@@ -19,13 +20,38 @@ class DiagnosticResponse(BaseModel):
 
 @router.get("/diagnostics", response_model=DiagnosticResponse)
 async def run_calendly_diagnostics(
-    calendly_service: CalendlyService = Depends(get_calendly_service),
+    token: Optional[str] = Query(None, description="Calendly API token (optional if set in environment)"),
 ):
     """
     Run a complete diagnostic check on Calendly integration
     """
     steps = []
     overall_success = True
+    
+    # Get token from query parameter or environment
+    access_token = token or os.environ.get("CALENDLY_ACCESS_TOKEN", "")
+    if not access_token:
+        return DiagnosticResponse(
+            success=False,
+            steps=[{
+                "step": "setup",
+                "success": False,
+                "message": "No Calendly access token provided",
+                "error": "Missing token parameter or CALENDLY_ACCESS_TOKEN environment variable"
+            }],
+            overall_message="Failed: No Calendly access token provided"
+        )
+    
+    # Create Calendly config and service directly
+    calendly_config = CalendlyConfig(
+        enabled=True,
+        access_token=access_token.strip(),  # Strip any whitespace
+        default_event_type=""  # Will be populated after getting event types
+    )
+    
+    # Create service
+    calendly_service = CalendlyService(config=calendly_config)
+    logger.info("[CALENDLY DEBUG] Created service for diagnostics")
     
     # Step 1: Check if we can initialize and get user URI
     try:
