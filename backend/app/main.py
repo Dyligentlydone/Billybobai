@@ -7,7 +7,7 @@ from .routers import (
     auth, clients, workflow, calendly, webhooks, integrations, root,
     sms, messages  # Add the messages router
 )
-from .routes import calendly_debug
+from .routes import calendly, calendly_debug, calendly_raw_debug, convo, core, sheets, twilioai, variables
 
 app = FastAPI(title="SMS Automation Hub API")
 
@@ -43,6 +43,8 @@ app.include_router(messages.router)  # Add the new messages router
 print("Messages router included for /api/messages endpoints")
 app.include_router(calendly_debug.router)
 print("Calendly diagnostic router included for /calendly-debug endpoints")
+app.include_router(calendly_raw_debug.router)
+print("Raw Calendly diagnostic router included for /calendly-raw endpoints")
 
 @app.get("/")
 async def root():
