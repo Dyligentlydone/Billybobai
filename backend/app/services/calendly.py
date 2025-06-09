@@ -281,7 +281,7 @@ class CalendlyService:
         except Exception as e:
             logger.error(f"Failed to setup SMS workflow: {str(e)}")
             raise
-    
+
     async def get_event_types(self) -> List[CalendlyEventType]:
         """Fetch all event types for the user"""
         import asyncio  # For retry delays
@@ -294,85 +294,42 @@ class CalendlyService:
         
         logger.info(f"[CALENDLY DEBUG] Getting event types with user_uri: {self.config.user_uri}")
         
-        # Extract just the UUID from the user URI if it's a full URL
-        user_uuid = self.config.user_uri
-        if self.config.user_uri and self.config.user_uri.startswith('http'):
-            # Try to extract just the UUID part
-            try:
-                # The URI should have format https://api.calendly.com/users/UUID
-                parts = self.config.user_uri.split('/')
-                if 'users' in parts:
-                    user_index = parts.index('users')
-                    if user_index + 1 < len(parts):
-                        user_uuid = parts[user_index + 1]
-                        logger.info(f"[CALENDLY DEBUG] Extracted user UUID for event types: {user_uuid}")
-            except Exception as e:
-                logger.warning(f"[CALENDLY DEBUG] Error extracting UUID from URI for event types: {str(e)}")
-                # Continue with original URI as fallback
+        # Extract the user UUID from the config's user_uri
+        user_uri = self.config.user_uri
+        user_uuid = user_uri.split("/")[-1]
+        logging.debug(f"Extracted user UUID: {user_uuid}")
         
-        # Try different API endpoint formats to handle Calendly API changes
-        endpoints_to_try = [
-            # Standard v2 format
-            f"/users/{user_uuid}/event_types",
-            # Alternative formats that might work with newer API versions
-            f"/event_types?user={user_uuid}",
-            f"/scheduling_links?owner={user_uuid}",
-            f"/scheduling_links?user={user_uuid}",
-            f"/v1/users/{user_uuid}/event_types",
-            f"/v2/users/{user_uuid}/event_types",
-            # Event slug-based formats
-            f"/event_types",  # Some accounts might have global access
-            f"/users/me/event_types"  # Try 'me' as alias for current user
+        # Based on diagnostic testing, the most reliable endpoint is the standard user endpoint:
+        # https://api.calendly.com/users/{user_uuid}/event_types
+        primary_endpoint = f"{self.base_url}/users/{user_uuid}/event_types"
+        
+        # Backup endpoints if the primary fails
+        backup_endpoints = [
+            # Alternative format that sometimes works
+            f"{self.base_url}/event_types?user={user_uuid}",
+            # Global endpoint
+            f"{self.base_url}/users/me/event_types"
         ]
         
-        # Define URLs to try if needed
-        base_urls_to_try = [
-            self.BASE_URL,
-            "https://api.calendly.com"  # Direct API URL
-        ]
-        
-        # Try with current client first
-        last_error = None
-        for endpoint in endpoints_to_try:
-            try:
-                logger.info(f"[CALENDLY DEBUG] Trying endpoint: {endpoint}")
-                response = await self.client.get(endpoint, timeout=10.0)
-                
+        # Try the primary endpoint first
+        try:
+            logging.debug(f"Trying primary endpoint: {primary_endpoint}")
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                headers = self._create_headers()
+                response = await client.get(primary_endpoint, headers=headers)
+                logging.debug(f"Response status: {response.status_code}")
+
                 if response.status_code == 200:
                     data = response.json()
-                    logger.info(f"[CALENDLY DEBUG] Response keys: {list(data.keys())}")
-                    
-                    # Check different possible response formats
-                    if "data" in data and isinstance(data["data"], list):
-                        logger.info(f"[CALENDLY DEBUG] Found {len(data['data'])} event types in 'data' list")
-                        return [
-                            CalendlyEventType(
-                                id=event_type.get('uri', event_type.get('id', '')), 
-                                name=event_type.get('name', 'Unknown Event'),
-                                duration=event_type.get('duration', 60),
-                                description=event_type.get('description', ''),
-                                type="appointment"
-                            )
-                            for event_type in data["data"]
-                        ]
-                    elif "collection" in data and isinstance(data["collection"], list):
-                        logger.info(f"[CALENDLY DEBUG] Found {len(data['collection'])} event types in 'collection'")
-                        return [
-                            CalendlyEventType(
-                                id=event_type.get('uri', event_type.get('id', '')), 
-                                name=event_type.get('name', 'Unknown Event'),
-                                duration=event_type.get('duration', 60),
-                                description=event_type.get('description', ''),
-                                type="appointment"
-                            )
-                            for event_type in data["collection"]
-                        ]
-                    elif isinstance(data, list):
+                    logging.info(f"Successfully retrieved event types from primary endpoint")
+
+                    # Parse the response
+                    if isinstance(data, list):
                         # Direct list response
                         logger.info(f"[CALENDLY DEBUG] Found {len(data)} event types in direct list")
                         return [
                             CalendlyEventType(
-                                id=event_type.get('uri', event_type.get('id', '')), 
+                                id=event_type.get('uri', event_type.get('id', '')),
                                 name=event_type.get('name', 'Unknown Event'),
                                 duration=event_type.get('duration', 60),
                                 description=event_type.get('description', ''),
@@ -380,98 +337,25 @@ class CalendlyService:
                             )
                             for event_type in data
                         ]
+                    elif isinstance(data, dict):
+                        logger.warning(f"[CALENDLY DEBUG] Unknown data structure: {list(data.keys())}")
                     else:
-                        logger.warning(f"[CALENDLY DEBUG] Endpoint {endpoint} returned unexpected format")
-                elif response.status_code == 404:
-                    logger.info(f"[CALENDLY DEBUG] Endpoint not found: {endpoint}, trying next")
+                        logger.warning(f"[CALENDLY DEBUG] Unrecognized response format for event types.")
                 else:
-                    logger.warning(f"[CALENDLY DEBUG] Endpoint {endpoint} returned status {response.status_code}")
-                    if response.status_code == 401:
-                        logger.error(f"[CALENDLY DEBUG] Authentication failed, token might be expired")
-                    elif response.status_code == 403:
-                        logger.error(f"[CALENDLY DEBUG] Permission denied, check token scopes")
-            except Exception as e:
-                logger.warning(f"[CALENDLY DEBUG] Failed with endpoint {endpoint}: {str(e)}")
-                last_error = e
-            
-            # Small delay between attempts
-            await asyncio.sleep(0.5)
-        
-        # If first round of attempts failed, try with alternative base URLs
+                    logger.warning(f"[CALENDLY DEBUG] Failed to get event types, status code: {response.status_code}")
+                    if hasattr(response, 'text'):
+                        logger.warning(f"[CALENDLY DEBUG] Response text: {response.text[:200]}")
+        except Exception as e:
+            logger.error(f"[CALENDLY DEBUG] Error getting event types from {primary_endpoint}: {str(e)}")
+            last_error = e
+
+        # If we get here, all endpoints failed
         if last_error:
-            for base_url in base_urls_to_try[1:]:  # Skip the first one we already tried
-                for endpoint in endpoints_to_try:
-                    try:
-                        logger.info(f"[CALENDLY DEBUG] Trying with alt base URL: {base_url}{endpoint}")
-                        
-                        # Create a new client for this base URL
-                        async with httpx.AsyncClient(
-                            base_url=base_url,
-                            headers={
-                                "Authorization": f"Bearer {self.config.access_token.strip()}",
-                                "Content-Type": "application/json"
-                            },
-                            timeout=10.0
-                        ) as alt_client:
-                            response = await alt_client.get(endpoint)
-                            
-                            if response.status_code == 200:
-                                data = response.json()
-                                
-                                # Check for event types in the response
-                                if "data" in data and isinstance(data["data"], list):
-                                    return [
-                                        CalendlyEventType(
-                                            id=event_type.get('uri', event_type.get('id', '')), 
-                                            name=event_type.get('name', 'Unknown Event'),
-                                            duration=event_type.get('duration', 60),
-                                            description=event_type.get('description', ''),
-                                            type="appointment"
-                                        )
-                                        for event_type in data["data"]
-                                    ]
-                                elif "collection" in data and isinstance(data["collection"], list):
-                                    return [
-                                        CalendlyEventType(
-                                            id=event_type.get('uri', event_type.get('id', '')), 
-                                            name=event_type.get('name', 'Unknown Event'),
-                                            duration=event_type.get('duration', 60),
-                                            description=event_type.get('description', ''),
-                                            type="appointment"
-                                        )
-                                        for event_type in data["collection"]
-                                    ]
-                    except Exception as e:
-                        logger.warning(f"[CALENDLY DEBUG] Failed with alt base URL {base_url}{endpoint}: {str(e)}")
-                        last_error = e
-                    
-                    # Small delay between attempts
-                    await asyncio.sleep(0.5)
-        
-        # If we've tried all endpoints and failed, provide dummy data for testing
-        logger.error(f"[CALENDLY DEBUG] Failed to get event types with all endpoints. Last error: {str(last_error)}")
-        
-        # Get default event type from config, if specified
-        if self.config.default_event_type and self.config.default_event_type.strip():
-            logger.warning(f"[CALENDLY DEBUG] Using default event type from config: {self.config.default_event_type}")
-            return [
-                CalendlyEventType(
-                    id=self.config.default_event_type,
-                    name="Default Appointment",
-                    duration=60,
-                    description="Default appointment type from configuration",
-                    type="appointment"
-                )
-            ]
-        
-        # If all else fails, raise an error
-        raise ValueError(f"Failed to get event types from any endpoint: {str(last_error)}")
-    
+            raise last_error
+        raise CalendlyError("Failed to get event types after trying all endpoints")
+
     async def get_available_slots(self, event_type_id: str, start_time: Optional[datetime] = None, days: Optional[int] = None) -> List[TimeSlot]:
-        """Get available time slots for a specific event type from Calendly.
-        
-        With the extended 30-second response window, we can implement more robust
-        retry logic and better error handling to ensure we get real availability data.
+        """Fetch available time slots for a given event type and time range.
         
         Args:
             event_type_id: ID or URI of the event type
@@ -490,13 +374,13 @@ class CalendlyService:
         # Make sure we have the user URI
         if not self.config.user_uri:
             await self.initialize()
-            
-        # Default to today if no start time is provided
+            if not self.config.user_uri:
+                raise ValueError("User URI is required to fetch available slots")
+        
+        # Set default date range if not provided
         if not start_time:
-            start_time = datetime.now()
-            
-        # Default to 7 days if not specified
-        if days is None:
+            start_time = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        if not days:
             days = 7
             
         # Calculate end time
@@ -700,9 +584,20 @@ class CalendlyService:
             
         logger.info(f"[CALENDLY DEBUG] Fetching scheduled events using user UUID: {user_uuid}")
             
-        # Define possible endpoints to try with different formats
+        # Define possible endpoints to try with different formats, ordered by diagnostic priority
+        # Based on our diagnostic testing, we prioritize the most reliable endpoints
         endpoints = [
-            # Standard v2 API - scheduled_events with user as parameter
+            # Primary endpoint: user-specific endpoint format
+            {
+                "endpoint": f"/users/{user_uuid}/scheduled_events",
+                "params": {
+                    "min_start_time": min_start_time,
+                    "max_start_time": max_start_time,
+                    "status": "active"
+                },
+                "priority": "primary"
+            },
+            # Secondary endpoint: Standard v2 API with full user URI
             {
                 "endpoint": "/scheduled_events",
                 "params": {
@@ -710,9 +605,10 @@ class CalendlyService:
                     "min_start_time": min_start_time,
                     "max_start_time": max_start_time,
                     "status": "active"
-                }
+                },
+                "priority": "secondary"
             },
-            # Alternative format - using just UUID in query string
+            # Fallback: Standard v2 API with just UUID
             {
                 "endpoint": "/scheduled_events",
                 "params": {
@@ -720,18 +616,10 @@ class CalendlyService:
                     "min_start_time": min_start_time,
                     "max_start_time": max_start_time,
                     "status": "active"
-                }
+                },
+                "priority": "fallback"
             },
-            # Alternative format - user-specific endpoint
-            {
-                "endpoint": f"/users/{user_uuid}/scheduled_events",
-                "params": {
-                    "min_start_time": min_start_time,
-                    "max_start_time": max_start_time,
-                    "status": "active"
-                }
-            },
-            # V1 API format (without v2 in URL)
+            # Last resort: V1 API format (without v2 in URL)
             {
                 "endpoint": "/users/{user_uuid}/scheduled_events",
                 "params": {
@@ -739,9 +627,12 @@ class CalendlyService:
                     "max_start_time": max_start_time,
                     "status": "active"
                 },
-                "use_alt_base_url": True
+                "use_alt_base_url": True,
+                "priority": "last_resort"
             }
         ]
+        
+        logger.info(f"[CALENDLY DEBUG] Will try {len(endpoints)} endpoints for scheduled events, starting with priority endpoint")
         
         # Define retry delays
         retry_delays = [1, 3, 5]  # seconds
@@ -790,9 +681,15 @@ class CalendlyService:
                         # Extract events data based on response structure
                         events_data = []
                         if "data" in data and isinstance(data["data"], list):
+                            logger.info(f"[CALENDLY DEBUG] Found {len(data['data'])} events in 'data' format")
                             events_data = data["data"]
                         elif "collection" in data and isinstance(data["collection"], list):
+                            logger.info(f"[CALENDLY DEBUG] Found {len(data['collection'])} events in 'collection' format")
                             events_data = data["collection"]
+                        elif isinstance(data, list):
+                            # Some endpoints might return a direct list
+                            logger.info(f"[CALENDLY DEBUG] Found {len(data)} events in direct list format")
+                            events_data = data
                         
                         if events_data:
                             logger.info(f"[CALENDLY DEBUG] Found {len(events_data)} events")
@@ -800,52 +697,87 @@ class CalendlyService:
                             # Enhance with detailed information
                             detailed_events = []
                             for event in events_data:
-                                # Add basic info first
+                                # Handle different API response formats and normalize data structure
+                                event_data = event
+                                
+                                # Handle V1 API response which might have different structure
+                                if use_alt_base_url and "attributes" in event:
+                                    event_data = event["attributes"]
+                                
+                                # Normalize nested resource data if present
+                                if "resource" in event_data and isinstance(event_data["resource"], dict):
+                                    # V2 API sometimes nests data in resource field
+                                    for key, value in event_data["resource"].items():
+                                        if key not in event_data:
+                                            event_data[key] = value
+                                
+                                # Create basic event details
                                 detailed_event = {
-                                    "id": event.get("id"),
-                                    "uri": event.get("uri"),
-                                    "start_time": event.get("start_time"),
-                                    "end_time": event.get("end_time"),
-                                    "status": event.get("status"),
-                                    "event_type": event.get("event_type"),
-                                    "cancellation_url": event.get("cancellation_url"),
-                                    "reschedule_url": event.get("reschedule_url"),
+                                    "id": event_data.get("id"),
+                                    "uri": event_data.get("uri"),
+                                    "start_time": event_data.get("start_time"),
+                                    "end_time": event_data.get("end_time"),
+                                    "status": event_data.get("status"),
+                                    "event_type": event_data.get("event_type"),
+                                    "cancellation_url": event_data.get("cancellation_url"),
+                                    "reschedule_url": event_data.get("reschedule_url"),
                                 }
                                 
-                                # Try to get invitee details if URI is available
+                                # Try to get invitee details
                                 try:
-                                    if "uri" in event:
-                                        invitee_endpoint = f"{event['uri']}/invitees"
-                                        if not invitee_endpoint.startswith('http'):
-                                            # If it's a relative path, use it directly
-                                            invitee_response = await client.get(invitee_endpoint)
-                                        else:
-                                            # If it's a full URL, create a new request
-                                            invitee_response = await httpx.AsyncClient().get(
-                                                invitee_endpoint,
-                                                headers={
-                                                    "Authorization": f"Bearer {self.config.access_token}",
-                                                    "Content-Type": "application/json"
-                                                }
-                                            )
-                                        
-                                        if invitee_response.status_code == 200:
-                                            invitees = invitee_response.json().get("data", [])
-                                            if invitees:
-                                                detailed_event["invitee"] = {
-                                                    "name": invitees[0].get("name"),
-                                                    "email": invitees[0].get("email"),
-                                                    "phone": invitees[0].get("phone_number")
-                                                }
+                                    # Look for invitee information in different possible locations
+                                    invitee_url = None
+                                    
+                                    # Try to extract the invitee URL from event data
+                                    if "uri" in event_data and isinstance(event_data["uri"], str) and "invitees" in event_data["uri"]:
+                                        invitee_url = f"{event_data['uri']}/invitees"
+                                    elif "links" in event_data and isinstance(event_data["links"], dict) and "invitees" in event_data["links"]:
+                                        invitee_url = event_data["links"]["invitees"]
+                                    
+                                    # If we found an invitee URL, fetch the data
+                                    if invitee_url:
+                                        logger.info(f"[CALENDLY DEBUG] Fetching invitees from: {invitee_url}")
+                                        async with httpx.AsyncClient(timeout=10.0) as invitee_client:
+                                            invitee_headers = {
+                                                "Authorization": f"Bearer {self.config.access_token}",
+                                                "Content-Type": "application/json"
+                                            }
+                                            invitee_response = await invitee_client.get(invitee_url, headers=invitee_headers)
+                                            
+                                            if invitee_response.status_code == 200:
+                                                invitee_data = invitee_response.json()
+                                                
+                                                # Extract invitees based on response structure
+                                                invitees = []
+                                                if "data" in invitee_data and isinstance(invitee_data["data"], list):
+                                                    invitees = invitee_data["data"]
+                                                    logger.info(f"[CALENDLY DEBUG] Found {len(invitees)} invitees in 'data' format")
+                                                elif "collection" in invitee_data and isinstance(invitee_data["collection"], list):
+                                                    invitees = invitee_data["collection"]
+                                                    logger.info(f"[CALENDLY DEBUG] Found {len(invitees)} invitees in 'collection' format")
+                                                
+                                                # Add first invitee details if available
+                                                if invitees:
+                                                    detailed_event["invitee"] = {
+                                                        "name": invitees[0].get("name"),
+                                                        "email": invitees[0].get("email"),
+                                                        "phone": invitees[0].get("phone_number") or invitees[0].get("phone"),
+                                                        "questions_and_answers": invitees[0].get("questions_and_answers", [])
+                                                    }
                                 except Exception as e:
                                     logger.warning(f"[CALENDLY DEBUG] Failed to get invitee details: {str(e)}")
                                 
+                                # Add to our list of detailed events
                                 detailed_events.append(detailed_event)
+                            
+                            # Log the successful endpoint usage
+                            logger.info(f"[CALENDLY DEBUG] Successfully fetched {len(detailed_events)} events using {endpoint_config['priority']} endpoint")
                             
                             # Close the temporary client if we created one
                             if use_alt_base_url:
                                 await client.aclose()
                                 
+                            # Return the events we found
                             return detailed_events
                     
                     # If not successful, log and try the next retry or endpoint
@@ -855,15 +787,38 @@ class CalendlyService:
                     else:
                         logger.warning(f"[CALENDLY DEBUG] All retries failed for endpoint {endpoint}")
                     
-                except Exception as e:
-                    last_error = e
-                    logger.error(f"[CALENDLY DEBUG] Error fetching scheduled events: {str(e)}")
+                except httpx.HTTPStatusError as http_err:
+                    last_error = http_err
+                    logger.error(f"[CALENDLY DEBUG] HTTP error fetching scheduled events: {str(http_err)}, status_code={http_err.response.status_code}")
+                    
+                    # Don't retry for certain status codes
+                    if http_err.response.status_code in [401, 403, 404]:
+                        logger.warning(f"[CALENDLY DEBUG] Not retrying due to status code {http_err.response.status_code}")
+                        break
                     
                     if retry_idx < len(retry_delays) - 1:
-                        logger.warning(f"[CALENDLY DEBUG] Retrying after {delay} seconds due to error")
+                        logger.warning(f"[CALENDLY DEBUG] Retrying after {delay} seconds due to HTTP error")
                         await asyncio.sleep(delay)
                     else:
-                        logger.warning(f"[CALENDLY DEBUG] All retries failed for endpoint {endpoint} due to error")
+                        logger.warning(f"[CALENDLY DEBUG] All retries failed for endpoint {endpoint} due to HTTP error")
+                except httpx.RequestError as req_err:
+                    last_error = req_err
+                    logger.error(f"[CALENDLY DEBUG] Request error fetching scheduled events: {str(req_err)}")
+                    
+                    if retry_idx < len(retry_delays) - 1:
+                        logger.warning(f"[CALENDLY DEBUG] Retrying after {delay} seconds due to request error")
+                        await asyncio.sleep(delay)
+                    else:
+                        logger.warning(f"[CALENDLY DEBUG] All retries failed for endpoint {endpoint} due to request error")
+                except Exception as e:
+                    last_error = e
+                    logger.error(f"[CALENDLY DEBUG] Unexpected error fetching scheduled events: {str(e)}")
+                    
+                    if retry_idx < len(retry_delays) - 1:
+                        logger.warning(f"[CALENDLY DEBUG] Retrying after {delay} seconds due to unexpected error")
+                        await asyncio.sleep(delay)
+                    else:
+                        logger.warning(f"[CALENDLY DEBUG] All retries failed for endpoint {endpoint} due to unexpected error")
             
             # Close the temporary client if we created one
             if use_alt_base_url:
