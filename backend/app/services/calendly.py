@@ -350,6 +350,7 @@ class CalendlyService:
                     logger.warning(f"[CALENDLY DEBUG] Failed to get event types, status code: {response.status_code}")
                     if hasattr(response, 'text'):
                         logger.warning(f"[CALENDLY DEBUG] Response text: {response.text[:200]}")
+                    last_error = CalendlyError(f"Failed to get event types, status code: {response.status_code}")
         except Exception as e:
             logger.error(f"[CALENDLY DEBUG] Error getting event types from {primary_endpoint}: {str(e)}")
             last_error = e
