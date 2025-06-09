@@ -15,6 +15,10 @@ from ..schemas.calendly import (
 )
 import logging
 
+class CalendlyError(Exception):
+    """Custom exception for Calendly-related errors."""
+    pass
+
 logger = logging.getLogger(__name__)
 
 class CalendlyService:
@@ -510,7 +514,7 @@ class CalendlyService:
                     elif response.status_code == 401:  # Unauthorized
                         logger.error(f"[CALENDLY DEBUG] Authentication error: Invalid or expired token")
                         last_error = Exception("Calendly authentication failed - please check your access token")
-                        # Don't retry auth errors
+                        # Don't retry on auth errors
                         break
                     
                     elif response.status_code == 404:  # Not Found
