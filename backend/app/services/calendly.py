@@ -1062,55 +1062,53 @@ class CalendlyService:
         
         return result
     
-    def _generate_fallback_availability(self, start_date: datetime, days: int) -> List[TimeSlot]:
-        """
-        Generate realistic fallback availability data when Calendly API fails
-        
-        Args:
-            start_date: Start date for availability period
-            days: Number of days to generate data for
+    def _create_headers(self) -> dict:
+        return {
+            "Authorization": f"Bearer {self.config.access_token}",
+            "Content-Type": "application/json"
+        }
+
+    async def create_booking(self, request: BookingRequest) -> Booking:
+        """Create a new booking"""
+        # Ensure we have the user URI
+        if not self.config.user_uri:
+            await self.initialize()
             
-        Returns:
-            List of TimeSlot objects with realistic availability
-        """
-        logger.info(f"[CALENDLY DEBUG] Generating fallback availability for {days} days from {start_date}")
-        slots = []
-        
-        # Common business hours (9am-5pm with 1hr intervals)
-        available_hours = [9, 10, 11, 13, 14, 15, 16]
-        
-        # Generate slots for the specified date range
-        current_date = start_date
-        for day_offset in range(days):
-            # Only include weekdays (Mon-Fri)
-            current_date = start_date + timedelta(days=day_offset)
-            weekday = current_date.weekday()
+        # Ensure SMS workflow is set up
+        if self.config.sms_notifications.enabled:
+            await self.setup_sms_workflow()
             
-            # Only show availability on Monday, Wednesday, Friday (0, 2, 4)
-            if weekday in [0, 2, 4]:  
-                # Add available time slots for this day
-                for hour in available_hours:
-                    slot_time = current_date.replace(hour=hour, minute=0, second=0, microsecond=0)
-                    slot_id = int(slot_time.timestamp())  # Use timestamp as unique ID
-                    
-                    # Only include future times
-                    if slot_time > datetime.now():
-                        try:
-                            slots.append(TimeSlot(
-                                start_time=slot_time,
-                                end_time=slot_time + timedelta(minutes=50),
-                                status="available",
-                                display_id=slot_id,
-                                event_type_id="fallback-event-type",  # Required field
-                                invitee_id=None,
-                                cancellation_url=None,
-                                reschedule_url=None
-                            ))
-                        except Exception as slot_error:
-                            logger.error(f"Error creating fallback slot: {str(slot_error)}")
+        # Ensure we have event types loaded
+        if not self.config.event_types or request.event_type_id not in self.config.event_types:
+            event_types = await self.get_event_types()
+            self.config.event_types = {et.id: et for et in event_types}
+            
+        response = await self.client.post(
+            f"/event_types/{request.event_type_id}/bookings",
+            json={
+                "start_time": request.start_time.isoformat(),
+                "customer": {
+                    "name": request.customer_name,
+                    "email": request.customer_email,
+                    "phone": request.customer_phone
+                },
+                "notes": request.notes
+            }
+        )
+        response.raise_for_status()
         
-        logger.info(f"[CALENDLY DEBUG] Generated {len(slots)} fallback availability slots")
-        return slots
+        booking_data = response.json()["data"]
+        return Booking(
+            id=booking_data["id"],
+            event_type=self.config.event_types[request.event_type_id],
+            start_time=datetime.fromisoformat(booking_data["start_time"]),
+            end_time=datetime.fromisoformat(booking_data["end_time"]),
+            customer_name=request.customer_name,
+            customer_phone=request.customer_phone,
+            status="active",
+            cancellation_url=booking_data.get("cancellation_url") if self.config.sms_notifications.include_cancel_link else None,
+            reschedule_url=booking_data.get("reschedule_url") if self.config.sms_notifications.include_reschedule_link else None
+        )
 
     async def get_available_days(self, days: int = 7, start_date: Optional[datetime] = None) -> Dict[str, Any]:
         """
@@ -1267,44 +1265,52 @@ class CalendlyService:
                 "available_days": []
             }
     
-    async def create_booking(self, request: BookingRequest) -> Booking:
-        """Create a new booking"""
-        # Ensure we have the user URI
-        if not self.config.user_uri:
-            await self.initialize()
-            
-        # Ensure SMS workflow is set up
-        if self.config.sms_notifications.enabled:
-            await self.setup_sms_workflow()
-            
-        # Ensure we have event types loaded
-        if not self.config.event_types or request.event_type_id not in self.config.event_types:
-            event_types = await self.get_event_types()
-            self.config.event_types = {et.id: et for et in event_types}
-            
-        response = await self.client.post(
-            f"/event_types/{request.event_type_id}/bookings",
-            json={
-                "start_time": request.start_time.isoformat(),
-                "customer": {
-                    "name": request.customer_name,
-                    "email": request.customer_email,
-                    "phone": request.customer_phone
-                },
-                "notes": request.notes
-            }
-        )
-        response.raise_for_status()
+    def _generate_fallback_availability(self, start_date: datetime, days: int) -> List[TimeSlot]:
+        """
+        Generate realistic fallback availability data when Calendly API fails
         
-        booking_data = response.json()["data"]
-        return Booking(
-            id=booking_data["id"],
-            event_type=self.config.event_types[request.event_type_id],
-            start_time=datetime.fromisoformat(booking_data["start_time"]),
-            end_time=datetime.fromisoformat(booking_data["end_time"]),
-            customer_name=request.customer_name,
-            customer_phone=request.customer_phone,
-            status="active",
-            cancellation_url=booking_data.get("cancellation_url") if self.config.sms_notifications.include_cancel_link else None,
-            reschedule_url=booking_data.get("reschedule_url") if self.config.sms_notifications.include_reschedule_link else None
-        )
+        Args:
+            start_date: Start date for availability period
+            days: Number of days to generate data for
+            
+        Returns:
+            List of TimeSlot objects with realistic availability
+        """
+        logger.info(f"[CALENDLY DEBUG] Generating fallback availability for {days} days from {start_date}")
+        slots = []
+        
+        # Common business hours (9am-5pm with 1hr intervals)
+        available_hours = [9, 10, 11, 13, 14, 15, 16]
+        
+        # Generate slots for the specified date range
+        current_date = start_date
+        for day_offset in range(days):
+            # Only include weekdays (Mon-Fri)
+            current_date = start_date + timedelta(days=day_offset)
+            weekday = current_date.weekday()
+            
+            # Only show availability on Monday, Wednesday, Friday (0, 2, 4)
+            if weekday in [0, 2, 4]:  
+                # Add available time slots for this day
+                for hour in available_hours:
+                    slot_time = current_date.replace(hour=hour, minute=0, second=0, microsecond=0)
+                    slot_id = int(slot_time.timestamp())  # Use timestamp as unique ID
+                    
+                    # Only include future times
+                    if slot_time > datetime.now():
+                        try:
+                            slots.append(TimeSlot(
+                                start_time=slot_time,
+                                end_time=slot_time + timedelta(minutes=50),
+                                status="available",
+                                display_id=slot_id,
+                                event_type_id="fallback-event-type",  # Required field
+                                invitee_id=None,
+                                cancellation_url=None,
+                                reschedule_url=None
+                            ))
+                        except Exception as slot_error:
+                            logger.error(f"Error creating fallback slot: {str(slot_error)}")
+        
+        logger.info(f"[CALENDLY DEBUG] Generated {len(slots)} fallback availability slots")
+        return slots
