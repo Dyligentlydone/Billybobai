@@ -283,6 +283,7 @@ class CalendlyService:
             raise
 
     async def get_event_types(self) -> List[CalendlyEventType]:
+        last_error = None
         """Fetch all event types for the user"""
         import asyncio  # For retry delays
         
