@@ -301,14 +301,14 @@ class CalendlyService:
         
         # Based on diagnostic testing, the most reliable endpoint is the standard user endpoint:
         # https://api.calendly.com/users/{user_uuid}/event_types
-        primary_endpoint = f"{self.base_url}/users/{user_uuid}/event_types"
+        primary_endpoint = f"{self.BASE_URL}/users/{user_uuid}/event_types"
         
         # Backup endpoints if the primary fails
         backup_endpoints = [
             # Alternative format that sometimes works
-            f"{self.base_url}/event_types?user={user_uuid}",
+            f"{self.BASE_URL}/event_types?user={user_uuid}",
             # Global endpoint
-            f"{self.base_url}/users/me/event_types"
+            f"{self.BASE_URL}/users/me/event_types"
         ]
         
         # Try the primary endpoint first
