@@ -440,9 +440,9 @@ class CalendlyService:
         # Calculate end time
         end_time = start_time + timedelta(days=days)
         
-        # Format dates for API - use ISO format for better compatibility
-        start_iso = start_time.isoformat()
-        end_iso = end_time.isoformat()
+        # Use timezone-aware UTC ISO strings expected by Calendly (trailing Z)
+        start_iso = start_time.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+        end_iso = end_time.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
         
         # Extract user UUID for API calls
         user_uuid = self.config.user_uri.split('/')[-1] if '/' in self.config.user_uri else self.config.user_uri
@@ -470,6 +470,7 @@ class CalendlyService:
             # Try additional endpoint formats that might be used in different API versions
             endpoints_to_try.append(f"/scheduled_events/available_times?event_type={event_type_id}")
             endpoints_to_try.append(f"/users/{user_uuid}/event_types/{event_type_id}/available_times")
+            endpoints_to_try.append("/event_type_available_times")
         
         logger.info(f"[CALENDLY DEBUG] Will try these endpoints for available times: {endpoints_to_try}")
         
@@ -486,7 +487,9 @@ class CalendlyService:
                     # API request parameters
                     params = {
                         "start_time": start_iso,
-                        "end_time": end_iso
+                        "end_time": end_iso,
+                        "event_type": event_type_id,
+                        "timezone": getattr(self.config, "timezone", "UTC") or "UTC"
                     }
                     
                     # Make request with timeout
@@ -1239,7 +1242,7 @@ class CalendlyService:
                 using_fallback = True
             
             # If we need to use fallback data, generate it
-            if using_fallback or not slots:
+            if using_fallback:
                 logger.info("[CALENDLY DEBUG] Using fallback availability data")
                 slots = self._generate_fallback_availability(start_date, days)
             
