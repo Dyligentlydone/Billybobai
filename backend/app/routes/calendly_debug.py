@@ -86,7 +86,7 @@ async def run_calendly_diagnostics(
             "data": {
                 "count": len(event_types),
                 "types": [
-                    {"id": et.id, "name": et.name, "uri": et.uri} for et in event_types
+                    {"id": et.id, "name": et.name, "duration": et.duration} for et in event_types
                 ]
             }
         })
@@ -132,7 +132,7 @@ async def run_calendly_diagnostics(
         if any(step["step"] == "get_event_types" and step["success"] for step in steps):
             event_type = None
             for step in steps:
-                if step["step"] == "get_event_types" and "data" in step:
+                if step["step"] == "get_event_types" and step["success"] and "data" in step:
                     if step["data"]["count"] > 0:
                         event_type = step["data"]["types"][0]
                         break
