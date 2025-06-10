@@ -1371,3 +1371,43 @@ class CalendlyService:
         
         logger.info(f"[CALENDLY DEBUG] Generated {len(slots)} fallback availability slots")
         return slots
+
+    def format_slots_for_sms(self, slots: List[TimeSlot], limit: int = 10) -> str:
+        """Format a list of TimeSlot objects into a numbered string for SMS.
+
+        Args:
+            slots: List of TimeSlot objects returned from get_available_slots.
+            limit: Maximum number of slots to show (default 10).
+
+        Returns:
+            A user-friendly string listing up to ``limit`` slots, or a fallback message
+            if the list is empty.
+        """
+        try:
+            if not slots:
+                return "I'm sorry, but no available times were found in the next few days."
+
+            # Sort by start time just in case
+            sorted_slots = sorted(slots, key=lambda s: s.start_time)
+            # Limit the number of slots displayed
+            display_slots = sorted_slots[: limit]
+
+            lines: List[str] = []
+            for idx, slot in enumerate(display_slots, 1):
+                # Ensure the datetime is timezone-aware and format nicely
+                dt = slot.start_time
+                # Convert to local timezone if tzinfo is present, otherwise assume UTC
+                if dt.tzinfo:
+                    dt_local = dt.astimezone()  # Convert to system local timezone
+                else:
+                    dt_local = dt.replace(tzinfo=timezone.utc).astimezone()
+                lines.append(f"{idx}. {dt_local.strftime('%a, %b %d at %I:%M %p')}")
+
+            response = "Here are the next available times:\n\n" + "\n".join(lines)
+            if len(sorted_slots) > limit:
+                response += "\n\nMore times are available."
+            response += "\n\nReply with the number to pick a time."
+            return response
+        except Exception as e:
+            logger.error(f"Error formatting slots for SMS: {str(e)}")
+            return "I'm sorry, I couldn't format the available times right now. Please try again later."
