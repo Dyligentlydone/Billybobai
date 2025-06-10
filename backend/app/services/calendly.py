@@ -14,6 +14,8 @@ from ..schemas.calendly import (
     # WorkflowStep imported locally to avoid circular imports
 )
 import logging
+from urllib.parse import quote
+import traceback
 
 class CalendlyError(Exception):
     """Custom exception for Calendly-related errors."""
@@ -22,7 +24,8 @@ class CalendlyError(Exception):
 logger = logging.getLogger(__name__)
 
 class CalendlyService:
-    BASE_URL = "https://api.calendly.com/v2"
+    # Use root URL; v2 endpoints are path-only (e.g. /event_types)
+    BASE_URL = "https://api.calendly.com"
     # Alternative base URL for new token format
     ALT_BASE_URL = "https://api.calendly.com"
     
@@ -304,62 +307,107 @@ class CalendlyService:
         user_uuid = user_uri.split("/")[-1]
         logging.debug(f"Extracted user UUID: {user_uuid}")
         
-        # Based on diagnostic testing, the most reliable endpoint is the standard user endpoint:
-        # https://api.calendly.com/users/{user_uuid}/event_types
-        primary_endpoint = f"{self.BASE_URL}/users/{user_uuid}/event_types"
+        # Calendly API v2: list a user's event types via query param
+        # Docs: GET /event_types?user={user_uri}
+        primary_endpoint = f"{self.BASE_URL}/event_types?user={quote(self.config.user_uri, safe='')}"
         
-        # Backup endpoints if the primary fails
+        # Legacy direct UUID format (user_uri may not be accepted by some tenants)
         backup_endpoints = [
-            # Alternative format that sometimes works
-            f"{self.BASE_URL}/event_types?user={user_uuid}",
-            # Global endpoint
-            f"{self.BASE_URL}/users/me/event_types"
+            f"{self.BASE_URL}/event_types?user={quote(user_uuid, safe='')}",
+            # Fallback: legacy v1-style path (some older tenants still respond)
+            f"{self.BASE_URL}/users/{user_uuid}/event_types"
         ]
         
-        # Try the primary endpoint first
-        try:
-            logging.debug(f"Trying primary endpoint: {primary_endpoint}")
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                headers = self._create_headers()
-                response = await client.get(primary_endpoint, headers=headers)
-                logging.debug(f"Response status: {response.status_code}")
-
-                if response.status_code == 200:
-                    data = response.json()
-                    logging.info(f"Successfully retrieved event types from primary endpoint")
-
-                    # Parse the response
-                    if isinstance(data, list):
-                        # Direct list response
-                        logger.info(f"[CALENDLY DEBUG] Found {len(data)} event types in direct list")
+        logger.info(f"[CALENDLY DEBUG] Will try {len([primary_endpoint] + backup_endpoints)} endpoints for event types, starting with priority endpoint")
+        
+        # Define retry logic parameters
+        retry_delays = [1, 3, 5]  # Seconds to wait between retries
+        last_error = None
+        
+        # Try each endpoint with retries
+        for endpoint in [primary_endpoint] + backup_endpoints:
+            for retry_attempt, delay in enumerate(retry_delays, 1):
+                try:
+                    logger.info(f"[CALENDLY DEBUG] Trying endpoint: {endpoint} (Attempt {retry_attempt}/{len(retry_delays)})")
+                    
+                    # API request parameters
+                    params = {}
+                    
+                    # Make request with timeout
+                    response = await self.client.get(endpoint, params=params, timeout=10.0)
+                    
+                    # Log response status and handle different status codes
+                    logger.info(f"[CALENDLY DEBUG] Response status: {response.status_code} for {endpoint}")
+                    
+                    if response.status_code == 200:
+                        # Success - process the data
+                        data = response.json()
+                        logger.info(f"[CALENDLY DEBUG] Response keys: {list(data.keys())}")
+                        
+                        # Extract event types list from various possible keys
+                        if isinstance(data, list):
+                            event_types_raw = data
+                        elif isinstance(data, dict):
+                            event_types_raw = (
+                                data.get("collection")
+                                or data.get("data")
+                                or data.get("event_types")
+                                or []
+                            )
+                        else:
+                            event_types_raw = []
+                        
+                        logger.info(f"[CALENDLY DEBUG] Found {len(event_types_raw)} event types in response")
+                        
                         return [
                             CalendlyEventType(
-                                id=event_type.get('uri', event_type.get('id', '')),
-                                name=event_type.get('name', 'Unknown Event'),
-                                duration=event_type.get('duration', 60),
-                                description=event_type.get('description', ''),
-                                type="appointment"
+                                id=et.get("uri", et.get("id", "")),
+                                name=et.get("name", "Unknown Event"),
+                                duration=et.get("duration", 60),
+                                description=et.get("description", ""),
+                                type="appointment",
                             )
-                            for event_type in data
+                            for et in event_types_raw
                         ]
-                    elif isinstance(data, dict):
-                        logger.warning(f"[CALENDLY DEBUG] Unknown data structure: {list(data.keys())}")
-                    else:
-                        logger.warning(f"[CALENDLY DEBUG] Unrecognized response format for event types.")
-                else:
-                    logger.warning(f"[CALENDLY DEBUG] Failed to get event types, status code: {response.status_code}")
-                    if hasattr(response, 'text'):
-                        logger.warning(f"[CALENDLY DEBUG] Response text: {response.text[:200]}")
-                    last_error = CalendlyError(f"Failed to get event types, status code: {response.status_code}")
-        except Exception as e:
-            logger.error(f"[CALENDLY DEBUG] Error getting event types from {primary_endpoint}: {str(e)}")
-            last_error = e
-
-        # If we get here, all endpoints failed
+                    
+                    elif response.status_code == 401:  # Unauthorized
+                        logger.error(f"[CALENDLY DEBUG] Authentication error: Invalid or expired token")
+                        last_error = Exception("Calendly authentication failed - please check your access token")
+                        # Don't retry on auth errors
+                        break
+                    
+                    elif response.status_code == 404:  # Not Found
+                        logger.warning(f"[CALENDLY DEBUG] Endpoint not found: {endpoint}")
+                        # Move to next endpoint, don't retry this one
+                        break
+                    
+                    else:  # Other errors
+                        logger.warning(f"[CALENDLY DEBUG] Error response: {response.status_code} - {response.text[:200]}")
+                        # Continue with retry
+                        if retry_attempt < len(retry_delays):
+                            logger.info(f"[CALENDLY DEBUG] Will retry in {delay} seconds...")
+                            await asyncio.sleep(delay)
+                
+                except Exception as e:
+                    logger.warning(f"[CALENDLY DEBUG] Failed with endpoint {endpoint} (attempt {retry_attempt}): {str(e)}")
+                    last_error = e
+                    
+                    # Add detailed error traceback for debugging
+                    logger.debug(f"[CALENDLY DEBUG] Exception traceback:\n{traceback.format_exc()}")
+                    
+                    # Wait before retry if not the last attempt
+                    if retry_attempt < len(retry_delays):
+                        logger.info(f"[CALENDLY DEBUG] Will retry in {delay} seconds...")
+                        await asyncio.sleep(delay)
+        
+        # If we've tried all endpoints and failed, log detailed error and raise
+        error_message = "Failed to get event types from all endpoints"
         if last_error:
-            raise last_error
-        raise CalendlyError("Failed to get event types after trying all endpoints")
-
+            error_message += f": {str(last_error)}"
+        
+        logger.error(f"[CALENDLY DEBUG] {error_message}")
+        raise Exception(error_message)
+    
     async def get_available_slots(self, event_type_id: str, start_time: Optional[datetime] = None, days: Optional[int] = None) -> List[TimeSlot]:
         """Fetch available time slots for a given event type and time range.
         
