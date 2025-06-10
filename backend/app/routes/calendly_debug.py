@@ -170,7 +170,7 @@ async def run_calendly_diagnostics(
             steps.append({
                 "step": "get_available_slots",
                 "success": False,
-                "message": "Skipped due to previous failures",
+                "message": "Could not check availability - event types not available",
                 "error": "Event types retrieval failed"
             })
     except Exception as e:
@@ -203,12 +203,17 @@ async def run_calendly_diagnostics(
             "error": str(e)
         })
 
+    # Recalculate overall_success based on actual step results
+    # Only count critical steps as failures (initialize and get_event_types)
+    critical_failures = [step for step in steps if not step["success"] and step["step"] in ["initialize", "get_event_types"]]
+    overall_success = len(critical_failures) == 0
+    
     # Build the overall diagnostic message
     if overall_success:
-        overall_message = "All Calendly integration checks passed successfully"
+        overall_message = "All critical Calendly integration checks passed successfully"
     else:
-        failed_steps = [step["step"] for step in steps if not step["success"]]
-        overall_message = f"Calendly integration checks failed at steps: {', '.join(failed_steps)}"
+        failed_steps = [step["step"] for step in critical_failures]
+        overall_message = f"Calendly integration checks failed at critical steps: {', '.join(failed_steps)}"
 
     return DiagnosticResponse(
         success=overall_success,
