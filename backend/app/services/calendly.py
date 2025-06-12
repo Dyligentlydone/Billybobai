@@ -415,199 +415,166 @@ class CalendlyService:
     
     async def get_available_slots(self, event_type_id: str, start_time: Optional[datetime] = None, days: Optional[int] = None) -> List[TimeSlot]:
         """Fetch available time slots for a given event type and time range.
-        
+
         Args:
-            event_type_id: ID or URI of the event type
-            start_time: Starting time for availability search (defaults to now)
+            event_type_id: ID or URI of the event type (or full URI)
+            start_time: Starting time for availability search (defaults to today)
             days: Number of days to search (defaults to 7)
-            
+
         Returns:
-            List of TimeSlot objects representing available times
-            
-        Raises:
-            Exception: If unable to fetch availability after all retries
+            List[TimeSlot]: available slots, sorted by start time
         """
-        import traceback  # Import for detailed error logging
-        import asyncio    # Import for async sleep in retries
-        
-        # Make sure we have the user URI
+        import asyncio, traceback, httpx
+        from datetime import datetime, timedelta, timezone
+
+        # Ensure we have the user URI
         if not self.config.user_uri:
             await self.initialize()
             if not self.config.user_uri:
                 raise ValueError("User URI is required to fetch available slots")
-        
-        # Set default date range if not provided
-        if not start_time:
+
+        # Determine date window
+        if start_time is None:
             start_time = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        if not days:
+        if days is None:
             days = 7
-            
-        # Calculate end time
         end_time = start_time + timedelta(days=days)
-        
-        # Use timezone-aware UTC ISO strings expected by Calendly (trailing Z)
+
+        # Calendly requires UTC ISO strings with trailing Z
         start_iso = start_time.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
         end_iso = end_time.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
-        
-        # Extract user UUID for API calls
-        user_uuid = self.config.user_uri.split('/')[-1] if '/' in self.config.user_uri else self.config.user_uri
-        logger.info(f"[CALENDLY DEBUG] Fetching availability for event_type_id={event_type_id}, user_uuid={user_uuid}")
-        
-        # MODIFIED: Prioritize non-versioned endpoints based on production logs
-        endpoints_to_try = []
-        
-        # Extract event UUID if event_type_id is a full URI
-        event_uuid = None
-        if event_type_id.startswith('http'):
-            path = event_type_id.replace('https://api.calendly.com/event_types/', '')
-            if '/' in path:
-                event_uuid = path.split('/')[-1]
-            else:
-                event_uuid = path
-            
-            # Add full path endpoint
+
+        user_uuid = self.config.user_uri.rsplit("/", 1)[-1]
+        logger.info(
+            f"[CALENDLY DEBUG] Fetching availability for event_type_id={event_type_id}, user_uuid={user_uuid}"
+        )
+
+        # Build candidate endpoints
+        endpoints_to_try: List[str] = []
+        if event_type_id.startswith("http"):
+            path = event_type_id.replace("https://api.calendly.com/event_types/", "")
             endpoints_to_try.append(f"/event_types/{path}/available_times")
+            event_uuid = path.split("/")[-1] if "/" in path else path
         else:
-            # If not a URI, use as-is
             event_uuid = event_type_id
-        
-        # Add endpoints in priority order (non-versioned first)
-        # Legacy v1-style endpoints first (these work with JWT tokens)
-        endpoints_to_try.append(f"/users/{user_uuid}/event_types/{event_uuid}/available_times")
-        
-        # Try with direct event UUID
-        endpoints_to_try.append(f"/event_types/{event_uuid}/available_times")
-        
-        # Add v1-style calendar range endpoint which may work better with JWT tokens
-        endpoints_to_try.append(f"/users/{user_uuid}/event_types/{event_uuid}/calendar/range")
-        
-        # Add query param style endpoints
-        endpoints_to_try.append(f"/scheduled_events/available_times?event_type={event_uuid}")
-        
+
+        endpoints_to_try.extend([
+            f"/users/{user_uuid}/event_types/{event_uuid}/available_times",
+            f"/event_types/{event_uuid}/available_times",
+            f"/users/{user_uuid}/event_types/{event_uuid}/calendar/range",
+            f"/scheduled_events/available_times?event_type={event_uuid}",
+        ])
+
         logger.info(f"[CALENDLY DEBUG] Will try these endpoints for available times: {endpoints_to_try}")
-                    logger.info(f"[CALENDLY DEBUG] Trying endpoint: {endpoint} (Attempt {retry_attempt}/{len(retry_delays)})")
-                    
-                    # API request parameters
+
+        retry_delays = [1, 2]  # seconds
+        last_error: Optional[Exception] = None
+
+        for endpoint in endpoints_to_try:
+            for retry_attempt, delay in enumerate(retry_delays, start=1):
+                try:
+                    logger.info(
+                        f"[CALENDLY DEBUG] Trying endpoint: {endpoint} (Attempt {retry_attempt}/{len(retry_delays)})"
+                    )
+
                     params = {
                         "start_time": start_iso,
                         "end_time": end_iso,
-                        "event_type": event_type_id,
-                        "timezone": getattr(self.config, "timezone", "UTC") or "UTC"
+                        "timezone": getattr(self.config, "timezone", "UTC") or "UTC",
                     }
-                    
-                    # Make request with timeout
-                    response = await self.client.get(endpoint, params=params, timeout=10.0)
-                    
-                    # Log response status and handle different status codes
-                    logger.info(f"[CALENDLY DEBUG] Response status: {response.status_code} for {endpoint}")
-                    
+
+                    async with httpx.AsyncClient(timeout=15.0) as client:
+                        response = await client.get(
+                            f"{self.BASE_URL}{endpoint}",
+                            params=params,
+                            headers={
+                                "Authorization": f"Bearer {self.config.access_token.strip()}",
+                                "Content-Type": "application/json",
+                            },
+                        )
+
+                    logger.info(
+                        f"[CALENDLY DEBUG] Response status: {response.status_code} for {endpoint}"
+                    )
+
                     if response.status_code == 200:
-                        # Success - process the data
                         data = response.json()
-                        logger.info(f"[CALENDLY DEBUG] Response keys: {list(data.keys())}")
-                        
-                        # Extract time slots based on different possible response formats
-                        time_slots = []
-                        if 'collection' in data:
-                            time_slots = data['collection']
-                            logger.info(f"[CALENDLY DEBUG] Found {len(time_slots)} slots in 'collection' format")
-                        elif 'data' in data and isinstance(data['data'], list):
-                            time_slots = data['data']
-                            logger.info(f"[CALENDLY DEBUG] Found {len(time_slots)} slots in 'data' list format")
-                    logger.info(f"[CALENDLY DEBUG] SUCCESSFUL ENDPOINT: {endpoint}")
-                    
-                    # Log the first available slot to help with debugging
-                    if time_slots and len(time_slots) > 0:
-                        logger.info(f"[CALENDLY DEBUG] First available slot: {time_slots[0]}")
-                        elif 'available_times' in data:
-                            time_slots = data['available_times']
-                            logger.info(f"[CALENDLY DEBUG] Found {len(time_slots)} slots in 'available_times' format")
-                        
-                        # Process the time slots
-                        slots = []
-                        for time_slot in time_slots:
-                            # Check if slot is available
-                            status = time_slot.get('status', 'available')
-                            if status == 'available':
-                                # Try different field names for start/end times
-                                start_time_str = (
-                                    time_slot.get('start_time') or 
-                                    time_slot.get('start') or 
-                                    time_slot.get('date')
+                        time_slots_raw = (
+                            data.get("collection")
+                            or data.get("data")
+                            or data.get("available_times")
+                            or []
+                        )
+                        logger.info(f"[CALENDLY DEBUG] Found {len(time_slots_raw)} raw slots")
+
+                        slots: List[TimeSlot] = []
+                        for ts in time_slots_raw:
+                            if ts.get("status", "available") != "available":
+                                continue
+
+                            start_str = ts.get("start_time") or ts.get("start") or ts.get("date")
+                            end_str = ts.get("end_time") or ts.get("end")
+                            if not (start_str and end_str):
+                                continue
+
+                            start_dt = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
+                            end_dt = datetime.fromisoformat(end_str.replace("Z", "+00:00"))
+
+                            slots.append(
+                                TimeSlot(
+                                    start_time=start_dt,
+                                    end_time=end_dt,
+                                    status="available",
+                                    event_type_id=event_type_id,
+                                    display_id=int(start_dt.timestamp()),
+                                    invitee_id=None,
+                                    cancellation_url=None,
+                                    reschedule_url=None,
                                 )
-                                end_time_str = (
-                                    time_slot.get('end_time') or 
-                                    time_slot.get('end')
-                                )
-                                
-                                if start_time_str and end_time_str:
-                                    # Parse ISO format dates, handling Z suffix
-                                    start = datetime.fromisoformat(start_time_str.replace('Z', '+00:00'))
-                                    end = datetime.fromisoformat(end_time_str.replace('Z', '+00:00'))
-                                    
-                                    # Create unique display ID from timestamp
-                                    display_id = int(start.timestamp())
-                                    
-                                    # Create TimeSlot object
-                                    slots.append(TimeSlot(
-                                        start_time=start,
-                                        end_time=end,
-                                        status='available',
-                                        event_type_id=event_type_id,
-                                        display_id=display_id,
-                                        invitee_id=None,
-                                        cancellation_url=None,
-                                        reschedule_url=None
-                                    ))
-                        
-                        # If we found slots, return them
+                            )
+
                         if slots:
-                            logger.info(f"[CALENDLY DEBUG] Successfully found {len(slots)} available slots")
-                            # Sort slots by start time
-                            slots.sort(key=lambda x: x.start_time)
+                            logger.info(
+                                f"[CALENDLY DEBUG] Successfully found {len(slots)} available slots"
+                            )
+                            slots.sort(key=lambda s: s.start_time)
                             return slots
                         else:
-                            logger.info(f"[CALENDLY DEBUG] No available slots found in response")
-                            # Try next endpoint if no slots found
-                            break
-                    
-                    elif response.status_code == 401:  # Unauthorized
-                        logger.error(f"[CALENDLY DEBUG] Authentication error: Invalid or expired token")
-                        last_error = Exception("Calendly authentication failed - please check your access token")
-                        # Don't retry on auth errors
+                            logger.info("[CALENDLY DEBUG] No available slots in response, trying next endpoint")
+                            break  # Try next endpoint
+
+                    elif response.status_code == 401:
+                        last_error = Exception("Calendly authentication failed – check access token")
+                        logger.error("[CALENDLY DEBUG] Authentication error – aborting retries for this endpoint")
                         break
-                    
-                    elif response.status_code == 404:  # Not Found
-                        logger.warning(f"[CALENDLY DEBUG] Endpoint not found: {endpoint}")
-                        # Move to next endpoint, don't retry this one
+
+                    elif response.status_code == 404:
+                        logger.warning("[CALENDLY DEBUG] Endpoint not found – trying next endpoint")
                         break
-                    
-                    else:  # Other errors
-                        logger.warning(f"[CALENDLY DEBUG] Error response: {response.status_code} - {response.text[:200]}")
-                        # Continue with retry
+
+                    else:
+                        logger.warning(
+                            f"[CALENDLY DEBUG] Unexpected {response.status_code}: {response.text[:200]}"
+                        )
                         if retry_attempt < len(retry_delays):
-                            logger.info(f"[CALENDLY DEBUG] Will retry in {delay} seconds...")
+                            logger.info(f"[CALENDLY DEBUG] Will retry in {delay}s...")
                             await asyncio.sleep(delay)
-                
-                except Exception as e:
-                    logger.warning(f"[CALENDLY DEBUG] Failed with endpoint {endpoint} (attempt {retry_attempt}): {str(e)}")
-                    last_error = e
-                    
-                    # Add detailed error traceback for debugging
-                    logger.debug(f"[CALENDLY DEBUG] Exception traceback:\n{traceback.format_exc()}")
-                    
-                    # Wait before retry if not the last attempt
+
+                except Exception as exc:
+                    last_error = exc
+                    logger.warning(
+                        f"[CALENDLY DEBUG] Exception on {endpoint} (attempt {retry_attempt}): {exc}"
+                    )
+                    logger.debug(traceback.format_exc())
                     if retry_attempt < len(retry_delays):
-                        logger.info(f"[CALENDLY DEBUG] Will retry in {delay} seconds...")
+                        logger.info(f"[CALENDLY DEBUG] Will retry in {delay}s...")
                         await asyncio.sleep(delay)
-        
-        # If we've tried all endpoints and failed, log detailed error and raise
-        error_message = "Failed to get available slots from all endpoints"
+
+        error_msg = "Failed to get available slots from all endpoints"
         if last_error:
-            error_message += f": {str(last_error)}"
-        
-        logger.error(f"[CALENDLY DEBUG] {error_message}")
-        raise Exception(error_message)
+            error_msg += f": {last_error}"
+        logger.error(f"[CALENDLY DEBUG] {error_msg}")
+        raise Exception(error_msg)
     
     async def get_scheduled_events(self, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None) -> List[Dict[str, Any]]:
         """Get all scheduled events (appointments) for the user
