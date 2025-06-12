@@ -446,9 +446,17 @@ class CalendlyService:
         if end_time.tzinfo is None:
             end_time = end_time.replace(tzinfo=timezone.utc)
 
-        # Calendly requires UTC ISO strings with trailing Z
-        start_iso = start_time.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
-        end_iso = end_time.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+        # Calendly requires start_time to be in the future; bump to now if in the past
+        now_utc = datetime.now(timezone.utc)
+        if start_time < now_utc:
+            logger.info("[CALENDLY DEBUG] start_time is in the past – nudging to current UTC time to satisfy Calendly API")
+            start_time = now_utc
+        if end_time <= start_time:
+            end_time = start_time + timedelta(days=days or 7)
+
+        # Build ISO strings (Calendly prefers trailing Z instead of +00:00 for UTC)
+        start_iso = start_time.isoformat().replace("+00:00", "Z")
+        end_iso = end_time.isoformat().replace("+00:00", "Z")
 
         user_uuid = self.config.user_uri.rsplit("/", 1)[-1]
         logger.info(
