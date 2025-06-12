@@ -471,7 +471,8 @@ class CalendlyService:
             f"/event_types/{event_uuid}/available_times",
             f"/users/{user_uuid}/event_types/{event_uuid}/calendar/range",
             f"/scheduled_events/available_times?event_type={event_uuid}",
-            "/availability"  # NEW generic availability endpoint using owner param
+            "/event_type_available_times",  # Official v2 endpoint with query param
+            "/availability"  # Generic availability endpoint using owner param
         ])
         logger.info(f"[CALENDLY DEBUG] Will try these endpoints for available times: {endpoints_to_try}")
 
@@ -491,9 +492,11 @@ class CalendlyService:
                         "timezone": getattr(self.config, "timezone", "UTC") or "UTC",
                     }
 
-                    # If using the generic /availability endpoint, add owner param
+                    # Add endpoint-specific required parameters
                     if endpoint == "/availability":
                         params["owner"] = event_type_uri
+                    elif endpoint == "/event_type_available_times":
+                        params["event_type"] = event_type_uri
 
                     async with httpx.AsyncClient(timeout=15.0) as client:
                         response = await client.get(
