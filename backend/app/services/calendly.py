@@ -492,8 +492,13 @@ class CalendlyService:
                         "start_time": start_iso,
                         "end_time": end_iso,
                         "timezone": getattr(self.config, "timezone", "UTC") or "UTC",
-                        "event_type": event_type_uri
                     }
+
+                    # Endpoint-specific required parameter
+                    if endpoint == "/event_type_available_times":
+                        params["event_type"] = event_type_uri
+                    else:  # /availability fallback
+                        params["owner"] = event_type_uri
 
                     async with httpx.AsyncClient(timeout=15.0) as client:
                         response = await client.get(
