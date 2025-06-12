@@ -534,8 +534,10 @@ class CalendlyService:
 
                         slots: List[TimeSlot] = []
                         for ts in time_slots_raw:
-                            # Skip anything that isn't explicitly available
-                            if ts.get("status", "available") != "available":
+                            # Skip slots that are explicitly marked as busy / unavailable.
+                            # Treat statuses like "available" or "unlocked" as open.
+                            status_val = (ts.get("status") or "").lower()
+                            if status_val in {"busy", "blocked", "unavailable", "canceled", "cancelled"}:
                                 continue
 
                             # Calendly uses slightly different field names across endpoints
