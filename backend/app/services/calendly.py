@@ -442,15 +442,19 @@ class CalendlyService:
 
         # Ensure datetimes are timezone-aware (assume UTC if naive)
         if start_time.tzinfo is None:
-            start_time = start_time.replace(tzinfo=timezone.utc)
+            local_tz = datetime.now().astimezone().tzinfo
+            start_time = start_time.replace(tzinfo=local_tz).astimezone(timezone.utc)
         if end_time.tzinfo is None:
-            end_time = end_time.replace(tzinfo=timezone.utc)
+            local_tz = datetime.now().astimezone().tzinfo
+            end_time = end_time.replace(tzinfo=local_tz).astimezone(timezone.utc)
 
         # Calendly requires start_time to be in the future; bump to now if in the past
         now_utc = datetime.now(timezone.utc)
-        if start_time < now_utc:
-            logger.info("[CALENDLY DEBUG] start_time is in the past – nudging to current UTC time to satisfy Calendly API")
-            start_time = now_utc
+        # Calendly rejects timestamps that are not at least *slightly* in the future.
+        buffered_utc = now_utc + timedelta(minutes=1)
+        if start_time < buffered_utc:
+            logger.info("[CALENDLY DEBUG] start_time is in the past or too close – nudging 1 min into the future to satisfy Calendly API")
+            start_time = buffered_utc
         if end_time <= start_time:
             end_time = start_time + timedelta(days=days or 7)
 
@@ -499,7 +503,8 @@ class CalendlyService:
                     if endpoint == "/event_type_available_times":
                         params["event_type"] = event_type_uri
                     elif endpoint == "/availability":
-                        params["owner"] = event_type_uri
+                        # Calendly expects the *user* URI for the owner parameter, not the event type
+                        params["owner"] = self.config.user_uri
 
                     async with httpx.AsyncClient(timeout=15.0) as client:
                         response = await client.get(
