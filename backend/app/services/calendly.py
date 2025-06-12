@@ -534,16 +534,31 @@ class CalendlyService:
 
                         slots: List[TimeSlot] = []
                         for ts in time_slots_raw:
+                            # Skip anything that isn't explicitly available
                             if ts.get("status", "available") != "available":
                                 continue
 
+                            # Calendly uses slightly different field names across endpoints
                             start_str = ts.get("start_time") or ts.get("start") or ts.get("date")
-                            end_str = ts.get("end_time") or ts.get("end")
-                            if not (start_str and end_str):
+                            if not start_str:
+                                # No usable start timestamp; skip entry
                                 continue
 
+                            # Parse start time (always ISO 8601)
                             start_dt = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
-                            end_dt = datetime.fromisoformat(end_str.replace("Z", "+00:00"))
+
+                            # Determine end time – if not provided, compute from duration
+                            end_str = ts.get("end_time") or ts.get("end")
+                            if end_str:
+                                end_dt = datetime.fromisoformat(end_str.replace("Z", "+00:00"))
+                            else:
+                                # Fallback: use provided duration or default to 60 min
+                                duration_minutes = ts.get("duration") or 60
+                                try:
+                                    duration_minutes = int(duration_minutes)
+                                except ValueError:
+                                    duration_minutes = 60
+                                end_dt = start_dt + timedelta(minutes=duration_minutes)
 
                             slots.append(
                                 TimeSlot(
