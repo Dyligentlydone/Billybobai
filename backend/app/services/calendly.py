@@ -308,7 +308,7 @@ class CalendlyService:
         logging.debug(f"Extracted user UUID: {user_uuid}")
         
         # MODIFIED: Reorder endpoints to prioritize non-versioned endpoints
-        # Based on production logs showing /users/me works but /v2/users/me fails
+        # Based on our diagnostic testing, we prioritize the most reliable endpoints
         endpoints_to_try = [
             # Non-versioned endpoints (these work with JWT tokens)
             f"{self.BASE_URL}/users/{user_uuid}/event_types",  # Legacy v1-style path
@@ -455,16 +455,18 @@ class CalendlyService:
             path = event_type_id.replace("https://api.calendly.com/event_types/", "")
             endpoints_to_try.append(f"/event_types/{path}/available_times")
             event_uuid = path.split("/")[-1] if "/" in path else path
+            event_type_uri = event_type_id  # already full URI
         else:
             event_uuid = event_type_id
+            event_type_uri = f"https://api.calendly.com/event_types/{event_uuid}"
 
         endpoints_to_try.extend([
             f"/users/{user_uuid}/event_types/{event_uuid}/available_times",
             f"/event_types/{event_uuid}/available_times",
             f"/users/{user_uuid}/event_types/{event_uuid}/calendar/range",
             f"/scheduled_events/available_times?event_type={event_uuid}",
+            "/availability"  # NEW generic availability endpoint using owner param
         ])
-
         logger.info(f"[CALENDLY DEBUG] Will try these endpoints for available times: {endpoints_to_try}")
 
         retry_delays = [1, 2]  # seconds
@@ -482,6 +484,10 @@ class CalendlyService:
                         "end_time": end_iso,
                         "timezone": getattr(self.config, "timezone", "UTC") or "UTC",
                     }
+
+                    # If using the generic /availability endpoint, add owner param
+                    if endpoint == "/availability":
+                        params["owner"] = event_type_uri
 
                     async with httpx.AsyncClient(timeout=15.0) as client:
                         response = await client.get(
