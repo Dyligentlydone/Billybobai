@@ -463,28 +463,22 @@ class CalendlyService:
             f"[CALENDLY DEBUG] Fetching availability for event_type_id={event_type_id}, user_uuid={user_uuid}"
         )
 
-        # Build candidate endpoints
-        endpoints_to_try: List[str] = []
+        # Build event_type URI (required by official endpoint)
         if event_type_id.startswith("http"):
-            path = event_type_id.replace("https://api.calendly.com/event_types/", "")
-            endpoints_to_try.append(f"/event_types/{path}/available_times")
-            event_uuid = path.split("/")[-1] if "/" in path else path
-            event_type_uri = event_type_id  # already full URI
+            event_type_uri = event_type_id.rstrip("/")  # already full URI
+            event_uuid = event_type_uri.split("/")[-1]
         else:
             event_uuid = event_type_id
             event_type_uri = f"https://api.calendly.com/event_types/{event_uuid}"
 
-        endpoints_to_try.extend([
-            f"/users/{user_uuid}/event_types/{event_uuid}/available_times",
-            f"/event_types/{event_uuid}/available_times",
-            f"/users/{user_uuid}/event_types/{event_uuid}/calendar/range",
-            f"/scheduled_events/available_times?event_type={event_uuid}",
-            "/event_type_available_times",  # Official v2 endpoint with query param
-            "/availability"  # Generic availability endpoint using owner param
-        ])
-        logger.info(f"[CALENDLY DEBUG] Will try these endpoints for available times: {endpoints_to_try}")
+        # Use streamlined endpoint strategy: official endpoint + single fallback
+        endpoints_to_try: List[str] = [
+            "/event_type_available_times",  # Official, PAT-compatible
+            "/availability"  # Fallback for legacy tenants
+        ]
+        logger.info(f"[CALENDLY DEBUG] Using endpoints {endpoints_to_try} for availability")
 
-        retry_delays = [1, 2]  # seconds
+        retry_delays = [1, 2, 4]  # seconds
         last_error: Optional[Exception] = None
 
         for endpoint in endpoints_to_try:
@@ -498,13 +492,8 @@ class CalendlyService:
                         "start_time": start_iso,
                         "end_time": end_iso,
                         "timezone": getattr(self.config, "timezone", "UTC") or "UTC",
+                        "event_type": event_type_uri
                     }
-
-                    # Add endpoint-specific required parameters
-                    if endpoint == "/availability":
-                        params["owner"] = event_type_uri
-                    elif endpoint == "/event_type_available_times":
-                        params["event_type"] = event_type_uri
 
                     async with httpx.AsyncClient(timeout=15.0) as client:
                         response = await client.get(
@@ -528,7 +517,9 @@ class CalendlyService:
                             or data.get("available_times")
                             or []
                         )
-                        logger.info(f"[CALENDLY DEBUG] Found {len(time_slots_raw)} raw slots")
+                        logger.info(
+                            f"[CALENDLY DEBUG] {endpoint} 200 OK – {len(time_slots_raw)} raw slots"
+                        )
 
                         slots: List[TimeSlot] = []
                         for ts in time_slots_raw:
@@ -577,7 +568,7 @@ class CalendlyService:
 
                     else:
                         logger.warning(
-                            f"[CALENDLY DEBUG] Unexpected {response.status_code}: {response.text[:200]}"
+                            f"[CALENDLY DEBUG] {endpoint} unexpected {response.status_code}: {response.text[:200]}"
                         )
                         if retry_attempt < len(retry_delays):
                             logger.info(f"[CALENDLY DEBUG] Will retry in {delay}s...")
@@ -593,7 +584,7 @@ class CalendlyService:
                         logger.info(f"[CALENDLY DEBUG] Will retry in {delay}s...")
                         await asyncio.sleep(delay)
 
-        error_msg = "Failed to get available slots from all endpoints"
+        error_msg = "Failed to get available slots via both official and fallback endpoints"
         if last_error:
             error_msg += f": {last_error}"
         logger.error(f"[CALENDLY DEBUG] {error_msg}")
