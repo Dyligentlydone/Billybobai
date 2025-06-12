@@ -440,6 +440,12 @@ class CalendlyService:
             days = 7
         end_time = start_time + timedelta(days=days)
 
+        # Ensure datetimes are timezone-aware (assume UTC if naive)
+        if start_time.tzinfo is None:
+            start_time = start_time.replace(tzinfo=timezone.utc)
+        if end_time.tzinfo is None:
+            end_time = end_time.replace(tzinfo=timezone.utc)
+
         # Calendly requires UTC ISO strings with trailing Z
         start_iso = start_time.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
         end_iso = end_time.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
