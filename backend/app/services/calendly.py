@@ -473,8 +473,9 @@ class CalendlyService:
 
         # Use streamlined endpoint strategy: official endpoint + single fallback
         endpoints_to_try: List[str] = [
-            "/event_type_available_times",  # Official, PAT-compatible
-            "/availability"  # Fallback for legacy tenants
+            f"/event_types/{event_uuid}/available_times",  # Works for PATs
+            "/event_type_available_times",  # Official doc endpoint
+            "/availability"  # Generic fallback
         ]
         logger.info(f"[CALENDLY DEBUG] Using endpoints {endpoints_to_try} for availability")
 
@@ -497,7 +498,7 @@ class CalendlyService:
                     # Endpoint-specific required parameter
                     if endpoint == "/event_type_available_times":
                         params["event_type"] = event_type_uri
-                    else:  # /availability fallback
+                    elif endpoint == "/availability":
                         params["owner"] = event_type_uri
 
                     async with httpx.AsyncClient(timeout=15.0) as client:
