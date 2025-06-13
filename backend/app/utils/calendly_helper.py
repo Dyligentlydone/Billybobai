@@ -470,18 +470,31 @@ def format_appointment_response(verification_result: Dict[str, Any]) -> str:
         verification = verification_result.get("verification", {})
         available_slots = verification.get("available_slots", [])
         
+        # Add detailed debug logging
+        logger.info(f"[AVAILABILITY DEBUG] Number of available slots: {len(available_slots)}")
+        logger.info(f"[AVAILABILITY DEBUG] Raw available_slots: {available_slots}")
+        
+        # Log the first few slots in detail
+        for i, slot in enumerate(available_slots[:3]):
+            logger.info(f"[AVAILABILITY DEBUG] Slot {i} details: day_name={slot.get('day_name', 'N/A')}, date={slot.get('date', 'N/A')}, start_time={slot.get('start_time', 'N/A')}")
+        
         if not available_slots or len(available_slots) == 0:
+            logger.info("[AVAILABILITY DEBUG] No available slots found")
             return "I don't see any available appointment slots for next week."
             
         # Group slots by day
         days_with_slots = {}
         for slot in available_slots:
             day_name = slot.get("day_name", "")
+            logger.info(f"[AVAILABILITY DEBUG] Processing slot with day_name: {day_name}")
             if day_name and day_name not in days_with_slots:
                 days_with_slots[day_name] = True
                 
+        logger.info(f"[AVAILABILITY DEBUG] Days with slots after grouping: {days_with_slots}")
+                
         if days_with_slots:
             day_names = list(days_with_slots.keys())
+            logger.info(f"[AVAILABILITY DEBUG] Final day_names list: {day_names}")
             if len(day_names) == 1:
                 return f"We have availability next week on {day_names[0]}."
             elif len(day_names) == 2:
