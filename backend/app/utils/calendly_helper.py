@@ -160,21 +160,24 @@ async def verify_appointment_with_service(business_id: str, search_date: datetim
             calendly_service = CalendlyService(config)
             logger.info(f"[CALENDLY DEBUG] Created Calendly service with config: {config}")
             
-            # Check if we need to initialize to get user_uri
-            if not calendly_config.get('user_uri'):
-                logger.info("[CALENDLY DEBUG] No user_uri found, attempting to initialize Calendly service")
-                try:
-                    user_uri = await calendly_service.initialize()
-                    logger.info(f"[CALENDLY DEBUG] Initialized Calendly service, user_uri: {user_uri}")
-                except Exception as init_error:
-                    error_tb = traceback.format_exc()
-                    logger.error(f"[CALENDLY DEBUG] Failed to initialize Calendly service: {str(init_error)}")
-                    logger.error(f"[CALENDLY DEBUG] Initialization error details: {error_tb}")
-                    return {
-                        "success": False,
-                        "error": "Initialization Error",
-                        "message": f"Failed to initialize Calendly: {str(init_error)}"
-                    }
+            # Always initialize to ensure user_uri and proper API setup
+            # This matches the diagnostic endpoint flow which works correctly
+            logger.info("[CALENDLY DEBUG] Initializing Calendly service before verification")
+            try:
+                user_uri = await calendly_service.initialize()
+                logger.info(f"[CALENDLY DEBUG] Initialized Calendly service, user_uri: {user_uri}")
+                # Update config if user_uri was retrieved
+                if user_uri and not config.user_uri:
+                    config.user_uri = user_uri
+            except Exception as init_error:
+                error_tb = traceback.format_exc()
+                logger.error(f"[CALENDLY DEBUG] Failed to initialize Calendly service: {str(init_error)}")
+                logger.error(f"[CALENDLY DEBUG] Initialization error details: {error_tb}")
+                return {
+                    "success": False,
+                    "error": "Initialization Error",
+                    "message": f"Failed to initialize Calendly: {str(init_error)}"
+                }
             
             # Determine if this is a general availability query ("what days are available next week?")
             # or a specific appointment verification query
