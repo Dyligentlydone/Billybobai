@@ -71,6 +71,8 @@ class CalendlyService:
             timeout=20.0  # Set a reasonable timeout
         )
         self._sms_states: Dict[str, SMSBookingState] = {}
+        # Track event type mapping (slug -> UUID) to avoid repeated lookups
+        self._event_type_mapping = {}
     
     async def initialize(self):
         """Initialize the service by fetching necessary data"""
@@ -80,6 +82,22 @@ class CalendlyService:
                 user_uri = await self.fetch_user_uri()
                 self.config.user_uri = user_uri
                 logger.info(f"Successfully auto-fetched User URI: {user_uri}")
+                
+                # If we have a default_event_type, validate it after fetching event types
+                if self.config.default_event_type:
+                    try:
+                        # Get all event types first
+                        await self.get_event_types()
+                        
+                        # Validate and resolve the default event type if needed
+                        resolved_id = await self.resolve_event_type_id(self.config.default_event_type)
+                        if resolved_id != self.config.default_event_type:
+                            logger.info(f"Resolved event type slug '{self.config.default_event_type}' to UUID '{resolved_id}'")
+                            self.config.default_event_type = resolved_id
+                    except Exception as et_error:
+                        logger.warning(f"Failed to resolve default event type: {str(et_error)}")
+                        # Continue anyway - we'll try again when actually using the event type
+                    
                 return user_uri
             except Exception as e:
                 logger.error(f"Failed to auto-fetch User URI: {str(e)}")
@@ -413,6 +431,80 @@ class CalendlyService:
         logger.error(f"[CALENDLY DEBUG] {error_message}")
         raise Exception(error_message)
     
+    async def resolve_event_type_id(self, event_type_identifier: str) -> str:
+        """Resolve an event type identifier to a valid UUID
+        
+        This handles three scenarios:
+        1. If given a valid UUID, returns it unchanged
+        2. If given a slug or name, looks it up and returns the corresponding UUID
+        3. If no match found, returns the original string (which will likely fail API calls)
+        
+        Args:
+            event_type_identifier: A UUID, slug, or name of an event type
+            
+        Returns:
+            The UUID of the event type if found, otherwise the original string
+        """
+        if not event_type_identifier:
+            logger.warning("Empty event type identifier provided for resolution")
+            return event_type_identifier
+            
+        # If it's already a URL, extract just the ID
+        if event_type_identifier.startswith("http"):
+            parts = event_type_identifier.split("/")
+            event_type_identifier = parts[-1]  # Get last part of URL
+            
+        # Check if it looks like a UUID (basic format check)
+        uuid_pattern = r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+        import re
+        if re.match(uuid_pattern, event_type_identifier, re.IGNORECASE):
+            # It's already a UUID format
+            return event_type_identifier
+            
+        # Check our cached mapping first
+        if event_type_identifier in self._event_type_mapping:
+            resolved_id = self._event_type_mapping[event_type_identifier]
+            logger.info(f"[EVENT TYPE] Using cached resolution: '{event_type_identifier}' → '{resolved_id}'")
+            return resolved_id
+        
+        # Not in cache, fetch event types and try to match by slug or name
+        try:
+            logger.info(f"[EVENT TYPE] Attempting to resolve identifier: '{event_type_identifier}'")
+            event_types = await self.get_event_types()
+            
+            if not event_types:
+                logger.warning(f"[EVENT TYPE] No event types fetched from Calendly, cannot resolve '{event_type_identifier}'")
+                return event_type_identifier
+                
+            logger.info(f"[EVENT TYPE] Found {len(event_types)} event types to search through")
+            
+            # Look for a match by slug or name
+            for et in event_types:
+                # Create a slug from name
+                name_slug = et.name.lower().replace(' ', '-').replace('_', '-')
+                
+                # Log each event type for debugging
+                logger.info(f"[EVENT TYPE] Comparing against: id={et.id}, name={et.name}, slug={name_slug}")
+                
+                # Try various matching methods
+                if (et.id.lower() == event_type_identifier.lower() or
+                    name_slug == event_type_identifier.lower() or
+                    et.name.lower() == event_type_identifier.lower()):
+                    # Found a match - save to cache and return
+                    self._event_type_mapping[event_type_identifier] = et.id
+                    logger.info(f"[EVENT TYPE] Successfully resolved '{event_type_identifier}' to '{et.id}'")
+                    return et.id
+                    
+            # No match found
+            logger.warning(f"[EVENT TYPE] Could not resolve identifier: '{event_type_identifier}'")
+            return event_type_identifier
+            
+        except Exception as e:
+            logger.error(f"[EVENT TYPE] Error resolving event type: {str(e)}")
+            return event_type_identifier
+    
+
+    
     async def get_available_slots(self, event_type_id: str, start_time: Optional[datetime] = None, days: Optional[int] = None) -> List[TimeSlot]:
         """Fetch available time slots for a given event type and time range.
 
@@ -424,224 +516,249 @@ class CalendlyService:
         Returns:
             List[TimeSlot]: available slots, sorted by start time
         """
-        import asyncio, traceback, httpx, json
+        import asyncio, traceback, httpx, json, math
         from datetime import datetime, timedelta, timezone
 
         logger.info(f"[CALENDLY SLOTS DEBUG] Starting get_available_slots with event_type_id={event_type_id}, start_time={start_time}, days={days}")
-        logger.info(f"[CALENDLY SLOTS DEBUG] Current config: access_token_length={len(self.config.access_token) if self.config.access_token else 'None'}, user_uri={self.config.user_uri}")
-
-        # Ensure we have the user URI
-        if not self.config.user_uri:
-            await self.initialize()
+        
+        try:
+            # Ensure we have initialized by getting the user URI
             if not self.config.user_uri:
-                raise ValueError("User URI is required to fetch available slots")
+                await self.initialize()        
+                
+            if not event_type_id:
+                # Use default event type if provided
+                event_type_id = self.config.default_event_type
+                if not event_type_id:
+                    logger.error("No event type specified and no default event type configured")
+                    raise CalendlyError("No event type ID provided or configured")
+            
+            # Resolve event type ID (handle slugs and names)
+            original_event_type_id = event_type_id
+            event_type_id = await self.resolve_event_type_id(event_type_id)
+            if original_event_type_id != event_type_id:
+                logger.info(f"[CALENDLY SLOTS DEBUG] Resolved event type '{original_event_type_id}' to UUID '{event_type_id}'")
+            
+            # Convert to full URI if needed
+            if not event_type_id.startswith("http"):
+                event_type_id = f"https://api.calendly.com/event_types/{event_type_id}"
+                
+            # Determine date window
+            if start_time is None:
+                start_time = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+                
+            if days is None:
+                days = 7
+                
+            end_time = start_time + timedelta(days=days)
 
-        # Determine date window
-        if start_time is None:
-            start_time = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        if days is None:
-            days = 7
-        end_time = start_time + timedelta(days=days)
+            # Ensure datetimes are timezone-aware (assume UTC if naive)
+            if start_time.tzinfo is None:
+                local_tz = datetime.now().astimezone().tzinfo
+                start_time = start_time.replace(tzinfo=local_tz).astimezone(timezone.utc)
+            if end_time.tzinfo is None:
+                local_tz = datetime.now().astimezone().tzinfo
+                end_time = end_time.replace(tzinfo=local_tz).astimezone(timezone.utc)
 
-        # Ensure datetimes are timezone-aware (assume UTC if naive)
-        if start_time.tzinfo is None:
-            local_tz = datetime.now().astimezone().tzinfo
-            start_time = start_time.replace(tzinfo=local_tz).astimezone(timezone.utc)
-        if end_time.tzinfo is None:
-            local_tz = datetime.now().astimezone().tzinfo
-            end_time = end_time.replace(tzinfo=local_tz).astimezone(timezone.utc)
+            # Calendly requires start_time to be in the future; bump to now if in the past
+            now_utc = datetime.now(timezone.utc)
+            # Calendly rejects timestamps that are not at least *slightly* in the future.
+            buffered_utc = now_utc + timedelta(minutes=1)
+            if start_time < buffered_utc:
+                logger.info("[CALENDLY DEBUG] start_time is in the past or too close – nudging 1 min into the future to satisfy Calendly API")
+                start_time = buffered_utc
+            if end_time <= start_time:
+                end_time = start_time + timedelta(days=days or 7)
 
-        # Calendly requires start_time to be in the future; bump to now if in the past
-        now_utc = datetime.now(timezone.utc)
-        # Calendly rejects timestamps that are not at least *slightly* in the future.
-        buffered_utc = now_utc + timedelta(minutes=1)
-        if start_time < buffered_utc:
-            logger.info("[CALENDLY DEBUG] start_time is in the past or too close – nudging 1 min into the future to satisfy Calendly API")
-            start_time = buffered_utc
-        if end_time <= start_time:
-            end_time = start_time + timedelta(days=days or 7)
+            # Build ISO strings (Calendly prefers trailing Z instead of +00:00 for UTC)
+            start_iso = start_time.isoformat().replace("+00:00", "Z")
+            end_iso = end_time.isoformat().replace("+00:00", "Z")
 
-        # Build ISO strings (Calendly prefers trailing Z instead of +00:00 for UTC)
-        start_iso = start_time.isoformat().replace("+00:00", "Z")
-        end_iso = end_time.isoformat().replace("+00:00", "Z")
+            # Since start_time may have been adjusted above, we might be filtering down to fewer days
+            # Get # of days between timestamps, rounded up
+            days_between = (end_time - start_time).total_seconds() / 86400
+            adjusted_days = math.ceil(days_between)
+            
+            # Get the user or org URI
+            user_uri = self.config.user_uri
+            org_uri = self.config.organization_uri
 
-        user_uuid = self.config.user_uri.rsplit("/", 1)[-1]
-        logger.info(
-            f"[CALENDLY DEBUG] Fetching availability for event_type_id={event_type_id}, user_uuid={user_uuid}"
-        )
+            uri_param = f"user_uri={user_uri}" if user_uri else f"organization_uri={org_uri}"
 
-        # Build event_type URI (required by official endpoint)
-        if event_type_id.startswith("http"):
-            event_type_uri = event_type_id.rstrip("/")  # already full URI
-            event_uuid = event_type_uri.split("/")[-1]
-        else:
-            event_uuid = event_type_id
-            event_type_uri = f"https://api.calendly.com/event_types/{event_uuid}"
+            # Add min_booking_notice if configured
+            min_notice_hours = self.config.min_notice_hours
+            min_notice_param = f"&min_booking_notice={min_notice_hours*60}" if min_notice_hours else ""
+            
+            logger.info(f"[CALENDLY DEBUG] Requesting availability for {adjusted_days} days from {start_time} to {end_time}")
+            
+            # Fetch availability via Calendly API
+            url = f"/event_type_available_times?{uri_param}&event_type_uri={event_type_id}&start_time={start_iso}&end_time={end_iso}{min_notice_param}"
+            
+            # Use streamlined endpoint strategy: official endpoint + single fallback
+            endpoints_to_try: List[str] = [
+                f"/event_types/{event_type_id}/available_times",  # Works for PATs
+                "/event_type_available_times",  # Official doc endpoint
+                "/availability"  # Generic fallback
+            ]
+            logger.info(f"[CALENDLY DEBUG] Using endpoints {endpoints_to_try} for availability")
+            
+            retry_delays = [1, 2, 4]  # seconds
+            last_error: Optional[Exception] = None
 
-        # Use streamlined endpoint strategy: official endpoint + single fallback
-        endpoints_to_try: List[str] = [
-            f"/event_types/{event_uuid}/available_times",  # Works for PATs
-            "/event_type_available_times",  # Official doc endpoint
-            "/availability"  # Generic fallback
-        ]
-        logger.info(f"[CALENDLY DEBUG] Using endpoints {endpoints_to_try} for availability")
-        logger.info(f"[CALENDLY SLOTS DEBUG] EVENT TYPE: ID={event_uuid}, URI={event_type_uri}")
-
-        retry_delays = [1, 2, 4]  # seconds
-        last_error: Optional[Exception] = None
-
-        for endpoint in endpoints_to_try:
-            for retry_attempt, delay in enumerate(retry_delays, start=1):
-                try:
-                    logger.info(
-                        f"[CALENDLY DEBUG] Trying endpoint: {endpoint} (Attempt {retry_attempt}/{len(retry_delays)})"
-                    )
-                    logger.info(f"[CALENDLY SLOTS DEBUG] Attempt details - endpoint: {endpoint}, retry: {retry_attempt}, access_token starts with: {self.config.access_token[:5]}... ends with: ...{self.config.access_token[-5:] if len(self.config.access_token) > 10 else 'too_short'}")
-
-                    params = {
-                        "start_time": start_iso,
-                        "end_time": end_iso,
-                        "timezone": getattr(self.config, "timezone", "UTC") or "UTC",
-                    }
-
-                    # Endpoint-specific required parameter
-                    if endpoint == "/event_type_available_times":
-                        params["event_type"] = event_type_uri
-                    elif endpoint == "/availability":
-                        # Calendly expects the *user* URI for the owner parameter, not the event type
-                        params["owner"] = self.config.user_uri
-
-                    async with httpx.AsyncClient(timeout=15.0) as client:
-                        response = await client.get(
-                            f"{self.BASE_URL}{endpoint}",
-                            params=params,
-                            headers={
-                                "Authorization": f"Bearer {self.config.access_token.strip()}",
-                                "Content-Type": "application/json",
-                            },
-                        )
-
-                    logger.info(
-                        f"[CALENDLY DEBUG] Response status: {response.status_code} for {endpoint}"
-                    )
-
-                    # Log full response for debugging
+            for endpoint in endpoints_to_try:
+                for retry_attempt, delay in enumerate(retry_delays, start=1):
                     try:
-                        response_json = response.json() if response.status_code == 200 else {}
-                        logger.info(f"[CALENDLY SLOTS DEBUG] Response headers: {dict(response.headers)}")
-                        logger.info(f"[CALENDLY SLOTS DEBUG] Response body preview: {json.dumps(response_json)[:200]}... (truncated)")
-                    except Exception as json_err:
-                        logger.warning(f"[CALENDLY SLOTS DEBUG] Could not parse response JSON: {str(json_err)}")
-
-                    if response.status_code == 200:
-                        data = response.json()
-
-                        # Detailed logging of response structure
-                        logger.info(f"[CALENDLY SLOTS DEBUG] Success response keys: {list(data.keys())}")
-                        if "collection" in data:
-                            logger.info(f"[CALENDLY SLOTS DEBUG] Collection available with {len(data['collection'])} items")
-                        if "data" in data:
-                            logger.info(f"[CALENDLY SLOTS DEBUG] Data available with {len(data['data'])} items")
-                        if "available_times" in data:
-                            logger.info(f"[CALENDLY SLOTS DEBUG] Available_times with {len(data['available_times'])} items")
-
-                        time_slots_raw = (
-                            data.get("collection")
-                            or data.get("data")
-                            or data.get("available_times")
-                            or []
-                        )
                         logger.info(
-                            f"[CALENDLY DEBUG] {endpoint} 200 OK – {len(time_slots_raw)} raw slots"
+                            f"[CALENDLY DEBUG] Trying endpoint: {endpoint} (Attempt {retry_attempt}/{len(retry_delays)})"
                         )
+                        logger.info(f"[CALENDLY SLOTS DEBUG] Attempt details - endpoint: {endpoint}, retry: {retry_attempt}, access_token starts with: {self.config.access_token[:5]}... ends with: ...{self.config.access_token[-5:] if len(self.config.access_token) > 10 else 'too_short'}")
 
-                        slots: List[TimeSlot] = []
-                        for ts in time_slots_raw:
-                            # Skip slots that are explicitly marked as busy / unavailable.
-                            # Treat statuses like "available" or "unlocked" as open.
-                            status_val = (ts.get("status") or "").lower()
-                            if status_val in {"busy", "blocked", "unavailable", "canceled", "cancelled"}:
-                                continue
+                        params = {
+                            "start_time": start_iso,
+                            "end_time": end_iso,
+                            "timezone": getattr(self.config, "timezone", "UTC") or "UTC",
+                        }
 
-                            # Calendly uses slightly different field names across endpoints
-                            start_str = ts.get("start_time") or ts.get("start") or ts.get("date")
-                            if not start_str:
-                                # No usable start timestamp; skip entry
-                                continue
+                        # Endpoint-specific required parameter
+                        if endpoint == "/event_type_available_times":
+                            params["event_type"] = event_type_id
+                        elif endpoint == "/availability":
+                            # Calendly expects the *user* URI for the owner parameter, not the event type
+                            params["owner"] = self.config.user_uri
 
-                            # Parse start time (always ISO 8601)
-                            start_dt = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
-
-                            # Determine end time – if not provided, compute from duration
-                            end_str = ts.get("end_time") or ts.get("end")
-                            if end_str:
-                                end_dt = datetime.fromisoformat(end_str.replace("Z", "+00:00"))
-                            else:
-                                # Fallback: use provided duration or default to 60 min
-                                duration_minutes = ts.get("duration") or 60
-                                try:
-                                    duration_minutes = int(duration_minutes)
-                                except ValueError:
-                                    duration_minutes = 60
-                                end_dt = start_dt + timedelta(minutes=duration_minutes)
-
-                            slots.append(
-                                TimeSlot(
-                                    start_time=start_dt,
-                                    end_time=end_dt,
-                                    status="available",
-                                    event_type_id=event_type_id,
-                                    display_id=int(start_dt.timestamp()),
-                                    invitee_id=None,
-                                    cancellation_url=None,
-                                    reschedule_url=None,
-                                )
+                        async with httpx.AsyncClient(timeout=15.0) as client:
+                            response = await client.get(
+                                f"{self.BASE_URL}{endpoint}",
+                                params=params,
+                                headers={
+                                    "Authorization": f"Bearer {self.config.access_token.strip()}",
+                                    "Content-Type": "application/json",
+                                },
                             )
 
-                        if slots:
+                        logger.info(
+                            f"[CALENDLY DEBUG] Response status: {response.status_code} for {endpoint}"
+                        )
+
+                        # Log full response for debugging
+                        try:
+                            response_json = response.json() if response.status_code == 200 else {}
+                            logger.info(f"[CALENDLY SLOTS DEBUG] Response headers: {dict(response.headers)}")
+                            logger.info(f"[CALENDLY SLOTS DEBUG] Response body preview: {json.dumps(response_json)[:200]}... (truncated)")
+                        except Exception as json_err:
+                            logger.warning(f"[CALENDLY SLOTS DEBUG] Could not parse response JSON: {str(json_err)}")
+
+                        if response.status_code == 200:
+                            data = response.json()
+
+                            # Detailed logging of response structure
+                            logger.info(f"[CALENDLY SLOTS DEBUG] Success response keys: {list(data.keys())}")
+                            if "collection" in data:
+                                logger.info(f"[CALENDLY SLOTS DEBUG] Collection available with {len(data['collection'])} items")
+                            if "data" in data:
+                                logger.info(f"[CALENDLY SLOTS DEBUG] Data available with {len(data['data'])} items")
+                            if "available_times" in data:
+                                logger.info(f"[CALENDLY SLOTS DEBUG] Available_times with {len(data['available_times'])} items")
+
+                            time_slots_raw = (
+                                data.get("collection")
+                                or data.get("data")
+                                or data.get("available_times")
+                                or []
+                            )
                             logger.info(
-                                f"[CALENDLY DEBUG] Successfully found {len(slots)} available slots"
+                                f"[CALENDLY DEBUG] {endpoint} 200 OK – {len(time_slots_raw)} raw slots"
                             )
-                            slots.sort(key=lambda s: s.start_time)
-                            return slots
+
+                            slots: List[TimeSlot] = []
+                            for ts in time_slots_raw:
+                                # Skip slots that are explicitly marked as busy / unavailable.
+                                # Treat statuses like "available" or "unlocked" as open.
+                                status_val = (ts.get("status") or "").lower()
+                                if status_val in {"busy", "blocked", "unavailable", "canceled", "cancelled"}:
+                                    continue
+
+                                # Calendly uses slightly different field names across endpoints
+                                start_str = ts.get("start_time") or ts.get("start") or ts.get("date")
+                                if not start_str:
+                                    # No usable start timestamp; skip entry
+                                    continue
+
+                                # Parse start time (always ISO 8601)
+                                start_dt = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
+
+                                # Determine end time – if not provided, compute from duration
+                                end_str = ts.get("end_time") or ts.get("end")
+                                if end_str:
+                                    end_dt = datetime.fromisoformat(end_str.replace("Z", "+00:00"))
+                                else:
+                                    # Fallback: use provided duration or default to 60 min
+                                    duration_minutes = ts.get("duration") or 60
+                                    try:
+                                        duration_minutes = int(duration_minutes)
+                                    except ValueError:
+                                        duration_minutes = 60
+                                    end_dt = start_dt + timedelta(minutes=duration_minutes)
+
+                                slots.append(
+                                    TimeSlot(
+                                        start_time=start_dt,
+                                        end_time=end_dt,
+                                        status="available",
+                                        event_type_id=event_type_id,
+                                        display_id=int(start_dt.timestamp()),
+                                        invitee_id=None,
+                                        cancellation_url=None,
+                                        reschedule_url=None,
+                                    )
+                                )
+
+                            if slots:
+                                logger.info(
+                                    f"[CALENDLY DEBUG] Successfully found {len(slots)} available slots"
+                                )
+                                slots.sort(key=lambda s: s.start_time)
+                                return slots
+                            else:
+                                logger.info("[CALENDLY DEBUG] No available slots in response, trying next endpoint")
+                                break  # Try next endpoint
+
+                        elif response.status_code == 401:
+                            last_error = Exception("Calendly authentication failed – check access token")
+                            logger.error("[CALENDLY DEBUG] Authentication error – aborting retries for this endpoint")
+                            break
+
+                        elif response.status_code == 404:
+                            logger.warning("[CALENDLY DEBUG] Endpoint not found – trying next endpoint")
+                            break
+
                         else:
-                            logger.info("[CALENDLY DEBUG] No available slots in response, trying next endpoint")
-                            break  # Try next endpoint
+                            logger.warning(
+                                f"[CALENDLY DEBUG] {endpoint} unexpected {response.status_code}: {response.text[:200]}"
+                            )
+                            if retry_attempt < len(retry_delays):
+                                logger.info(f"[CALENDLY DEBUG] Will retry in {delay}s...")
+                                await asyncio.sleep(delay)
 
-                    elif response.status_code == 401:
-                        last_error = Exception("Calendly authentication failed – check access token")
-                        logger.error("[CALENDLY DEBUG] Authentication error – aborting retries for this endpoint")
-                        break
-
-                    elif response.status_code == 404:
-                        logger.warning("[CALENDLY DEBUG] Endpoint not found – trying next endpoint")
-                        break
-
-                    else:
-                        logger.warning(
-                            f"[CALENDLY DEBUG] {endpoint} unexpected {response.status_code}: {response.text[:200]}"
-                        )
+                    except Exception as exc:
+                        last_error = exc
+                        logger.warning(f"[CALENDLY DEBUG] Exception on {endpoint} (attempt {retry_attempt}): {exc}")
+                        logger.debug(traceback.format_exc())
                         if retry_attempt < len(retry_delays):
                             logger.info(f"[CALENDLY DEBUG] Will retry in {delay}s...")
                             await asyncio.sleep(delay)
 
-                except Exception as exc:
-                    last_error = exc
-                    logger.warning(
-                        f"[CALENDLY DEBUG] Exception on {endpoint} (attempt {retry_attempt}): {exc}"
-                    )
-                    logger.debug(traceback.format_exc())
-                    if retry_attempt < len(retry_delays):
-                        logger.info(f"[CALENDLY DEBUG] Will retry in {delay}s...")
-                        await asyncio.sleep(delay)
-
-        error_msg = "Failed to get available slots via both official and fallback endpoints"
-        if last_error:
-            error_msg += f": {last_error}"
-        logger.error(f"[CALENDLY DEBUG] {error_msg}")
-        logger.error(f"[CALENDLY SLOTS DEBUG] CRITICAL FAILURE: Could not fetch any slots from Calendly API after exhausting all endpoints and retries")
-        logger.error(f"[CALENDLY SLOTS DEBUG] Adding more debug info for diagnostics - event_type_id={event_type_id}, access_token_len={len(self.config.access_token) if self.config.access_token else 0}")
-        raise Exception(error_msg)
+            error_msg = "Failed to get available slots via both official and fallback endpoints"
+            if last_error:
+                error_msg += f": {last_error}"
+            logger.error(f"[CALENDLY DEBUG] {error_msg}")
+            logger.error(f"[CALENDLY SLOTS DEBUG] CRITICAL FAILURE: Could not fetch any slots from Calendly API after exhausting all endpoints and retries")
+            logger.error(f"[CALENDLY SLOTS DEBUG] Adding more debug info for diagnostics - event_type_id={event_type_id}, access_token_len={len(self.config.access_token) if self.config.access_token else 0}")
+            raise Exception(error_msg)
+            
+        except Exception as e:
+            logger.error(f"[CALENDLY SLOTS DEBUG] Exception in get_available_slots: {str(e)}")
+            raise e
 
     async def get_scheduled_events(self, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None) -> List[Dict[str, Any]]:
         """Get all scheduled events (appointments) for the user
