@@ -48,23 +48,115 @@ async def run_calendly_diagnostics(
         return DiagnosticResponse(
             success=False,
             steps=[{
-                "step": "setup",
+                "name": "Token Check",
                 "success": False,
-                "message": "No Calendly access token provided",
-                "error": "Missing token parameter or CALENDLY_ACCESS_TOKEN environment variable"
+                "message": "No Calendly access token provided. Please provide a token or set CALENDLY_ACCESS_TOKEN environment variable."
             }],
-            overall_message="Failed: No Calendly access token provided"
+            overall_message="Diagnostics failed: No access token provided"
         )
     
-    # Create Calendly config and service directly
-    calendly_config = CalendlyConfig(
-        enabled=True,
-        access_token=access_token.strip(),  # Strip any whitespace
-        default_event_type=""  # Will be populated after getting event types
-    )
+    # Initialize Calendly service
+    config = CalendlyConfig(access_token=access_token)
+    calendly = CalendlyService(config)
     
-    # Create service
-    calendly_service = CalendlyService(config=calendly_config)
+    try:
+        # Step 1: Initialize and get user info
+        steps.append({"name": "Initialization", "status": "running", "message": "Initializing Calendly service..."})        
+        await calendly.initialize()
+        
+        if not calendly.config.user_uri:
+            steps[-1].update({"success": False, "status": "failed", "message": "Failed to initialize: Could not retrieve user URI"})
+            overall_success = False
+        else:
+            steps[-1].update({
+                "success": True, 
+                "status": "completed", 
+                "message": f"Successfully initialized with user URI: {calendly.config.user_uri}",
+                "user_uri": calendly.config.user_uri
+            })
+        
+        # Step 2: Get event types
+        steps.append({"name": "Event Types", "status": "running", "message": "Fetching event types..."})        
+        event_types = await calendly.get_event_types()
+        
+        if not event_types:
+            steps[-1].update({"success": False, "status": "failed", "message": "No event types found"})
+            overall_success = False
+        else:
+            event_types_data = [{
+                "id": et.id,
+                "name": et.name,
+                "duration": et.duration,
+                "description": et.description[:50] + "..." if et.description and len(et.description) > 50 else et.description
+            } for et in event_types]
+            
+            steps[-1].update({
+                "success": True, 
+                "status": "completed", 
+                "message": f"Successfully retrieved {len(event_types)} event types",
+                "event_types": event_types_data
+            })
+        
+        # Step 3: Get available slots for first event type
+        if event_types:
+            steps.append({"name": "Available Slots", "status": "running", "message": "Fetching available slots..."})
+            
+            # Use the first event type for testing
+            test_event_type = event_types[0].id
+            start_time = datetime.now()
+            days = 7
+            
+            try:
+                slots = await calendly.get_available_slots(test_event_type, start_time, days)
+                
+                if not slots:
+                    steps[-1].update({
+                        "success": True,  # Still consider this a success, just no slots available
+                        "status": "completed", 
+                        "message": f"No available slots found for event type '{event_types[0].name}' in the next {days} days"
+                    })
+                else:
+                    slots_data = [{
+                        "date": slot.start_time.strftime("%Y-%m-%d"),
+                        "start": slot.start_time.strftime("%H:%M"),
+                        "end": slot.end_time.strftime("%H:%M"),
+                    } for slot in slots[:5]]  # Limit to first 5 slots for brevity
+                    
+                    steps[-1].update({
+                        "success": True, 
+                        "status": "completed", 
+                        "message": f"Found {len(slots)} available slots for event type '{event_types[0].name}'",
+                        "slots_sample": slots_data,
+                        "total_slots": len(slots)
+                    })
+            except Exception as e:
+                steps[-1].update({
+                    "success": False, 
+                    "status": "failed", 
+                    "message": f"Error fetching available slots: {str(e)}"
+                })
+                overall_success = False
+    
+    except Exception as e:
+        steps.append({
+            "name": "Unexpected Error", 
+            "success": False, 
+            "status": "failed", 
+            "message": f"An unexpected error occurred: {str(e)}"
+        })
+        overall_success = False
+    
+    # Generate overall message
+    if overall_success:
+        overall_message = "All Calendly API tests passed successfully!"
+    else:
+        overall_message = "Some Calendly API tests failed. See steps for details."
+    
+    return DiagnosticResponse(
+        success=overall_success,
+        steps=steps,
+        overall_message=overall_message
+    )
     logger.info("[CALENDLY DEBUG] Created service for diagnostics")
     
     # Step 1: Check if we can initialize and get user URI

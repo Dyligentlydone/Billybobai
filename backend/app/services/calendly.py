@@ -2,6 +2,7 @@ import httpx
 import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Dict, Tuple, Any
+from urllib.parse import quote
 from ..schemas.calendly import (
     CalendlyConfig,
     TimeSlot,
@@ -644,6 +645,7 @@ class CalendlyService:
             endpoints_to_try: List[str] = [
                 f"/event_types/{event_type_uuid}/available_times",  # API v2 primary endpoint
                 f"/scheduling/available_times",  # API v2 alternative endpoint
+                f"/users/{self.config.user_uri.split('/')[-1]}/event_types/{event_type_uuid}/available_times",  # User-specific v2 endpoint
                 "/availability"  # Legacy fallback
             ]
             logger.info(f"[CALENDLY DEBUG] Using endpoints {endpoints_to_try} for availability")
@@ -700,6 +702,7 @@ class CalendlyService:
                         except Exception as json_err:
                             logger.warning(f"[CALENDLY SLOTS DEBUG] Could not parse response JSON: {str(json_err)}")
 
+                        # Handle different status codes explicitly
                         if response.status_code == 200:
                             data = response.json()
 
@@ -714,6 +717,43 @@ class CalendlyService:
                                 logger.info(f"[CALENDLY SLOTS DEBUG] Data available with {len(data['data'])} items")
                             if "available_times" in data:
                                 logger.info(f"[CALENDLY SLOTS DEBUG] Available_times with {len(data['available_times'])} items")
+
+                            # API v2 typically returns data in the 'collection' field
+                            # But we also check other possible formats for compatibility
+                            time_slots_raw = []
+                            
+                            # Handle API v2 response format
+                            if "collection" in data:
+                                time_slots_raw = data["collection"]
+                            # Handle API v2 alternative format with 'data'
+                            elif "data" in data:
+                                time_slots_raw = data["data"]
+                            # Handle legacy format with 'available_times'
+                            elif "available_times" in data:
+                                time_slots_raw = data["available_times"]
+                            # Handle inverted structure where the top level is an array
+                            elif isinstance(data, list):
+                                time_slots_raw = data
+                                
+                            logger.info(
+                                f"[CALENDLY DEBUG] {endpoint} 200 OK – {len(time_slots_raw)} raw slots"
+                            )
+                        elif response.status_code == 401:
+                            # Authentication error - no need to retry other endpoints
+                            logger.error(f"[CALENDLY ERROR] Authentication failed with 401 Unauthorized. Check your access token.")
+                            error_msg = "Calendly authentication failed: Invalid or expired access token"
+                            raise CalendlyError(error_msg)
+                        elif response.status_code == 404:
+                            # Endpoint not found - try next endpoint
+                            logger.warning(f"[CALENDLY WARNING] Endpoint {endpoint} returned 404 Not Found. Trying next endpoint.")
+                            break  # Skip retries for this endpoint
+                        else:
+                            # Other error - retry with backoff
+                            logger.warning(f"[CALENDLY WARNING] Endpoint {endpoint} returned {response.status_code}. Retrying...")
+                            if retry_attempt == len(retry_delays):
+                                last_error = Exception(f"HTTP {response.status_code}: {response.text}")
+                            await asyncio.sleep(delay)
+                            continue
 
                             # API v2 typically returns data in the 'collection' field
                             # But we also check other possible formats for compatibility
@@ -789,18 +829,16 @@ class CalendlyService:
                                     cancellation_url = slot_data["uri"]
                                     
                                 # Create the TimeSlot object
-                                slots.append(
-                                    TimeSlot(
-                                        start_time=start_dt,
-                                        end_time=end_dt,
-                                        status="available",
-                                        event_type_id=event_type_id,
-                                        display_id=int(start_dt.timestamp()),
-                                        invitee_id=invitee_id,
-                                        cancellation_url=cancellation_url,
-                                        reschedule_url=reschedule_url,
-                                    )
-                                )
+                                slots.append(TimeSlot(
+                                    start_time=start_dt,
+                                    end_time=end_dt,
+                                    status="available",
+                                    event_type_id=event_type_id,
+                                    display_id=int(start_dt.timestamp()),
+                                    invitee_id=invitee_id,
+                                    cancellation_url=cancellation_url,
+                                    reschedule_url=reschedule_url
+                                ))
 
                             if slots:
                                 logger.info(
@@ -812,16 +850,10 @@ class CalendlyService:
                                 logger.info("[CALENDLY DEBUG] No available slots in response, trying next endpoint")
                                 break  # Try next endpoint
 
-                        elif response.status_code == 401:
-                            last_error = Exception("Calendly authentication failed – check access token and ensure it has proper scopes for API v2")
-                            logger.error("[CALENDLY DEBUG] Authentication error (401) – aborting retries for this endpoint")
-                            logger.error("[CALENDLY SLOTS DEBUG] API v2 requires specific OAuth scopes: 'read:event_types' and 'read:scheduled_events'")
-                            break
-
-                        elif response.status_code == 403:
-                            last_error = Exception("Calendly authorization failed – token may lack required permissions")
+                        if response.status_code == 403:
                             logger.error("[CALENDLY DEBUG] Authorization error (403) – token may lack required permissions")
                             logger.error("[CALENDLY SLOTS DEBUG] API v2 requires specific OAuth scopes: 'read:event_types' and 'read:scheduled_events'")
+                            last_error = Exception("Calendly authorization failed – token may lack required permissions")
                             break
 
                         elif response.status_code == 404:
@@ -835,14 +867,15 @@ class CalendlyService:
                                 backoff_delay = delay * 2
                                 logger.info(f"[CALENDLY DEBUG] Will retry in {backoff_delay}s due to rate limiting...")
                                 await asyncio.sleep(backoff_delay)
+                            continue
 
                         else:
-                            logger.warning(
-                                f"[CALENDLY DEBUG] {endpoint} unexpected {response.status_code}: {response.text[:200]}"
-                            )
-                            if retry_attempt < len(retry_delays):
-                                logger.info(f"[CALENDLY DEBUG] Will retry in {delay}s...")
-                                await asyncio.sleep(delay)
+                            logger.warning(f"[CALENDLY DEBUG] {endpoint} unexpected {response.status_code}: {response.text[:200]}")
+                            if retry_attempt == len(retry_delays):
+                                last_error = Exception(f"HTTP {response.status_code}: {response.text[:200]}")
+                            logger.info(f"[CALENDLY DEBUG] Will retry in {delay}s...")
+                            await asyncio.sleep(delay)
+                            continue
 
                     except Exception as exc:
                         last_error = exc
