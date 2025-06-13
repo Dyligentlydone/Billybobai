@@ -365,6 +365,106 @@ def business_specific_webhook(business_id):
                     ai_service = AIService()
                     logger.info("AI service initialized for SMS processing")
                 
+                # Check if this message is about appointment scheduling and needs Calendly info
+                appointment_context = None
+                if 'appointment' in body.lower() or 'schedule' in body.lower() or 'meeting' in body.lower() or 'availability' in body.lower():
+                    try:
+                        # Import Calendly service here to avoid circular imports
+                        from ..services.calendly import CalendlyService
+                        calendly_service = CalendlyService()
+                        
+                        # Check if Calendly is configured for this business
+                        calendly_config = workflow.actions.get('integrations', {}).get('calendly', {})
+                        logger.info(f"Checking Calendly availability for message: {body}")
+                        
+                        if calendly_config and calendly_config.get('token') or calendly_config.get('accessToken'):
+                            # Try to get available slots for a default period (e.g., next 7 days)
+                            event_type = calendly_config.get('eventType')
+                            if event_type:
+                                # Set default date range (next 7 days) if not specified
+                                from datetime import datetime, timedelta
+                                start_date = datetime.now().strftime('%Y-%m-%d')
+                                end_date = (datetime.now() + timedelta(days=7)).strftime('%Y-%m-%d')
+                                
+                                logger.info(f"Fetching Calendly availability for event type: {event_type}")
+                                available_slots = calendly_service.get_available_slots(
+                                    calendly_config, 
+                                    event_type, 
+                                    start_date=start_date, 
+                                    end_date=end_date
+                                )
+                                
+                                if available_slots and 'availability' in available_slots:
+                                    # Format the availability data for the AI
+                                    available_days = {}
+                                    
+                                    # Group slots by day for better presentation
+                                    for slot in available_slots['availability']:
+                                        slot_start = slot.get('start_time', '')
+                                        if slot_start:
+                                            # Extract date part (YYYY-MM-DD)
+                                            date_part = slot_start.split('T')[0] if 'T' in slot_start else slot_start[:10]
+                                            
+                                            # Get or create the list for this date
+                                            if date_part not in available_days:
+                                                available_days[date_part] = []
+                                                
+                                            # Add the time (HH:MM) to the list
+                                            time_part = slot_start.split('T')[1][:5] if 'T' in slot_start else slot_start[11:16]
+                                            available_days[date_part].append(time_part)
+                                    
+                                    # Format the days and slots into a human-readable format
+                                    formatted_response = "We have the following availability:\n"
+                                    
+                                    for date_str, times in available_days.items():
+                                        # Convert YYYY-MM-DD to a more friendly format
+                                        try:
+                                            from datetime import datetime
+                                            date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+                                            friendly_date = date_obj.strftime('%A, %B %d')  # e.g. Monday, June 15
+                                            
+                                            # List times with AM/PM
+                                            time_slots = []
+                                            for time_str in times:
+                                                if len(time_str) >= 5:  # Ensure it's at least HH:MM format
+                                                    hour, minute = time_str.split(':')
+                                                    hour = int(hour)
+                                                    am_pm = "AM" if hour < 12 else "PM"
+                                                    hour = hour if hour <= 12 else hour - 12
+                                                    hour = 12 if hour == 0 else hour
+                                                    time_slots.append(f"{hour}:{minute} {am_pm}")
+                                            
+                                            # Add this day's availability
+                                            if time_slots:
+                                                formatted_response += f"\n{friendly_date}: {', '.join(time_slots[:5])}"
+                                                if len(time_slots) > 5:
+                                                    formatted_response += " and more"
+                                        except Exception as date_err:
+                                            logger.error(f"Error formatting date {date_str}: {str(date_err)}")
+                                            formatted_response += f"\n{date_str}: {', '.join(times[:5])}"
+                                            if len(times) > 5:
+                                                formatted_response += " and more"
+                                    
+                                    # Create the appointment context
+                                    appointment_context = {
+                                        'formatted_response': formatted_response,
+                                        'event_type': event_type,
+                                        'available_days': list(available_days.keys()),
+                                        'slot_count': len(available_slots['availability'])
+                                    }
+                                    
+                                    logger.info(f"Created appointment context with {len(available_slots['availability'])} slots")
+                                else:
+                                    logger.warning("No available Calendly slots found")
+                            else:
+                                logger.warning("No Calendly event type specified in workflow")
+                        else:
+                            logger.info("No Calendly configuration found for this business")
+                    except Exception as calendly_err:
+                        logger.error(f"Error fetching Calendly availability: {str(calendly_err)}")
+                        import traceback
+                        logger.error(f"Calendly error traceback: {traceback.format_exc()}")
+                
                 # Check for conversation context to determine which sections to include
                 # Find recent messages with this phone number for this business
                 try:
@@ -450,7 +550,8 @@ def business_specific_webhook(business_id):
                         body, 
                         workflow.actions, 
                         conversation_history=conversation_history,
-                        is_new_conversation=is_new_conversation
+                        is_new_conversation=is_new_conversation,
+                        appointment_context=appointment_context
                     )
                     logger.info(f"AI SERVICE RESPONSE: {workflow_response}")
                     
