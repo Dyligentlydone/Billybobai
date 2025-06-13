@@ -424,8 +424,11 @@ class CalendlyService:
         Returns:
             List[TimeSlot]: available slots, sorted by start time
         """
-        import asyncio, traceback, httpx
+        import asyncio, traceback, httpx, json
         from datetime import datetime, timedelta, timezone
+
+        logger.info(f"[CALENDLY SLOTS DEBUG] Starting get_available_slots with event_type_id={event_type_id}, start_time={start_time}, days={days}")
+        logger.info(f"[CALENDLY SLOTS DEBUG] Current config: access_token_length={len(self.config.access_token) if self.config.access_token else 'None'}, user_uri={self.config.user_uri}")
 
         # Ensure we have the user URI
         if not self.config.user_uri:
@@ -482,6 +485,7 @@ class CalendlyService:
             "/availability"  # Generic fallback
         ]
         logger.info(f"[CALENDLY DEBUG] Using endpoints {endpoints_to_try} for availability")
+        logger.info(f"[CALENDLY SLOTS DEBUG] EVENT TYPE: ID={event_uuid}, URI={event_type_uri}")
 
         retry_delays = [1, 2, 4]  # seconds
         last_error: Optional[Exception] = None
@@ -492,6 +496,7 @@ class CalendlyService:
                     logger.info(
                         f"[CALENDLY DEBUG] Trying endpoint: {endpoint} (Attempt {retry_attempt}/{len(retry_delays)})"
                     )
+                    logger.info(f"[CALENDLY SLOTS DEBUG] Attempt details - endpoint: {endpoint}, retry: {retry_attempt}, access_token starts with: {self.config.access_token[:5]}... ends with: ...{self.config.access_token[-5:] if len(self.config.access_token) > 10 else 'too_short'}")
 
                     params = {
                         "start_time": start_iso,
@@ -520,8 +525,26 @@ class CalendlyService:
                         f"[CALENDLY DEBUG] Response status: {response.status_code} for {endpoint}"
                     )
 
+                    # Log full response for debugging
+                    try:
+                        response_json = response.json() if response.status_code == 200 else {}
+                        logger.info(f"[CALENDLY SLOTS DEBUG] Response headers: {dict(response.headers)}")
+                        logger.info(f"[CALENDLY SLOTS DEBUG] Response body preview: {json.dumps(response_json)[:200]}... (truncated)")
+                    except Exception as json_err:
+                        logger.warning(f"[CALENDLY SLOTS DEBUG] Could not parse response JSON: {str(json_err)}")
+
                     if response.status_code == 200:
                         data = response.json()
+
+                        # Detailed logging of response structure
+                        logger.info(f"[CALENDLY SLOTS DEBUG] Success response keys: {list(data.keys())}")
+                        if "collection" in data:
+                            logger.info(f"[CALENDLY SLOTS DEBUG] Collection available with {len(data['collection'])} items")
+                        if "data" in data:
+                            logger.info(f"[CALENDLY SLOTS DEBUG] Data available with {len(data['data'])} items")
+                        if "available_times" in data:
+                            logger.info(f"[CALENDLY SLOTS DEBUG] Available_times with {len(data['available_times'])} items")
+
                         time_slots_raw = (
                             data.get("collection")
                             or data.get("data")
@@ -616,8 +639,10 @@ class CalendlyService:
         if last_error:
             error_msg += f": {last_error}"
         logger.error(f"[CALENDLY DEBUG] {error_msg}")
+        logger.error(f"[CALENDLY SLOTS DEBUG] CRITICAL FAILURE: Could not fetch any slots from Calendly API after exhausting all endpoints and retries")
+        logger.error(f"[CALENDLY SLOTS DEBUG] Adding more debug info for diagnostics - event_type_id={event_type_id}, access_token_len={len(self.config.access_token) if self.config.access_token else 0}")
         raise Exception(error_msg)
-    
+
     async def get_scheduled_events(self, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None) -> List[Dict[str, Any]]:
         """Get all scheduled events (appointments) for the user
         

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Query
 import logging
 import os
+import json
 from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel
@@ -11,11 +12,24 @@ from app.schemas.calendly import CalendlyConfig
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/calendly-debug", tags=["debug"])
 
+# Configure detailed logging for development
+logging.basicConfig(level=logging.INFO)
+
 
 class DiagnosticResponse(BaseModel):
     success: bool
     steps: List[Dict[str, Any]]
     overall_message: str
+
+
+class AvailabilityResponse(BaseModel):
+    success: bool
+    message: str
+    days_checked: int
+    available_days: List[Dict[str, Any]]
+    available_days_names: List[str]
+    using_fallback: bool
+    error: Optional[str] = None
 
 
 @router.get("/diagnostics", response_model=DiagnosticResponse)
@@ -220,3 +234,114 @@ async def run_calendly_diagnostics(
         steps=steps,
         overall_message=overall_message
     )
+
+
+@router.get("/test-availability", response_model=AvailabilityResponse)
+async def test_availability(
+    token: Optional[str] = Query(None, description="Calendly API token (optional if set in environment)"),
+    days: int = Query(7, description="Number of days to check for availability"),
+    force_fallback: bool = Query(False, description="Force using fallback availability")
+):
+    """
+    Test Calendly availability directly to debug why real data isn't being used
+    """
+    logger.info(f"[CALENDLY TEST] Starting availability test for {days} days")
+    
+    try:
+        # Get token from query parameter or environment
+        access_token = token or os.environ.get("CALENDLY_ACCESS_TOKEN", "")
+        if not access_token:
+            return AvailabilityResponse(
+                success=False,
+                message="No Calendly access token provided",
+                days_checked=days,
+                available_days=[],
+                available_days_names=[],
+                using_fallback=True,
+                error="Missing token parameter or CALENDLY_ACCESS_TOKEN environment variable"
+            )
+        
+        # Create Calendly config and service directly
+        calendly_config = CalendlyConfig(
+            enabled=True,
+            access_token=access_token.strip(),  # Strip any whitespace
+            default_event_type=""  # Will be populated after getting event types
+        )
+        
+        # Create service
+        calendly_service = CalendlyService(config=calendly_config)
+        logger.info(f"[CALENDLY TEST] Created service with token length: {len(access_token)}")
+        
+        # Initialize service first (required for proper API calls)
+        user_uri = await calendly_service.initialize()
+        logger.info(f"[CALENDLY TEST] Successfully initialized with user URI: {user_uri}")
+        
+        # If forcing fallback, modify the service temporarily
+        original_get_available_slots = None
+        if force_fallback:
+            logger.info(f"[CALENDLY TEST] Forcing fallback availability for testing")
+            # Save the original method and replace it with one that always raises an exception
+            original_get_available_slots = calendly_service.get_available_slots
+            
+            async def force_fallback_slots(*args, **kwargs):
+                raise Exception("Forced fallback for testing")
+            
+            calendly_service.get_available_slots = force_fallback_slots
+        
+        # Get available days
+        start_time = datetime.now()
+        available_days_result = await calendly_service.get_available_days(days=days, start_date=start_time)
+        
+        # Restore the original method if needed
+        if force_fallback and original_get_available_slots:
+            calendly_service.get_available_slots = original_get_available_slots
+        
+        # Check if fallback was used
+        using_fallback = available_days_result.get("using_fallback", True)
+        available_days = available_days_result.get("available_days", [])
+        day_names = [day["day_name"] for day in available_days]
+        
+        # Get diagnostic information on why fallback might have happened
+        diagnostics = {
+            "user_uri": calendly_service.config.user_uri,
+            "token_length": len(access_token) if access_token else 0,
+            "event_types": []
+        }
+        
+        # Try to get event types for diagnostics
+        try:
+            event_types = await calendly_service.get_event_types()
+            diagnostics["event_types"] = [
+                {"id": et.id, "name": et.name, "slug": et.slug} 
+                for et in event_types
+            ]
+            diagnostics["default_event_type"] = calendly_service.config.default_event_type
+        except Exception as e:
+            diagnostics["event_types_error"] = str(e)
+        
+        # Create message based on results
+        if using_fallback:
+            message = f"Using FALLBACK data. Available days: {', '.join(day_names)}"
+        else:
+            message = f"Using REAL Calendly data. Available days: {', '.join(day_names)}"
+        
+        return AvailabilityResponse(
+            success=True,
+            message=message,
+            days_checked=days,
+            available_days=available_days,
+            available_days_names=day_names,
+            using_fallback=using_fallback,
+            error=None
+        )
+    except Exception as e:
+        logger.error(f"[CALENDLY TEST] Error testing availability: {str(e)}")
+        return AvailabilityResponse(
+            success=False,
+            message=f"Error: {str(e)}",
+            days_checked=days,
+            available_days=[],
+            available_days_names=[],
+            using_fallback=True,
+            error=str(e)
+        )
