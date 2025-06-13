@@ -105,18 +105,18 @@ async def verify_appointment_with_service(business_id: str, search_date: datetim
             # Log all locations
             for location_name, config in possible_locations:
                 logger.info(f"[CALENDLY DEBUG] Checking {location_name}: {'Found data' if config else 'Empty'}")
-                if config and isinstance(config, dict) and 'access_token' in config:
-                    logger.info(f"[CALENDLY DEBUG] Found access_token in {location_name}!")
+                if config and isinstance(config, dict) and ('access_token' in config or 'token' in config):
+                    logger.info(f"[CALENDLY DEBUG] Found Calendly token in {location_name}!")
                     calendly_config = config
                     break
                     
             # Special check for systemIntegration.calendly path (based on user's screenshot)
-            if not calendly_config.get('access_token'):
+            if not (calendly_config.get('access_token') or calendly_config.get('token')):
                 if workflow.actions and 'systemIntegration' in workflow.actions:
                     system_integration = workflow.actions.get('systemIntegration', {})
                     if isinstance(system_integration, dict) and 'calendly' in system_integration:
                         calendly_in_sys = system_integration.get('calendly', {})
-                        if isinstance(calendly_in_sys, dict) and 'access_token' in calendly_in_sys:
+                        if isinstance(calendly_in_sys, dict) and ('access_token' in calendly_in_sys or 'token' in calendly_in_sys):
                             logger.info(f"[CALENDLY DEBUG] Found access_token in actions.systemIntegration.calendly!")
                             calendly_config = calendly_in_sys
                             
@@ -124,15 +124,19 @@ async def verify_appointment_with_service(business_id: str, search_date: datetim
                     system_integration = workflow.config.get('systemIntegration', {})
                     if isinstance(system_integration, dict) and 'calendly' in system_integration:
                         calendly_in_sys = system_integration.get('calendly', {})
-                        if isinstance(calendly_in_sys, dict) and 'access_token' in calendly_in_sys:
+                        if isinstance(calendly_in_sys, dict) and ('access_token' in calendly_in_sys or 'token' in calendly_in_sys):
                             logger.info(f"[CALENDLY DEBUG] Found access_token in config.systemIntegration.calendly!")
                             calendly_config = calendly_in_sys
             
+            # Standardize key: ensure 'access_token' exists
+            if 'access_token' not in calendly_config and 'token' in calendly_config:
+                calendly_config['access_token'] = calendly_config['token']
+
             logger.info(f"[CALENDLY DEBUG] Final Calendly config: {calendly_config}")
 
             
             # Check if Calendly is configured and access token exists
-            if not calendly_config or not calendly_config.get('access_token'):
+            if not calendly_config or not (calendly_config.get('access_token') or calendly_config.get('token')):
                 logger.error(f"[CALENDLY DEBUG] No valid Calendly configuration found with access token")
                 return {
                     "success": False, 
@@ -141,7 +145,8 @@ async def verify_appointment_with_service(business_id: str, search_date: datetim
                 }
                 
             # Log that we've found a valid configuration
-            token_preview = calendly_config.get('access_token', '')[:5] + '...' if calendly_config.get('access_token') else 'None'
+            _tok_val = calendly_config.get('access_token') or calendly_config.get('token')
+            token_preview = _tok_val[:5] + '...' if _tok_val else 'None'
             logger.info(f"[CALENDLY DEBUG] Found valid Calendly configuration with access token: {token_preview}")
             
             # Create config object for Calendly service
@@ -318,18 +323,18 @@ async def create_appointment_with_service(business_id: str, date_time: datetime,
             # Log all locations
             for location_name, config in possible_locations:
                 logger.info(f"[CALENDLY DEBUG] Checking {location_name}: {'Found data' if config else 'Empty'}")
-                if config and isinstance(config, dict) and 'access_token' in config:
-                    logger.info(f"[CALENDLY DEBUG] Found access_token in {location_name}!")
+                if config and isinstance(config, dict) and ('access_token' in config or 'token' in config):
+                    logger.info(f"[CALENDLY DEBUG] Found Calendly token in {location_name}!")
                     calendly_config = config
                     break
                     
             # Special check for systemIntegration.calendly path (based on user's screenshot)
-            if not calendly_config.get('access_token'):
+            if not (calendly_config.get('access_token') or calendly_config.get('token')):
                 if workflow.actions and 'systemIntegration' in workflow.actions:
                     system_integration = workflow.actions.get('systemIntegration', {})
                     if isinstance(system_integration, dict) and 'calendly' in system_integration:
                         calendly_in_sys = system_integration.get('calendly', {})
-                        if isinstance(calendly_in_sys, dict) and 'access_token' in calendly_in_sys:
+                        if isinstance(calendly_in_sys, dict) and ('access_token' in calendly_in_sys or 'token' in calendly_in_sys):
                             logger.info(f"[CALENDLY DEBUG] Found access_token in actions.systemIntegration.calendly!")
                             calendly_config = calendly_in_sys
                             
@@ -337,14 +342,18 @@ async def create_appointment_with_service(business_id: str, date_time: datetime,
                     system_integration = workflow.config.get('systemIntegration', {})
                     if isinstance(system_integration, dict) and 'calendly' in system_integration:
                         calendly_in_sys = system_integration.get('calendly', {})
-                        if isinstance(calendly_in_sys, dict) and 'access_token' in calendly_in_sys:
+                        if isinstance(calendly_in_sys, dict) and ('access_token' in calendly_in_sys or 'token' in calendly_in_sys):
                             logger.info(f"[CALENDLY DEBUG] Found access_token in config.systemIntegration.calendly!")
                             calendly_config = calendly_in_sys
             
+            # Standardize key: ensure 'access_token' exists
+            if 'access_token' not in calendly_config and 'token' in calendly_config:
+                calendly_config['access_token'] = calendly_config['token']
+
             logger.info(f"[CALENDLY DEBUG] Final Calendly config: {calendly_config}")
             
             # Check if Calendly is configured
-            if not calendly_config or not calendly_config.get('access_token'):
+            if not calendly_config or not (calendly_config.get('access_token') or calendly_config.get('token')):
                 logger.error(f"[CALENDLY DEBUG] No valid Calendly configuration found with access token")
                 return {
                     "success": False,
